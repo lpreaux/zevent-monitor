@@ -50,6 +50,16 @@ export default function RootLayout() {
               headerBackTitle: 'Retour',
             }}
           />
+          <Stack.Screen
+            name="recap/[id]"
+            options={{
+              headerShown: true,
+              headerStyle: { backgroundColor: '#111827' },
+              headerTintColor: '#f9fafb',
+              headerTitle: 'Récapitulatif',
+              headerBackTitle: 'Retour',
+            }}
+          />
         </Stack>
         <StatusBar style="light" />
       </QueryClientProvider>

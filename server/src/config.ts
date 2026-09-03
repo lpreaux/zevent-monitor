@@ -27,6 +27,8 @@ const configSchema = z.object({
   /** Part d'un palier atteinte à partir de laquelle il est annoncé « proche ». */
   GOAL_NEAR_RATIO: z.coerce.number().min(0.5).max(0.999).default(0.9),
   PUSH_RECEIPTS_INTERVAL_MS: z.coerce.number().int().min(30_000).default(300_000),
+  RECAPS_ENABLED: z.stringbool().default(true),
+  RECAPS_INTERVAL_MS: z.coerce.number().int().min(15_000).default(60_000),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

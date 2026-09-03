@@ -15,7 +15,7 @@ export interface DeviceIdentity {
   secret: string;
 }
 
-function authHeaders({ installationId, secret }: DeviceIdentity): Record<string, string> {
+export function authHeaders({ installationId, secret }: DeviceIdentity): Record<string, string> {
   return { 'x-installation-id': installationId, authorization: `Bearer ${secret}` };
 }
 

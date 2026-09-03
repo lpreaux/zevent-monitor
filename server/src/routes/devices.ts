@@ -8,6 +8,7 @@ import {
   notificationPreferencesSchema,
   parsePreferences,
 } from '../notifications/preferences.js';
+import { nextScheduleOccurrence } from '../recaps/schedule.js';
 
 const installationId = z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/);
 const secret = z.string().min(24).max(128);
@@ -18,7 +19,10 @@ const deviceBody = z.object({
   secret,
   /** `null` retire le token (désinscription des notifications). */
   expoPushToken: z.string().min(10).max(200).nullable().optional(),
-  timezone: z.string().min(1).max(64).default('Europe/Paris'),
+  timezone: z.string().min(1).max(64).refine((value) => {
+    try { new Intl.DateTimeFormat('fr-FR', { timeZone: value }).format(); return true; }
+    catch { return false; }
+  }, 'Fuseau IANA invalide').default('Europe/Paris'),
   platform: z.string().max(32).optional(),
   appVersion: z.string().max(32).optional(),
 });
@@ -40,9 +44,9 @@ export function secretMatches(candidate: string, salt: string, expected: string)
   return hashed.length === stored.length && timingSafeEqual(hashed, stored);
 }
 
-type DeviceRow = { installation_id: string; secret_salt: string; secret_hash: string };
+type DeviceRow = { installation_id: string; secret_salt: string; secret_hash: string; timezone?: string };
 
-async function authenticate(
+export async function authenticateDevice(
   app: FastifyInstance,
   request: FastifyRequest,
   reply: FastifyReply,
@@ -107,7 +111,7 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
     const body = parsed.data;
 
     const existing = await app.pg.query<DeviceRow>(
-      'SELECT installation_id, secret_salt, secret_hash FROM devices WHERE installation_id = $1',
+      'SELECT installation_id, secret_salt, secret_hash, timezone FROM devices WHERE installation_id = $1',
       [body.installationId],
     );
     const row = existing.rows[0];
@@ -154,17 +158,38 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
       );
     }
 
+    // Tout appareil dispose d'un récap quotidien à 09h par défaut. L'insertion
+    // idempotente ne réactive jamais un horaire retiré explicitement.
+    await app.pg.query(
+      `INSERT INTO recap_schedules (installation_id, local_time, next_run_at)
+       VALUES ($1, '09:00', $2) ON CONFLICT (installation_id, local_time) DO NOTHING`,
+      [body.installationId, nextScheduleOccurrence('09:00', body.timezone, new Date())],
+    );
+    if (row?.timezone && row.timezone !== body.timezone) {
+      const schedules = await app.pg.query<{ id: string; local_time: string }>(
+        'SELECT id, local_time FROM recap_schedules WHERE installation_id = $1 AND enabled = true',
+        [body.installationId],
+      );
+      const scheduleReference = new Date();
+      for (const schedule of schedules.rows) {
+        await app.pg.query(
+          'UPDATE recap_schedules SET next_run_at = $2, updated_at = now() WHERE id = $1',
+          [schedule.id, nextScheduleOccurrence(schedule.local_time, body.timezone, scheduleReference)],
+        );
+      }
+    }
+
     return readDevice(app, body.installationId);
   });
 
   app.get('/v1/preferences', async (request, reply) => {
-    const id = await authenticate(app, request, reply);
+    const id = await authenticateDevice(app, request, reply);
     if (!id) return reply;
     return readDevice(app, id);
   });
 
   app.put('/v1/preferences', async (request, reply) => {
-    const id = await authenticate(app, request, reply);
+    const id = await authenticateDevice(app, request, reply);
     if (!id) return reply;
 
     const parsed = preferencesBody.safeParse(request.body);
@@ -209,7 +234,7 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
 
   /** Désinscription : le token est retiré, les préférences restent pour un futur retour. */
   app.delete('/v1/device', async (request, reply) => {
-    const id = await authenticate(app, request, reply);
+    const id = await authenticateDevice(app, request, reply);
     if (!id) return reply;
     await app.pg.query(
       'UPDATE devices SET expo_push_token = NULL, updated_at = now() WHERE installation_id = $1',
