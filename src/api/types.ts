@@ -68,6 +68,39 @@ export interface GoalsResponse {
   stale: boolean;
 }
 
+export interface PlanningParticipant {
+  name: string;
+  twitch: string | null;
+  profileUrl: string | null;
+  role: string | null;
+  broadcaster: boolean;
+}
+
+export interface PlanningEntry {
+  id: string;
+  title: string;
+  description: string;
+  startsAt: string;
+  endsAt: string | null;
+  allDay: boolean;
+  /** `ingdoc` = planning communautaire EvenMoreStats, `zevent` = champ `calendar` officiel. */
+  source: 'ingdoc' | 'zevent';
+  participants: PlanningParticipant[];
+}
+
+export interface PlanningPayload {
+  eventId: string;
+  entries: PlanningEntry[];
+  counts: { ingdoc: number; zevent: number };
+}
+
+export interface PlanningResponse {
+  data: PlanningPayload;
+  fetchedAt: string;
+  source: string;
+  stale: boolean;
+}
+
 export type TimeseriesResolution = '1m' | '5m' | '10m';
 
 /** Un point agrégé renvoyé par `GET /v1/timeseries` (les `bigint` PostgreSQL arrivent en chaîne). */

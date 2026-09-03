@@ -10,6 +10,9 @@ const configSchema = z.object({
   GOALS_SYNC_ENABLED: z.stringbool().default(true),
   GOALS_SYNC_INTERVAL_MS: z.coerce.number().int().min(30_000).default(300_000),
   GOALS_SYNC_REQUEST_DELAY_MS: z.coerce.number().int().min(0).default(150),
+  PLANNING_SYNC_ENABLED: z.stringbool().default(true),
+  /** Le planning bouge rarement : une synchro toutes les 10 min suffit. */
+  PLANNING_SYNC_INTERVAL_MS: z.coerce.number().int().min(60_000).default(600_000),
   // ZEvent 2026 sur EvenMoreStats, cf. GET https://api.ppr.evenmorestats.fr/events
   EVENMORESTATS_EVENT_ID: z.string().default('019f5bd1-fe07-7d78-a326-a02198a9d50f'),
   // Feed des dons Streamlabs Charity (team ZEvent 2026, cf. PLAN.md §1.2)

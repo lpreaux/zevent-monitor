@@ -29,6 +29,8 @@ export const notificationPreferencesSchema = z.object({
       extraCents: z.array(z.number().int().positive()).max(20).default([]),
     })
     .prefault({}),
+  /** Passage de l'événement en attente / concert / direct. */
+  websiteMode: z.object({ enabled: z.boolean().default(true) }).prefault({}),
   favoriteLive: z.object({ enabled: z.boolean().default(true) }).prefault({}),
   favoriteGoals: z
     .object({

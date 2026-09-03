@@ -4,6 +4,7 @@ import { toDonationRecords, buildLoginResolver } from '../src/jobs/donations.js'
 import {
   detectGoalEvents,
   detectLiveStarts,
+  detectWebsiteModeChange,
   donationEvent,
   milestoneEvent,
   renderNotification,
@@ -160,6 +161,48 @@ describe('plages silencieuses et suspension', () => {
     const event = milestoneEvent(100_000_000, 100_100_000, now);
 
     expect(shouldDeliver(event, device({ preferences: quiet, timeZone: 'Europe/Paris' }), new Date('2026-09-05T22:00:00Z'))).toBe(false);
+  });
+});
+
+describe('statut de l’événement', () => {
+  const waiting = state([streamer('aducine')]);
+  const live = { ...state([streamer('aducine')]), websiteMode: 'online' as const };
+  const concert = { ...state([streamer('aducine')]), websiteMode: 'concert' as const };
+
+  it('détecte le passage en concert puis en direct', () => {
+    const toConcert = detectWebsiteModeChange({ ...waiting, websiteMode: 'offline' }, concert, now);
+    const toLive = detectWebsiteModeChange(concert, live, now);
+
+    expect(toConcert[0]?.payload).toEqual({ previous: 'offline', current: 'concert' });
+    expect(toLive[0]?.payload).toEqual({ previous: 'concert', current: 'online' });
+  });
+
+  it('ne notifie ni au premier relevé ni sans changement', () => {
+    expect(detectWebsiteModeChange(undefined, live, now)).toEqual([]);
+    expect(detectWebsiteModeChange(live, live, now)).toEqual([]);
+  });
+
+  it('ne re-notifie pas un aller-retour dans la même heure', () => {
+    const first = detectWebsiteModeChange({ ...waiting, websiteMode: 'offline' }, live, new Date('2026-09-05T14:00:00Z'));
+    const again = detectWebsiteModeChange({ ...waiting, websiteMode: 'offline' }, live, new Date('2026-09-05T14:58:00Z'));
+
+    expect(first[0]?.dedupeKey).toBe(again[0]?.dedupeKey);
+  });
+
+  it('se désactive indépendamment des autres catégories', () => {
+    const [event] = detectWebsiteModeChange({ ...waiting, websiteMode: 'offline' }, live, now);
+    const off = parsePreferences({ websiteMode: { enabled: false } });
+
+    expect(event && shouldDeliver(event, device(), now)).toBe(true);
+    expect(event && shouldDeliver(event, device({ preferences: off }), now)).toBe(false);
+    expect(off.favoriteLive.enabled).toBe(true);
+  });
+
+  it('annonce le direct avec un libellé explicite', () => {
+    const [event] = detectWebsiteModeChange({ ...waiting, websiteMode: 'concert' }, live, now);
+
+    expect(event && renderNotification(event).title).toBe('Le ZEvent est en direct !');
+    expect(event && renderNotification(event).data.url).toBe('/');
   });
 });
 

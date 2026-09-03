@@ -56,8 +56,10 @@ Notes :
 - Les champs `eventSource*` laissent penser à un flux SSE côté site, mais aucun endpoint n'est exposé
   dans les bundles JS. On part sur du **polling 15 s**.
 - **Aucune trace de donation goals** dans cette API ni dans les bundles du site. Voir 1.3.
-- `calendar` est la seule source de planning connue. Sa structure n'est visible qu'une fois l'événement
-  lancé : prévoir un parseur tolérant + fallback (lien vers zevent.fr/planning).
+- `calendar` **est resté vide après l'ouverture** (vérifié le 3 septembre 2026 à 21h40, `websiteMode`
+  déjà passé à `concert`). Le routeur du site n'expose d'ailleurs aucune route `/planning` : le repli
+  WebView initialement prévu vers `zevent.fr/planning` n'existe pas. Le planning réel vient donc
+  d'EvenMoreStats (§1.6) ; `calendar` reste lu par un parseur tolérant au cas où il se remplirait.
 
 ### 1.2 API Streamlabs Charity (publique, non documentée, JSON)
 Base : `https://streamlabscharity.com/api/v1/`
@@ -143,6 +145,43 @@ les deux courbes sont alignées sur **T+0 = ouverture de la collecte** et affich
 en pourcentage du total final. Les chiffres communautaires divergent légèrement selon la date et la
 méthode de clôture : afficher la provenance du total retenu au lieu de mélanger les sources.
 
+### 1.6 Planning des émissions — EvenMoreStats (vérifié le 3 septembre 2026)
+
+`GET https://api.ppr.evenmorestats.fr/events/{eventId}/shows` renvoie le planning complet du week-end
+(21 entrées au lancement 2026), non paginé :
+
+```jsonc
+[
+  {
+    "id": "01a00b12-eee6-73ae-abb9-2a006ebdc126",
+    "name": "Concert ZEvent",
+    "description": "",                                  // texte libre, parfois avec des liens
+    "schedule": { "start": "2026-09-03T18:00:00Z", "end": "2026-09-03T21:30:00Z" },  // UTC
+    "all_day": false,
+    "participants": [
+      {
+        "streamer_id": "019d3f9d-…",
+        "streamer_name": "LittleBigWhale",
+        "profile_url": "https://static-cdn.jtvnw.net/…png",
+        "role": "host",                                  // "host" | "guest" | "participant"
+        "socials": { "twitch": { "id": "121652526", "login": "littlebigwhale" } },  // parfois {}
+        "broadcaster": false
+      }
+    ]
+  }
+]
+```
+
+Mêmes réserves qu'au §1.3 (source communautaire, non documentée, sous-domaine `ppr`) : seul le
+backend l'interroge, toutes les 10 min, avec validation, cache du dernier snapshot valide en base
+(`planning_snapshots`) et snapshot embarqué `src/content/planning-2026.json` pour le hors-ligne.
+
+Les horaires sont publiés en UTC mais vécus en heure de Paris : l'app convertit explicitement, sans
+dépendre du fuseau de l'appareil (`src/lib/planning.ts`).
+
+L'application streamer officielle `app.zevent.fr` (API `api.zevent.fr`, overlays, bidwar, tombola,
+donation goals) est authentifiée et ne contient aucun planning exploitable côté public.
+
 ## 2. Stack technique
 
 | Besoin | Choix |
@@ -185,7 +224,7 @@ src/
   components/ui/          react-native-reusables
 server/
   src/jobs/               collecte, détection d'événements, récapitulatifs, push
-  src/routes/             état courant, timeseries, goals, devices, prefs, recaps
+  src/routes/             état courant, timeseries, goals, planning, devices, prefs, recaps
   src/db/                 migrations et accès PostgreSQL
   Dockerfile
 docker-compose.yml
@@ -201,7 +240,7 @@ même lorsque l'app est fermée.
 - conservation d'un point brut lors d'un changement et d'un point au moins toutes les minutes ;
 - agrégation 1 min pour le direct, puis 5/10 min pour l'historique long terme ;
 - interrogation du feed Streamlabs toutes les 15–30 s, avec déduplication par identifiant de don ;
-- synchronisation InGDoc moins fréquente (par exemple toutes les 5 min) et cache persistant ;
+- synchronisation InGDoc moins fréquente (goals toutes les 5 min, planning toutes les 10 min) et cache persistant ;
 - PostgreSQL pour les séries, événements détectés, appareils, préférences, récaps et déduplication ;
 - horodatage UTC en base, affichage et horaires utilisateur en `Europe/Paris` ;
 - endpoints publics en lecture protégés par rate limiting ; écriture des préférences liée à un
@@ -209,7 +248,7 @@ même lorsque l'app est fermée.
 - rétention : données brutes 7 jours, agrégats et récapitulatifs conservés sans limite en V1 ;
 - `/healthz`, logs structurés, sauvegarde quotidienne PostgreSQL et redémarrage automatique.
 
-Tables minimales : `samples`, `donations`, `detected_events`, `goals_snapshots`, `devices`,
+Tables minimales : `samples`, `donations`, `detected_events`, `goals_snapshots`, `planning_snapshots`, `devices`,
 `notification_preferences`, `favorites`, `recap_schedules`, `recaps`, `push_deliveries`.
 
 ### 3.2 API de l'app
@@ -220,6 +259,7 @@ Tables minimales : `samples`, `donations`, `detected_events`, `goals_snapshots`,
 | `GET /v1/timeseries?edition=2026&resolution=1m` | courbe 2026 |
 | `GET /v1/timeseries?edition=2025&resolution=10m` | courbe historique figée |
 | `GET /v1/goals` | paliers mis en cache + provenance |
+| `GET /v1/planning` | planning mis en cache + provenance |
 | `PUT /v1/device` | token Expo, fuseau et version de l'app |
 | `PUT /v1/preferences` | favoris, seuils, catégories et horaires de récaps |
 | `GET /v1/recaps` / `GET /v1/recaps/:id` | historique et détail |
@@ -239,7 +279,8 @@ logs. Le service n'envoie une notification qu'après insertion réussie d'une cl
 - Liste des streamers : recherche, tri (cagnotte, viewers, en live), badge live.
 - Fiche streamer : paliers InGDoc mis en cache avec barre de progression, bouton « Regarder sur Twitch » (deep link
   `twitch://stream/<login>` puis fallback web), bouton « Faire un don ».
-- Planning : rendu de `calendar` (parseur tolérant) + fallback WebView zevent.fr/planning.
+- Planning : shows EvenMoreStats regroupés par journée (heure de Paris), fusionnés avec `calendar`
+  officiel via un parseur tolérant, repli sur le snapshot embarqué.
 - EAS Build configuré (`preview` APK + `production` AAB), test d'installation sur le téléphone.
 
 ### P1 — pendant le week-end
@@ -273,7 +314,8 @@ logs. Le service n'envoie une notification qu'après insertion réussie d'une cl
 - Synchronisation multi-appareils via compte optionnel (hors V1).
 
 ## 5. Risques
-- `calendar` : structure inconnue avant le lancement → implémenter au J0, garder le fallback.
+- `calendar` officiel resté vide au lancement 2026 et route `zevent.fr/planning` inexistante → le
+  planning repose sur EvenMoreStats (§1.6), avec snapshot embarqué et lien vers zevent.gdoc.fr.
 - Streamlabs : API non documentée, peut renvoyer 500 ou changer → toujours facultatif.
 - InGDoc/EvenMoreStats : source communautaire non documentée, endpoint actuellement nommé `ppr`,
   licence/réutilisation à confirmer → cache backend, snapshot embarqué, crédit et fonctionnement dégradé.
@@ -300,7 +342,7 @@ logs. Le service n'envoie une notification qu'après insertion réussie d'une cl
 7. Ajouter AlwaysOn paysage et tests sur plusieurs ratios d'écran.
 8. Ajouter enregistrement du token Expo, préférences granulaires et moteur de notifications dédupliqué.
 9. Ajouter génération, planification, historique et deep links des récapitulatifs.
-10. Implémenter le planning réel au lancement avec fallback.
+10. Implémenter le planning réel au lancement avec fallback. ✅
 11. Produire l'APK EAS `preview`, tester installation, veille, rotation, push et reprise réseau.
 
 ## 7. Critères d'acceptation essentiels

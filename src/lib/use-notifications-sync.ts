@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 
-import { notificationUrl } from '@/lib/push';
+import { notificationUrl, PUSH_NOTIFICATIONS_ENABLED } from '@/lib/push';
 import { useFavoritesStore } from '@/store/favorites';
 import { useNotificationsStore } from '@/store/notifications';
 
@@ -14,22 +13,30 @@ export function useNotificationRouting(): void {
   const router = useRouter();
 
   useEffect(() => {
+    if (!PUSH_NOTIFICATIONS_ENABLED) return;
+
     let cancelled = false;
+    let subscription: { remove: () => void } | undefined;
 
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (cancelled || !response) return;
-      const url = notificationUrl(response);
-      if (url) router.push(url as never);
-    });
+    void import('expo-notifications').then(async (Notifications) => {
+      if (cancelled) return;
 
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const url = notificationUrl(response);
-      if (url) router.push(url as never);
+      const response = await Notifications.getLastNotificationResponseAsync();
+      if (!cancelled && response) {
+        const url = notificationUrl(response);
+        if (url) router.push(url as never);
+      }
+
+      if (cancelled) return;
+      subscription = Notifications.addNotificationResponseReceivedListener((nextResponse) => {
+        const url = notificationUrl(nextResponse);
+        if (url) router.push(url as never);
+      });
     });
 
     return () => {
       cancelled = true;
-      subscription.remove();
+      subscription?.remove();
     };
   }, [router]);
 }

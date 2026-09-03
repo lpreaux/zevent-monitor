@@ -27,7 +27,7 @@ Le backend centralisera la collecte des différentes sources, conservera les sé
 ```text
 src/app/                  routes et écrans Expo Router
 src/                      API, composants, état local et cache mobile
-src/content/              snapshots versionnés (goals 2026, courbe historique 2025)
+src/content/              snapshots versionnés (goals 2026, planning 2026, courbe historique 2025)
 server/                   backend Fastify, jobs et accès PostgreSQL
 docker-compose.yml        déploiement du backend et de PostgreSQL (Dockploy)
 docker-compose.override.yml  port 3000 publié en local uniquement
@@ -38,7 +38,7 @@ scripts/                  imports ponctuels des snapshots src/content/
 
 - API publique de `zevent.fr` pour l'état officiel de l'événement ;
 - API publique de Streamlabs Charity pour les informations complémentaires et les dons récents ;
-- données communautaires InGDoc / EvenMoreStats pour les donation goals ;
+- données communautaires InGDoc / EvenMoreStats pour les donation goals et le planning ;
 - snapshots versionnés pour l'historique et le fonctionnement hors ligne.
 
 Les API tierces non documentées seront interrogées uniquement par le backend, avec validation, limitation de fréquence, cache persistant et dernier snapshot valide. Leur disponibilité et leurs conditions de réutilisation ne sont pas garanties.
@@ -81,12 +81,13 @@ utile qu'en local (voir section suivante pour Dockploy).
 
 Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL. La suite de vérification locale s'exécute avec `npm run check` (types, tests mobiles `npm test`, build et tests du serveur).
 
-Pour régénérer les snapshots versionnés dans `src/content/` (courbe 2025 et donation goals 2026,
-cf. PLAN.md §1.3 et §1.5) :
+Pour régénérer les snapshots versionnés dans `src/content/` (courbe 2025, donation goals et planning
+2026, cf. PLAN.md §1.3, §1.5 et §1.6) :
 
 ```bash
 npm run content:import-history-2025
 npm run content:export-goals-2026
+npm run content:export-planning-2026
 ```
 
 ## Déploiement Dockploy
@@ -96,7 +97,8 @@ fichier de composition (Dockploy l'utilise seul, sans fusionner `docker-compose.
 port n'est donc publié sur l'hôte, le service reste joignable uniquement via le domaine HTTPS choisi
 côté Dockploy). Définir au minimum `POSTGRES_PASSWORD` avec une valeur longue et aléatoire ;
 `POSTGRES_DB`, `POSTGRES_USER`, `LOG_LEVEL`, `COLLECTOR_ENABLED`, `COLLECT_INTERVAL_MS`,
-`GOALS_SYNC_ENABLED` et `GOALS_SYNC_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`
+`GOALS_SYNC_ENABLED`, `GOALS_SYNC_INTERVAL_MS`, `PLANNING_SYNC_ENABLED` et
+`PLANNING_SYNC_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`
 (`SERVER_PORT` n'a d'effet qu'en local). Le volume nommé `postgres-data` conserve les échantillons
 lors des redéploiements.
 
@@ -108,8 +110,9 @@ npm --prefix server run verify:deployment -- https://api.example.org
 
 La commande échoue si `/healthz` ou `/readyz` ne répond pas correctement, ou si le nombre de points
 retourné par `/v1/collection-status` n'augmente pas. Les autres routes disponibles sont `/v1/state`,
-`/v1/timeseries?edition=2026&resolution=1m` et `/v1/goals`, alimentée toutes les 5 min par
-synchronisation avec EvenMoreStats/InGDoc (source communautaire non officielle, cf. PLAN.md §1.3).
+`/v1/timeseries?edition=2026&resolution=1m`, `/v1/goals` (synchronisée toutes les 5 min) et
+`/v1/planning` (toutes les 10 min), toutes deux alimentées par EvenMoreStats/InGDoc (source
+communautaire non officielle, cf. PLAN.md §1.3 et §1.6).
 
 Les récapitulatifs sont disponibles via les routes authentifiées `GET /v1/recaps`,
 `GET /v1/recaps/:id`, `POST /v1/recaps/generate` et `GET`/`PUT /v1/recap-schedules`.
@@ -174,6 +177,13 @@ en quatre paliers et déplacement lent anti burn-in. La mise en page s'adapte au
 synchronisées avec le backend et moteur d'alertes dédupliqué (paliers globaux, lives des favoris,
 donation goals atteints ou proches, gros dons issus du feed Streamlabs). Voir la section
 « Notifications push » ci-dessus.
+
+✅ Étape 10 (PLAN.md §6) — planning réel : synchronisation des « shows » InGDoc/EvenMoreStats côté
+backend (`GET /v1/planning`, table `planning_snapshots`), fusion avec le champ `calendar` officiel de
+`zevent.fr/api/` dès qu'il devient exploitable (il est resté vide au lancement de l'édition 2026), et
+écran mobile regroupé par journée en heure de Paris : badge « en cours », compte à rebours, filtre
+« À venir / Tout », participants cliquables (fiche interne ou Twitch) et repli sur le snapshot
+embarqué `src/content/planning-2026.json` quand le backend est injoignable.
 
 ## Avertissement
 

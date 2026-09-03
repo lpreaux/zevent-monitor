@@ -1,0 +1,88 @@
+[
+  {
+    "id": "01a00b12-eee6-73ae-abb9-2a006ebdc126",
+    "name": "Concert ZEvent",
+    "description": "",
+    "schedule": {
+      "start": "2026-09-03T18:00:00Z",
+      "end": "2026-09-03T21:30:00Z"
+    },
+    "all_day": false,
+    "participants": [
+      {
+        "streamer_id": "01a063a1-31cc-7a29-8530-faf582cef67d",
+        "show_id": "01a00b12-eee6-73ae-abb9-2a006ebdc126",
+        "streamer_name": "Yamê",
+        "profile_url": "https://cache.evenmorestats.fr/images/avatars/yame.jpg",
+        "role": "participant",
+        "socials": {},
+        "broadcaster": false
+      },
+      {
+        "streamer_id": "019d3f9d-cbd4-7fc3-8f6b-ddeeaafb1bca",
+        "show_id": "01a00b12-eee6-73ae-abb9-2a006ebdc126",
+        "streamer_name": "LittleBigWhale",
+        "profile_url": "https://static-cdn.jtvnw.net/jtv_user_pictures/63ff2bed-9e88-483f-bd4e-cc61d4b43e9c-profile_image-300x300.png",
+        "role": "guest",
+        "socials": {
+          "twitch": {
+            "id": "121652526",
+            "login": "littlebigwhale"
+          }
+        },
+        "broadcaster": false
+      }
+    ]
+  },
+  {
+    "id": "01a025bd-3c0a-7507-ac15-b96151885fa2",
+    "name": "Ouverture ZEvent/Place",
+    "description": "https://place.zevent.fr/ pour placer des pixels !",
+    "schedule": {
+      "start": "2026-09-04T16:15:00Z",
+      "end": "2026-09-04T16:30:00Z"
+    },
+    "all_day": false,
+    "participants": []
+  },
+  {
+    "id": "01a04f53-5d17-7bd7-9252-8a068b30c1c3",
+    "name": "Pyjama Party",
+    "description": "Pyjama party entre meufs présenté par Ultia et Gom4rt où les streameuses vont lire des anecdotes croustillantes de la commu' !",
+    "schedule": {
+      "start": "2026-09-04T20:00:00Z",
+      "end": "2026-09-05T00:00:00Z"
+    },
+    "all_day": false,
+    "participants": [
+      {
+        "streamer_id": "019d3f9e-65fb-773c-9e0a-035ebcc40d9d",
+        "show_id": "01a04f53-5d17-7bd7-9252-8a068b30c1c3",
+        "streamer_name": "Ultia",
+        "profile_url": "https://static-cdn.jtvnw.net/jtv_user_pictures/5e6a5413-b748-4880-8a60-2639cb55fe74-profile_image-300x300.png",
+        "role": "host",
+        "socials": {
+          "twitch": {
+            "id": "68594999",
+            "login": "ultia"
+          }
+        },
+        "broadcaster": true
+      },
+      {
+        "streamer_id": "019d3f9d-7f07-7be5-9efe-3e71610c33ac",
+        "show_id": "01a04f53-5d17-7bd7-9252-8a068b30c1c3",
+        "streamer_name": "Gom4rt",
+        "profile_url": "https://static-cdn.jtvnw.net/jtv_user_pictures/03444908-7fe5-4d3c-9dcf-a59ced6fcf0c-profile_image-300x300.png",
+        "role": "host",
+        "socials": {
+          "twitch": {
+            "id": "149220653",
+            "login": "gom4rt"
+          }
+        },
+        "broadcaster": true
+      }
+    ]
+  }
+]

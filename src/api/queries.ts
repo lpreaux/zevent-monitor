@@ -1,14 +1,20 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { GOALS_REFETCH_INTERVAL_MS, LIVE_REFETCH_INTERVAL_MS } from '@/lib/config';
+import {
+  GOALS_REFETCH_INTERVAL_MS,
+  LIVE_REFETCH_INTERVAL_MS,
+  PLANNING_REFETCH_INTERVAL_MS,
+} from '@/lib/config';
 import { loadBundledGoals } from './goals-fallback';
-import { getGoals, getState, getTimeseries } from './zevent';
-import type { Goal, Streamer, TimeseriesResolution } from './types';
+import { loadBundledPlanning } from './planning-fallback';
+import { getGoals, getPlanning, getState, getTimeseries } from './zevent';
+import type { Goal, PlanningEntry, Streamer, TimeseriesResolution } from './types';
 
 export const queryKeys = {
   state: ['zevent', 'state'] as const,
   goals: ['zevent', 'goals'] as const,
+  planning: ['zevent', 'planning'] as const,
   timeseries: ['zevent', 'timeseries'] as const,
 };
 
@@ -29,6 +35,61 @@ export function useGoals() {
     refetchInterval: GOALS_REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   });
+}
+
+export function usePlanningQuery() {
+  return useQuery({
+    queryKey: queryKeys.planning,
+    queryFn: getPlanning,
+    refetchInterval: PLANNING_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export interface PlanningResult {
+  entries: PlanningEntry[];
+  /** `live` = snapshot backend, `bundled` = copie embarquée exportée avant le week-end. */
+  origin: 'live' | 'bundled';
+  stale: boolean;
+  fetchedAt: string | null;
+}
+
+/**
+ * Planning affiché : snapshot backend en priorité, repli sur la copie embarquée dès que
+ * le backend est injoignable ou n'a encore rien synchronisé (PLAN.md §4 P0 et §7).
+ */
+export function usePlanning(): PlanningResult & {
+  isLoading: boolean;
+  isRefetching: boolean;
+  refetch: () => void;
+} {
+  const query = usePlanningQuery();
+
+  const result = useMemo<PlanningResult>(() => {
+    const live = query.data;
+    if (live && live.data.entries.length > 0) {
+      return {
+        entries: live.data.entries,
+        origin: 'live',
+        stale: live.stale,
+        fetchedAt: live.fetchedAt,
+      };
+    }
+    const bundled = loadBundledPlanning();
+    return {
+      entries: bundled.entries,
+      origin: 'bundled',
+      stale: true,
+      fetchedAt: bundled.fetchedAt,
+    };
+  }, [query.data]);
+
+  return {
+    ...result,
+    isLoading: query.isLoading && !query.data,
+    isRefetching: query.isRefetching,
+    refetch: () => void query.refetch(),
+  };
 }
 
 /** Courbe de collecte 2026 collectée côté serveur (pour les stats et la superposition 2025/2026). */

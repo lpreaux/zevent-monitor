@@ -1,0 +1,569 @@
+{
+  "edition": 2026,
+  "provenance": {
+    "provider": "EvenMoreStats / InGDoc (communautaire, non officiel)",
+    "eventId": "019f5bd1-fe07-7d78-a326-a02198a9d50f",
+    "showsUrl": "https://api.ppr.evenmorestats.fr/events/019f5bd1-fe07-7d78-a326-a02198a9d50f/shows",
+    "fetchedAt": "2026-09-03T19:46:35.558Z",
+    "note": "Créditer InGDoc/EvenMoreStats. Snapshot de secours hors ligne : le backend resynchronise en direct."
+  },
+  "entries": [
+    {
+      "id": "ingdoc:01a00b12-eee6-73ae-abb9-2a006ebdc126",
+      "title": "Concert ZEvent",
+      "description": "",
+      "startsAt": "2026-09-03T18:00:00.000Z",
+      "endsAt": "2026-09-03T21:30:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Yamê",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/yame.jpg",
+          "role": "participant",
+          "broadcaster": false
+        },
+        {
+          "name": "LittleBigWhale",
+          "twitch": "littlebigwhale",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/63ff2bed-9e88-483f-bd4e-cc61d4b43e9c-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Bigflo et Oli",
+          "twitch": "bigfloetolilive",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/e75c8b35-1b05-42da-ac8f-d9e6a6b73c38-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "PV Nova",
+          "twitch": "pvnovamusic",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/d9c40ddc-68e4-46f4-911e-60b28b1d4716-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Orchestre Curieux",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/orchestre_curieux.jpg",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Lorien Testard",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/lorien_testard.jpg",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "GAZO",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/gazo.jpg",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "ZEVENT",
+          "twitch": "zevent",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/e5854ef2-b281-42c7-b276-928e3ca442c4-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a025bc-18dc-78ae-b2e8-259815ba0527",
+      "title": "Lancement ZEvent",
+      "description": "",
+      "startsAt": "2026-09-04T16:00:00.000Z",
+      "endsAt": "2026-09-04T16:10:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "ZeratoR",
+          "twitch": "zerator",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/599b546a-c27f-4684-93ff-5eeecd01fb2b-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        },
+        {
+          "name": "ZEVENT",
+          "twitch": "zevent",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/e5854ef2-b281-42c7-b276-928e3ca442c4-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a025bd-7da5-7cf5-9911-bcb13f441d91",
+      "title": "Lancement Twitch Plays Pokémon",
+      "description": "",
+      "startsAt": "2026-09-04T16:15:00.000Z",
+      "endsAt": "2026-09-04T16:30:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "ZEventPlays",
+          "twitch": "zeventplays",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/a86c71ae-e2ee-422c-8d50-dcb16d0535aa-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a025bd-3c0a-7507-ac15-b96151885fa2",
+      "title": "Ouverture ZEvent/Place",
+      "description": "https://place.zevent.fr/ pour placer des pixels !",
+      "startsAt": "2026-09-04T16:15:00.000Z",
+      "endsAt": "2026-09-04T16:30:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": []
+    },
+    {
+      "id": "ingdoc:01a06629-1f26-7cc7-9435-fe087882983f",
+      "title": "Musique avec Théa",
+      "description": "Plus d'infos sur l'artiste: https://www.instagram.com/thea_break/",
+      "startsAt": "2026-09-04T20:00:00.000Z",
+      "endsAt": "2026-09-04T21:55:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Ponce",
+          "twitch": "ponce",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/d4737061-8f00-49d9-a56f-fcb4a9230b3f-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a04f53-5d17-7bd7-9252-8a068b30c1c3",
+      "title": "Pyjama Party",
+      "description": "Pyjama party entre meufs présenté par Ultia et Gom4rt où les streameuses vont lire des anecdotes croustillantes de la commu' !",
+      "startsAt": "2026-09-04T20:00:00.000Z",
+      "endsAt": "2026-09-05T00:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Ultia",
+          "twitch": "ultia",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/5e6a5413-b748-4880-8a60-2639cb55fe74-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        },
+        {
+          "name": "Gom4rt",
+          "twitch": "gom4rt",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/03444908-7fe5-4d3c-9dcf-a59ced6fcf0c-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a063bd-56c3-78c5-8325-69037644fdab",
+      "title": "Croc Lanta 4",
+      "description": "5 Duos, 8 Manches et un invité spécial (Eloi Spinnler), soyez prêts à les faire déguster une dernière fois !",
+      "startsAt": "2026-09-05T13:00:00.000Z",
+      "endsAt": "2026-09-05T15:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Lapi",
+          "twitch": "lapi",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/77578535-0cbf-4cc9-ac67-3e983b6d15e1-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        },
+        {
+          "name": "Lydia",
+          "twitch": "lydia__am",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/7b47d4b9-371f-49c0-ac1c-cd978cab880a-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a05ecf-3839-74bd-aa14-0706c339d450",
+      "title": "Stand maquillage",
+      "description": "Stand maquillage organisé par Ultia et 4mbertek makeup, le prix est libre !",
+      "startsAt": "2026-09-05T13:00:00.000Z",
+      "endsAt": "2026-09-05T22:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Ultia",
+          "twitch": "ultia",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/5e6a5413-b748-4880-8a60-2639cb55fe74-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a0662b-af01-79e1-b5f9-c0f687364226",
+      "title": "Vraiment Pas La Nouvelle Star",
+      "description": "Des streamers passent faire une préstation et André Manoukian sera là pour juger avec son tact légendaire !",
+      "startsAt": "2026-09-05T13:00:00.000Z",
+      "endsAt": "2026-09-05T15:45:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Ponce",
+          "twitch": "ponce",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/d4737061-8f00-49d9-a56f-fcb4a9230b3f-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a05724-b30b-7863-a4d7-41ea530d0077",
+      "title": "Poule Party (Trackmania)",
+      "description": "Évènement Trackmania organisé par Wingo pour les participants du Zevent (présentiel comme distanciel)  ",
+      "startsAt": "2026-09-05T15:00:00.000Z",
+      "endsAt": "2026-09-05T16:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "ZeratoR",
+          "twitch": "zerator",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/599b546a-c27f-4684-93ff-5eeecd01fb2b-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Wingo",
+          "twitch": "wingo",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/c23e244b-8a05-4dd6-9569-5490eb97c613-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a063c2-7646-7394-9d42-bf6ba2970b5e",
+      "title": "Maître des Fleurs (sur place)",
+      "description": "De retour cette année en plateau !",
+      "startsAt": "2026-09-05T16:00:00.000Z",
+      "endsAt": "2026-09-05T17:30:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": []
+    },
+    {
+      "id": "ingdoc:01a0662e-060a-7358-b333-823adb572fc2",
+      "title": "Maître des Fleurs (en ligne)",
+      "description": "Avec vous (les viewers) mais aussi les streamers en distanciel ! Version Pay to Win !",
+      "startsAt": "2026-09-05T17:30:00.000Z",
+      "endsAt": "2026-09-05T19:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Ponce",
+          "twitch": "ponce",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/d4737061-8f00-49d9-a56f-fcb4a9230b3f-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a067c2-ea63-7d23-9ea0-452fff248ca7",
+      "title": "Questions pour un Streamer",
+      "description": "Le retour de la PREMIÈRE émission du ZEvent, avec 8 binômes !",
+      "startsAt": "2026-09-05T18:30:00.000Z",
+      "endsAt": "2026-09-05T21:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Etoiles",
+          "twitch": "etoiles",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/4eecaab8-4de3-4bcc-b2b7-f3a03e8273a8-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a05d25-0f21-7c54-99da-7252dc832335",
+      "title": "DJ Set Big Edition",
+      "description": "Ordre des sets (45 minutes chacun) : B2B2B : Halfpipe Records + Laze + Unsho | Ava B2B Asdek | Lesss | Creeds  ",
+      "startsAt": "2026-09-05T21:00:00.000Z",
+      "endsAt": "2026-09-06T00:30:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Asdek",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/asdek.jpg",
+          "role": "participant",
+          "broadcaster": false
+        },
+        {
+          "name": "Creeds",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/creeds.jpg",
+          "role": "participant",
+          "broadcaster": false
+        },
+        {
+          "name": "Laze",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/laze.jpg",
+          "role": "participant",
+          "broadcaster": false
+        },
+        {
+          "name": "Lessss",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/lessss.jpg",
+          "role": "participant",
+          "broadcaster": false
+        },
+        {
+          "name": "Unsho",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/unsho.jpg",
+          "role": "participant",
+          "broadcaster": false
+        },
+        {
+          "name": "Halfpipe Records",
+          "twitch": null,
+          "profileUrl": "https://cache.evenmorestats.fr/images/avatars/halfpipe_records.jpg",
+          "role": "participant",
+          "broadcaster": false
+        },
+        {
+          "name": "AVAMind",
+          "twitch": "avamind",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/7611726d-3398-4231-8a33-cae5c0edad15-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a0662e-f40f-7870-9655-e2146f8f9fca",
+      "title": "Musique avec Spore",
+      "description": "Avec une petite roue pour que vous décidiez ce qu'on va jouer !\nPlus d'informations sur le groupe: https://floralrecords.fr/spore/",
+      "startsAt": "2026-09-05T21:00:00.000Z",
+      "endsAt": "2026-09-05T23:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Ponce",
+          "twitch": "ponce",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/d4737061-8f00-49d9-a56f-fcb4a9230b3f-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a03e16-f7e6-7545-86e6-e13649f7b2ef",
+      "title": "Émission secrète",
+      "description": "",
+      "startsAt": "2026-09-06T08:00:00.000Z",
+      "endsAt": "2026-09-06T10:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "mistermv",
+          "twitch": "mistermv",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/b220f285-b12e-495c-9611-d30a0cbaca0a-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Clemovitch",
+          "twitch": "clemovitch",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/6e9217a7-793b-4f96-b204-21bd33b37a07-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a056d6-d6bb-7e88-be49-9aca3e6260cd",
+      "title": "Le Quiz Hardcore du Grenier",
+      "description": "De son nom complet: Le Quiz Hardcore du Grenier Deluxe Turbo 3D Battle Pass Saison 6.0 & Knuckles Edition",
+      "startsAt": "2026-09-06T11:00:00.000Z",
+      "endsAt": "2026-09-06T13:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Joueur_du_Grenier",
+          "twitch": "joueur_du_grenier",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/68296fe2-cee7-42dd-b241-6535084df12a-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a03978-c8c2-72ed-b47f-694c18665833",
+      "title": "Tournoi Sims",
+      "description": "Tournoi organisé par Ultia sur le jeu The Sims 4 sur sa chaîne !",
+      "startsAt": "2026-09-06T11:30:00.000Z",
+      "endsAt": "2026-09-06T12:45:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "Jiraya",
+          "twitch": "jirayalecochon",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/d842070e-6d5c-4f97-b55c-097b9e627f4a-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": false
+        },
+        {
+          "name": "Ponce",
+          "twitch": "ponce",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/d4737061-8f00-49d9-a56f-fcb4a9230b3f-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Gom4rt",
+          "twitch": "gom4rt",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/03444908-7fe5-4d3c-9dcf-a59ced6fcf0c-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Shisheyu",
+          "twitch": "shisheyu",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/e27418ef-d1a0-416d-bb30-4d3e4fe03883-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Hctuan",
+          "twitch": "hctuan",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/5bbbe667-9f1a-4e0e-b8f7-9ecff18a2549-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Trixy",
+          "twitch": "xo_trixy",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/5466b371-98b5-4b10-9073-c7910c82503b-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Onutrem",
+          "twitch": "onutrem",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/7d283c36-c52f-4b5c-8c53-c8ea4008ad4d-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Laink",
+          "twitch": "laink",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/51519e66-e6a1-426a-84f6-d57497076544-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Anaee",
+          "twitch": "anaee",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/c56f900e-57d0-4749-8303-2271501dad0d-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Sundae",
+          "twitch": "sundae",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/5c9335f8-cc6c-45aa-970e-70b9e28e8843-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "LittleBigWhale",
+          "twitch": "littlebigwhale",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/63ff2bed-9e88-483f-bd4e-cc61d4b43e9c-profile_image-300x300.png",
+          "role": "guest",
+          "broadcaster": false
+        },
+        {
+          "name": "Ultia",
+          "twitch": "ultia",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/5e6a5413-b748-4880-8a60-2639cb55fe74-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a025be-fc52-7d08-ba6a-7c48e7d1dd11",
+      "title": "Rush final",
+      "description": "",
+      "startsAt": "2026-09-06T18:00:00.000Z",
+      "endsAt": "2026-09-06T23:00:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": []
+    },
+    {
+      "id": "ingdoc:01a025bf-62fd-7ba9-83de-91e7e3067a2c",
+      "title": "Remerciements ZEvent",
+      "description": "Avec Dach !",
+      "startsAt": "2026-09-06T21:00:00.000Z",
+      "endsAt": "2026-09-06T22:10:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "ZeratoR",
+          "twitch": "zerator",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/599b546a-c27f-4684-93ff-5eeecd01fb2b-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    },
+    {
+      "id": "ingdoc:01a025bf-cb4c-79ce-9359-acb894db7aa3",
+      "title": "Fermeture boutique",
+      "description": "",
+      "startsAt": "2026-09-06T21:45:00.000Z",
+      "endsAt": "2026-09-06T21:55:00.000Z",
+      "allDay": false,
+      "source": "ingdoc",
+      "participants": [
+        {
+          "name": "ZeratoR",
+          "twitch": "zerator",
+          "profileUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/599b546a-c27f-4684-93ff-5eeecd01fb2b-profile_image-300x300.png",
+          "role": "host",
+          "broadcaster": true
+        }
+      ]
+    }
+  ]
+}

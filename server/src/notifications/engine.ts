@@ -6,6 +6,7 @@ import type { ZeventState } from '../sources/index.js';
 import {
   detectGoalEvents,
   detectLiveStarts,
+  detectWebsiteModeChange,
   donationEvent,
   milestoneEvent,
   renderNotification,
@@ -81,7 +82,10 @@ export class NotificationEngine {
     this.#lastState = state;
     this.#lastTotalCents = totalCents;
 
-    const events = detectLiveStarts(previousState, state, now);
+    const events = [
+      ...detectWebsiteModeChange(previousState, state, now),
+      ...detectLiveStarts(previousState, state, now),
+    ];
     if (previousTotal !== undefined && totalCents > previousTotal) {
       events.push(...(await this.#milestoneEvents(previousTotal, totalCents, now)));
     }

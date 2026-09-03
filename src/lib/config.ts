@@ -19,3 +19,6 @@ export const LIVE_REFETCH_INTERVAL_MS = 15_000;
 
 /** Les donation goals bougent lentement : la synchro backend tourne toutes les 5 min. */
 export const GOALS_REFETCH_INTERVAL_MS = 120_000;
+
+/** Le planning ne change qu'au gré des annonces du staff : une resynchro toutes les 5 min suffit. */
+export const PLANNING_REFETCH_INTERVAL_MS = 300_000;
