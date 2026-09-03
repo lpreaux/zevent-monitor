@@ -249,7 +249,7 @@ même lorsque l'app est fermée.
 - `/healthz`, logs structurés, sauvegarde quotidienne PostgreSQL et redémarrage automatique.
 
 Tables minimales : `samples`, `donations`, `detected_events`, `goals_snapshots`, `planning_snapshots`, `devices`,
-`notification_preferences`, `favorites`, `recap_schedules`, `recaps`, `push_deliveries`.
+`notification_preferences`, `favorites`, `recap_schedules`, `recaps`, `recap_contents`, `push_deliveries`.
 
 ### 3.2 API de l'app
 
@@ -304,6 +304,14 @@ logs. Le service n'envoie une notification qu'après insertion réussie d'une cl
 - Génération à la volée sur une durée choisie (1 h, 3 h, 6 h, 12 h, 24 h ou valeur personnalisée).
   Le récap est déterministe en V1 : progression globale, seuils franchis, gros dons, nouveaux lives,
   goals atteints, top progressions et moments forts. Pas de dépendance à un LLM.
+- **Contenu mutualisé, affichage personnel** : le contenu ne dépend que de la période, jamais de
+  l'appareil. Il est donc calculé une seule fois et partagé anonymement (`recap_contents`, clé
+  `period_start`/`period_end`) : deux utilisateurs sur la même plage — le cas courant, les horaires
+  proposés étant les mêmes — réutilisent le même calcul. La personnalisation (favoris mis en tête,
+  lives et goals filtrés) se fait à l'affichage, dans l'app, à partir des favoris locaux.
+- La notification « récap prêt » est une catégorie de préférences à part entière (`recaps`), réglée
+  dans le menu Notifications : elle peut être coupée ou soumise à la plage silencieuse sans empêcher
+  la génération, le récap restant consultable dans l'historique.
 - Widget écran d'accueil Android (cagnotte globale) via `react-native-android-widget`.
 
 ### P2 — idées bonus

@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -32,6 +33,7 @@ const donationOptions = BIG_DONATION_THRESHOLDS_CENTS.map((cents) => ({
 }));
 
 export default function NotificationSettingsScreen() {
+  const router = useRouter();
   const preferences = useNotificationsStore((s) => s.preferences);
   const permission = useNotificationsStore((s) => s.permission);
   const permissionReason = useNotificationsStore((s) => s.permissionReason);
@@ -296,6 +298,42 @@ export default function NotificationSettingsScreen() {
               </View>
             );
           })}
+        </SettingsSection>
+
+        <SettingsSection
+          title="Récapitulatifs"
+          description="Les horaires se règlent dans l’onglet Récaps ; ici, seule la notification."
+        >
+          <SwitchRow
+            label="Prévenir quand un récap est prêt"
+            hint="Le récap reste enregistré dans l’historique même sans notification."
+            value={preferences.recaps.enabled}
+            disabled={alertsOff}
+            onValueChange={(enabled) =>
+              update((current) => ({ ...current, recaps: { ...current.recaps, enabled } }))
+            }
+          />
+          <SwitchRow
+            label="Respecter la plage silencieuse"
+            hint="Un récap généré la nuit attend sans faire sonner le téléphone."
+            value={preferences.recaps.respectQuietHours}
+            disabled={alertsOff || !preferences.recaps.enabled}
+            onValueChange={(respectQuietHours) =>
+              update((current) => ({
+                ...current,
+                recaps: { ...current.recaps, respectQuietHours },
+              }))
+            }
+          />
+          <Pressable
+            onPress={() => router.push('/(tabs)/recaps' as never)}
+            accessibilityRole="button"
+            className="flex-row items-center gap-2 active:opacity-70"
+          >
+            <Ionicons name="newspaper-outline" size={16} color="#9ca3af" />
+            <Text className="flex-1 text-xs text-gray-400">Gérer les horaires des récaps</Text>
+            <Ionicons name="chevron-forward" size={16} color="#6b7280" />
+          </Pressable>
         </SettingsSection>
 
         <SettingsSection

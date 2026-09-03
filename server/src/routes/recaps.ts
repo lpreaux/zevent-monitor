@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { generateRecapContent } from '../recaps/generator.js';
+import { floorToMinute, getOrCreateRecapContent } from '../recaps/content-cache.js';
 import { nextScheduleOccurrence } from '../recaps/schedule.js';
 import { authenticateDevice } from './devices.js';
 
@@ -93,7 +93,9 @@ export function registerRecapRoutes(app: FastifyInstance): void {
     if (!installationId) return reply;
     const parsed = generateBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_body', details: parsed.error.issues });
-    const periodEnd = new Date();
+    // Bornes alignées sur la minute : deux appareils qui demandent la même plage
+    // au même moment réutilisent le contenu déjà calculé.
+    const periodEnd = floorToMinute(new Date());
     const periodStart = new Date(periodEnd.getTime() - parsed.data.durationMinutes * 60_000);
     const dedupeKey = `manual:${installationId}:${parsed.data.idempotencyKey}`;
     const existing = await app.pg.query(
@@ -102,7 +104,7 @@ export function registerRecapRoutes(app: FastifyInstance): void {
     );
     if (existing.rows[0]) return existing.rows[0];
 
-    const content = await generateRecapContent(app, periodStart, periodEnd);
+    const content = await getOrCreateRecapContent(app, periodStart, periodEnd);
     const inserted = await app.pg.query(
       `INSERT INTO recaps (installation_id, kind, period_start, period_end, dedupe_key, content)
        VALUES ($1, 'manual', $2, $3, $4, $5)

@@ -20,6 +20,8 @@ export interface NotificationPreferences {
     favoritesOnly: boolean;
     perStreamerMinCents: Record<string, number>;
   };
+  /** Notification envoyée quand un récapitulatif programmé devient disponible. */
+  recaps: { enabled: boolean; respectQuietHours: boolean };
 }
 
 export const defaultNotificationPreferences = (): NotificationPreferences => ({
@@ -33,6 +35,7 @@ export const defaultNotificationPreferences = (): NotificationPreferences => ({
   favoriteLive: { enabled: true },
   favoriteGoals: { enabled: true, nearEnabled: false },
   bigDonations: { enabled: true, minCents: 50_000, favoritesOnly: false, perStreamerMinCents: {} },
+  recaps: { enabled: true, respectQuietHours: true },
 });
 
 /** Fusion tolérante : un réglage absent (ancienne version, réponse partielle) reprend son défaut. */
@@ -50,6 +53,7 @@ export function mergePreferences(
     favoriteLive: { ...defaults.favoriteLive, ...value.favoriteLive },
     favoriteGoals: { ...defaults.favoriteGoals, ...value.favoriteGoals },
     bigDonations: { ...defaults.bigDonations, ...value.bigDonations },
+    recaps: { ...defaults.recaps, ...value.recaps },
   };
 }
 

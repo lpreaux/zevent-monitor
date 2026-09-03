@@ -2,8 +2,9 @@ import type { FastifyInstance } from 'fastify';
 
 import type { AppConfig } from '../config.js';
 import { ExpoPushClient, isUnrecoverableTokenError } from '../notifications/expo-push.js';
-import { parsePreferences } from '../notifications/preferences.js';
-import { generateRecapContent, type RecapContent } from '../recaps/generator.js';
+import { isQuietHour, parsePreferences } from '../notifications/preferences.js';
+import { getOrCreateRecapContent } from '../recaps/content-cache.js';
+import type { RecapContent } from '../recaps/generator.js';
 import { nextScheduleOccurrence, previousScheduleOccurrence } from '../recaps/schedule.js';
 
 type DueSchedule = {
@@ -12,6 +13,18 @@ type DueSchedule = {
 };
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+
+/** Corps de la notification : le cumul de la période, puis la cagnotte atteinte. */
+export function recapBody(content: RecapContent): string {
+  const parts = [`${euros.format(content.summary.raisedCents / 100)} collectés sur la période`];
+  if (content.summary.endCents !== null) {
+    parts.push(`cagnotte à ${euros.format(content.summary.endCents / 100)}`);
+  }
+  if (content.counts.goalsReached > 0) {
+    parts.push(`${content.counts.goalsReached} goal${content.counts.goalsReached > 1 ? 's' : ''} atteint${content.counts.goalsReached > 1 ? 's' : ''}`);
+  }
+  return parts.join(' · ');
+}
 
 export class RecapScheduler {
   readonly #push: ExpoPushClient;
@@ -59,7 +72,7 @@ export class RecapScheduler {
     const periodStart = previousScheduleOccurrence(all.rows.map((row) => row.local_time), schedule.timezone, periodEnd);
     const nextRun = nextScheduleOccurrence(schedule.local_time, schedule.timezone, periodEnd);
     const dedupeKey = `scheduled:${schedule.installation_id}:${schedule.id}:${periodEnd.toISOString()}`;
-    const content = await generateRecapContent(this.app, periodStart, periodEnd);
+    const content = await getOrCreateRecapContent(this.app, periodStart, periodEnd, now);
     const inserted = await this.app.pg.query<{ id: string }>(
       `INSERT INTO recaps (installation_id, schedule_id, kind, period_start, period_end, dedupe_key, content)
        VALUES ($1, $2, 'scheduled', $3, $4, $5, $6)
@@ -69,8 +82,12 @@ export class RecapScheduler {
     await this.app.pg.query('UPDATE recap_schedules SET next_run_at = $2, updated_at = now() WHERE id = $1', [schedule.id, nextRun]);
     const recapId = inserted.rows[0]?.id;
     if (!recapId || !schedule.expo_push_token) return;
+    // Le récap est enregistré dans tous les cas : seule la notification est filtrée,
+    // l'utilisateur le retrouve dans l'historique de l'onglet Récaps.
     const preferences = parsePreferences(schedule.preferences);
-    if (!preferences.enabled || (preferences.pausedUntil && Date.parse(preferences.pausedUntil) > now.getTime())) return;
+    if (!preferences.enabled || !preferences.recaps.enabled) return;
+    if (preferences.pausedUntil && Date.parse(preferences.pausedUntil) > now.getTime()) return;
+    if (preferences.recaps.respectQuietHours && isQuietHour(now, schedule.timezone, preferences)) return;
     await this.#notify(recapId, schedule.expo_push_token, content, preferences.sound, preferences.vibration);
   }
 
@@ -83,7 +100,7 @@ export class RecapScheduler {
     try {
       const [ticket] = await this.#push.send([{
         to: token, title: 'Votre récap ZEvent est prêt',
-        body: `${euros.format(content.summary.raisedCents / 100)} collectés sur la période · ${content.counts.goalsReached} goals atteints`,
+        body: recapBody(content),
         data: { kind: 'recap', recapId: Number(recapId), url: `/recap/${recapId}` },
         sound: sound ? 'default' : null, channelId: vibration ? 'alerts' : 'alerts-silent', priority: 'high',
       }]);

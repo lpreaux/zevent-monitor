@@ -3,14 +3,34 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestJson } from './client';
 import { authHeaders, type DeviceIdentity } from './device';
 
+export interface RecapProgression {
+  twitch: string;
+  display: string;
+  raisedCents: number;
+}
+
+/**
+ * Contenu produit par le serveur, identique pour tout le monde sur une période donnée.
+ * Les champs optionnels sont absents des récaps générés avant la version 2 : l'app en
+ * conserve en cache local, il faut donc rester tolérant.
+ */
 export interface RecapContent {
-  summary: { startCents: number | null; endCents: number | null; raisedCents: number; peakViewers: number };
+  version?: number;
+  summary: {
+    startCents: number | null;
+    endCents: number | null;
+    raisedCents: number;
+    peakViewers: number;
+    coverage?: { start: string | null; end: string | null; complete: boolean };
+  };
   counts: { milestones: number; bigDonations: number; liveStarts: number; goalsReached: number };
   milestones: { thresholdCents: number; occurredAt: string }[];
   bigDonations: { donor: string; amountCents: number; twitch: string | null; occurredAt: string }[];
   liveStarts: { twitch: string; display: string; occurredAt: string }[];
   goalsReached: { twitch: string; display: string; label: string; occurredAt: string }[];
-  topProgressions: { twitch: string; display: string; raisedCents: number }[];
+  topProgressions: RecapProgression[];
+  /** Toutes les progressions non nulles, pour l'affichage personnalisé par favoris. */
+  progressions?: RecapProgression[];
   highlights: string[];
 }
 

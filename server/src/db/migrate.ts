@@ -156,6 +156,21 @@ CREATE TABLE IF NOT EXISTS recap_push_deliveries (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 `,
+  // 5 — cache anonyme des contenus de récap, partagé entre appareils.
+  // Le contenu ne dépend que de la période : une plage identique n'est calculée qu'une fois.
+  `
+CREATE TABLE IF NOT EXISTS recap_contents (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  period_start timestamptz NOT NULL,
+  period_end timestamptz NOT NULL,
+  generated_at timestamptz NOT NULL DEFAULT now(),
+  content jsonb NOT NULL,
+  UNIQUE (period_start, period_end),
+  CHECK (period_end > period_start)
+);
+CREATE INDEX IF NOT EXISTS recap_contents_generated_at_idx
+  ON recap_contents (generated_at DESC);
+`,
 ];
 
 export async function migrateDatabase(app: FastifyInstance): Promise<void> {

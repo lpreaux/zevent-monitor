@@ -49,6 +49,17 @@ export const notificationPreferencesSchema = z.object({
       perStreamerMinCents: z.record(z.string(), z.number().int().min(100)).prefault({}),
     })
     .prefault({}),
+  /**
+   * Récapitulatifs programmés. Les horaires eux-mêmes vivent dans `recap_schedules` :
+   * ici on ne règle que la notification envoyée quand un récap devient disponible.
+   */
+  recaps: z
+    .object({
+      enabled: z.boolean().default(true),
+      /** Respecte la plage silencieuse : le récap est généré, mais sans notification. */
+      respectQuietHours: z.boolean().default(true),
+    })
+    .prefault({}),
 });
 
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
