@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "ZEvent Monitor",
+    "slug": "zevent-monitor",
+    "version": "0.1.0",
+    "orientation": "default",
+    "scheme": "zevent-monitor",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router", "expo-dev-client"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "android": {
+      "package": "app.zeventmonitor.mobile",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    }
+  }
+}

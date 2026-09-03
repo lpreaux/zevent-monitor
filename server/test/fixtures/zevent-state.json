@@ -1,0 +1,26 @@
+{
+  "live": [{
+    "twitch_id": "44842076",
+    "display": "Aducine",
+    "twitch": "aducine",
+    "profileUrl": "https://static-cdn.jtvnw.net/profile.png",
+    "online": true,
+    "game": "Just Chatting",
+    "viewersAmount": { "number": 1234, "formatted": "1 234" },
+    "streamlabsId": "95650001",
+    "donationUrl": "https://zevent.fr/don/aducine",
+    "ref": "JcxwUJBKbfagyJX7hHeU3g",
+    "donationAmount": { "number": 42000.5, "formatted": "42 000,50 €" }
+  }],
+  "globalDonationUrl": "https://zevent.fr/don",
+  "streamlabsCampaignId": "945347494282402228",
+  "donationAmount": { "number": 1000000, "formatted": "1 000 000 €" },
+  "viewersCount": { "number": 1234, "formatted": "1 234" },
+  "calendar": [],
+  "marquee": null,
+  "widgetVersionId": 3,
+  "eventSourceDisabled": false,
+  "websiteMode": "online",
+  "eventSourceWhitelist": ["cagnotte:global"],
+  "future_field": "accepted"
+}

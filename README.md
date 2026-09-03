@@ -3,7 +3,7 @@
 Application Android dédiée au suivi en temps réel du ZEvent 2026. Elle réunira la cagnotte globale, les streams favoris, les donation goals, le planning, les statistiques et des notifications configurables dans une interface pensée pour le mobile et l'affichage Always-On.
 
 > [!IMPORTANT]
-> Le projet est actuellement en phase de conception. Le code de l'application et du backend n'est pas encore initialisé. La feuille de route détaillée est disponible dans [PLAN.md](PLAN.md).
+> Le socle Expo/Fastify, les adaptateurs et la collecte PostgreSQL 2026 sont opérationnels. La feuille de route détaillée est disponible dans [PLAN.md](PLAN.md).
 
 ## Objectifs
 
@@ -25,7 +25,7 @@ Le projet prendra la forme d'un monorepo composé de deux parties :
 Le backend centralisera la collecte des différentes sources, conservera les séries temporelles et pilotera les notifications Expo. L'application privilégiera ce backend et conservera localement le dernier état valide.
 
 ```text
-app/                 routes et écrans Expo Router
+src/app/             routes et écrans Expo Router
 src/                 API, composants, état local et cache mobile
 server/              backend Fastify, jobs et accès PostgreSQL
 content/             snapshots et données historiques versionnées
@@ -53,9 +53,52 @@ Les API tierces non documentées seront interrogées uniquement par le backend, 
 
 Le détail des priorités, décisions techniques, risques et critères d'acceptation se trouve dans [PLAN.md](PLAN.md).
 
+## Développement local
+
+Prérequis : Node.js 24+, npm et Docker.
+
+```bash
+# Application mobile
+npm install
+npm start
+
+# Backend seul en mode développement
+npm --prefix server install
+npm run server:dev
+```
+
+Le démarrage complet avec PostgreSQL se fait à partir d'une copie locale de `.env.example` :
+
+```bash
+docker compose up --build
+```
+
+Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL. La suite de vérification locale s'exécute avec `npm run check`.
+
+## Déploiement Dockploy
+
+Créer un projet **Docker Compose** pointant vers ce dépôt et conserver `docker-compose.yml` comme
+fichier de composition. Définir au minimum `POSTGRES_PASSWORD` avec une valeur longue et aléatoire ;
+`POSTGRES_DB`, `POSTGRES_USER`, `SERVER_PORT`, `LOG_LEVEL`, `COLLECTOR_ENABLED` et
+`COLLECT_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`. Exposer le service
+`server` (port interne 3000) derrière le domaine HTTPS choisi. Le volume nommé `postgres-data`
+conserve les échantillons lors des redéploiements.
+
+Après le premier déploiement, vérifier la santé et l'accumulation pendant au moins une minute :
+
+```bash
+npm --prefix server run verify:deployment -- https://api.example.org
+```
+
+La commande échoue si `/healthz` ou `/readyz` ne répond pas correctement, ou si le nombre de points
+retourné par `/v1/collection-status` n'augmente pas. Les autres routes disponibles sont
+`/v1/state`, `/v1/timeseries?edition=2026&resolution=1m` et `/v1/goals` (alimentée à l'étape 4).
+
 ## Statut
 
-🚧 Conception en cours — aucune version installable n'est encore disponible.
+✅ Étapes 1 à 3 terminées côté dépôt — collecte officielle 2026, stockage PostgreSQL et déploiement
+Docker/Dockploy vérifiable. Le déploiement sur le serveur dédié reste à déclencher avec les accès de
+l'instance Dockploy ; aucune version mobile installable n'est encore publiée.
 
 ## Avertissement
 

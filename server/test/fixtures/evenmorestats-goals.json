@@ -1,0 +1,10 @@
+{
+  "data": [{
+    "id": "goal-1",
+    "name": "Défi surprise",
+    "amount": 200000,
+    "category": "donation",
+    "reached": false,
+    "links": []
+  }]
+}

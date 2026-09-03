@@ -1,0 +1,13 @@
+{
+  "data": [{
+    "id": "1",
+    "slug": "aducine",
+    "is_live": true,
+    "user": { "display_name": "Aducine" },
+    "livestream": { "viewers": 1234 },
+    "platforms": { "twitch": { "username": "aducine" } }
+  }],
+  "current_page": 1,
+  "last_page": 16,
+  "total": 303
+}
