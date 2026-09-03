@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
+import type { NotificationResponse } from 'expo-notifications';
 import { Platform } from 'react-native';
 
 /**
@@ -10,14 +10,16 @@ import { Platform } from 'react-native';
 export const PUSH_NOTIFICATIONS_ENABLED = !__DEV__;
 
 if (PUSH_NOTIFICATIONS_ENABLED) {
-  /** Notifications affichées même quand l'app est au premier plan (bannière + son). */
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+  void import('expo-notifications').then((Notifications) => {
+    /** Notifications affichées même quand l'app est au premier plan (bannière + son). */
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
   });
 }
 
@@ -30,6 +32,7 @@ export const SILENT_CHANNEL_ID = 'alerts-silent';
  */
 export async function ensureAndroidChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
+  const Notifications = await import('expo-notifications');
   await Notifications.setNotificationChannelAsync(ALERTS_CHANNEL_ID, {
     name: 'Alertes ZEvent',
     importance: Notifications.AndroidImportance.HIGH,
@@ -73,6 +76,7 @@ export async function registerForPushNotifications(): Promise<PushRegistration> 
   }
 
   try {
+    const Notifications = await import('expo-notifications');
     await ensureAndroidChannels();
 
     const existing = await Notifications.getPermissionsAsync();
@@ -106,7 +110,7 @@ export async function registerForPushNotifications(): Promise<PushRegistration> 
 }
 
 /** Route interne à ouvrir au tap sur une notification (fournie par le backend). */
-export function notificationUrl(response: Notifications.NotificationResponse): string | null {
+export function notificationUrl(response: NotificationResponse): string | null {
   const data = response.notification.request.content.data as { url?: unknown } | undefined;
   return typeof data?.url === 'string' && data.url.startsWith('/') ? data.url : null;
 }
