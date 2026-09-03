@@ -4,6 +4,7 @@ import { migrateDatabase } from './db/migrate.js';
 import { Collector } from './jobs/collector.js';
 import { DonationsCollector } from './jobs/donations.js';
 import { GoalsSync } from './jobs/goals-sync.js';
+import { RecapScheduler } from './jobs/recaps.js';
 import { NotificationEngine } from './notifications/engine.js';
 
 const config = loadConfig();
@@ -12,6 +13,7 @@ let collector: Collector | undefined;
 let goalsSync: GoalsSync | undefined;
 let donations: DonationsCollector | undefined;
 let notifications: NotificationEngine | undefined;
+let recaps: RecapScheduler | undefined;
 
 const shutdown = async (signal: NodeJS.Signals) => {
   app.log.info({ signal }, 'Stopping server');
@@ -19,6 +21,7 @@ const shutdown = async (signal: NodeJS.Signals) => {
   goalsSync?.stop();
   donations?.stop();
   notifications?.stop();
+  recaps?.stop();
   await app.close();
   process.exit(0);
 };
@@ -44,6 +47,10 @@ try {
   if (config.DONATIONS_ENABLED) {
     donations = new DonationsCollector(app, config, notifications);
     await donations.start();
+  }
+  if (config.RECAPS_ENABLED) {
+    recaps = new RecapScheduler(app, config);
+    await recaps.start();
   }
   await app.listen({ host: config.HOST, port: config.PORT });
 } catch (error) {

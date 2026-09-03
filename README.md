@@ -111,6 +111,11 @@ retourné par `/v1/collection-status` n'augmente pas. Les autres routes disponib
 `/v1/timeseries?edition=2026&resolution=1m` et `/v1/goals`, alimentée toutes les 5 min par
 synchronisation avec EvenMoreStats/InGDoc (source communautaire non officielle, cf. PLAN.md §1.3).
 
+Les récapitulatifs sont disponibles via les routes authentifiées `GET /v1/recaps`,
+`GET /v1/recaps/:id`, `POST /v1/recaps/generate` et `GET`/`PUT /v1/recap-schedules`.
+Le worker `RECAPS_ENABLED` (intervalle `RECAPS_INTERVAL_MS`) produit les récaps programmés dans le
+fuseau de chaque appareil et envoie un push avec deep link vers leur détail.
+
 ## Notifications push
 
 La détection et l'envoi se font côté serveur : une alerte arrive donc même application fermée.

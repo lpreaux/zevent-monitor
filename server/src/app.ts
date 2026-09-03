@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { AppConfig } from './config.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerPublicRoutes } from './routes/public.js';
+import { registerRecapRoutes } from './routes/recaps.js';
 
 type BuildAppOptions = {
   config: AppConfig;
@@ -20,6 +21,7 @@ export function buildApp({ config, database = true, logger = true }: BuildAppOpt
     void app.register(postgres, { connectionString: config.DATABASE_URL });
     registerPublicRoutes(app);
     registerDeviceRoutes(app);
+    registerRecapRoutes(app);
   }
 
   app.get('/healthz', async () => ({ status: 'ok' as const }));

@@ -95,6 +95,44 @@ CREATE TABLE IF NOT EXISTS push_deliveries (
 CREATE INDEX IF NOT EXISTS push_deliveries_pending_receipt_idx
   ON push_deliveries (created_at) WHERE status = 'sent' AND ticket_id IS NOT NULL;
 `,
+  // 3 — planification, historique et envois des récapitulatifs
+  `
+CREATE TABLE IF NOT EXISTS recap_schedules (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  installation_id text NOT NULL REFERENCES devices (installation_id) ON DELETE CASCADE,
+  local_time text NOT NULL CHECK (local_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
+  enabled boolean NOT NULL DEFAULT true,
+  next_run_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (installation_id, local_time)
+);
+CREATE INDEX IF NOT EXISTS recap_schedules_due_idx
+  ON recap_schedules (next_run_at) WHERE enabled = true;
+
+CREATE TABLE IF NOT EXISTS recaps (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  installation_id text NOT NULL REFERENCES devices (installation_id) ON DELETE CASCADE,
+  schedule_id bigint REFERENCES recap_schedules (id) ON DELETE SET NULL,
+  kind text NOT NULL CHECK (kind IN ('scheduled', 'manual')),
+  period_start timestamptz NOT NULL,
+  period_end timestamptz NOT NULL,
+  generated_at timestamptz NOT NULL DEFAULT now(),
+  dedupe_key text NOT NULL UNIQUE,
+  content jsonb NOT NULL,
+  CHECK (period_end > period_start)
+);
+CREATE INDEX IF NOT EXISTS recaps_installation_generated_idx
+  ON recaps (installation_id, generated_at DESC);
+
+CREATE TABLE IF NOT EXISTS recap_push_deliveries (
+  recap_id bigint PRIMARY KEY REFERENCES recaps (id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'pending',
+  ticket_id text,
+  error text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+`,
 ];
 
 export async function migrateDatabase(app: FastifyInstance): Promise<void> {

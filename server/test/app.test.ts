@@ -21,6 +21,8 @@ const config: AppConfig = {
   NOTIFICATIONS_ENABLED: false,
   GOAL_NEAR_RATIO: 0.9,
   PUSH_RECEIPTS_INTERVAL_MS: 300_000,
+  RECAPS_ENABLED: false,
+  RECAPS_INTERVAL_MS: 60_000,
 };
 
 const apps = [] as ReturnType<typeof buildApp>[];
