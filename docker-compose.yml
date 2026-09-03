@@ -31,8 +31,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "${SERVER_PORT:-3000}:3000"
     healthcheck:
       test:
         [
