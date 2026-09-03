@@ -65,7 +65,17 @@ export default function DashboardScreen() {
           <Text className="text-xs font-semibold uppercase tracking-widest text-zevent-400">
             ZEvent Monitor 2026
           </Text>
-          <WebsiteModeBadge mode={state.websiteMode} />
+          <View className="flex-row items-center gap-3">
+            <WebsiteModeBadge mode={state.websiteMode} />
+            <Pressable
+              onPress={() => router.push('/settings/notifications')}
+              accessibilityRole="button"
+              accessibilityLabel="Réglages des notifications"
+              hitSlop={8}
+            >
+              <Ionicons name="notifications-outline" size={20} color="#c4b5fd" />
+            </Pressable>
+          </View>
         </View>
 
         {marquee ? (

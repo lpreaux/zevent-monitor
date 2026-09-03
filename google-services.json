@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "50460255530",
+    "project_id": "zevent-moniteur",
+    "storage_bucket": "zevent-moniteur.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:50460255530:android:9be3f8ae8fa3eb80326a53",
+        "android_client_info": {
+          "package_name": "app.zeventmonitor.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoEu5pYJ47IXCghI_s_FIenNRTXIOPW84"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

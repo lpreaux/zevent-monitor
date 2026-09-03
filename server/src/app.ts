@@ -2,6 +2,7 @@ import postgres from '@fastify/postgres';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 import type { AppConfig } from './config.js';
+import { registerDeviceRoutes } from './routes/devices.js';
 import { registerPublicRoutes } from './routes/public.js';
 
 type BuildAppOptions = {
@@ -18,6 +19,7 @@ export function buildApp({ config, database = true, logger = true }: BuildAppOpt
   if (database) {
     void app.register(postgres, { connectionString: config.DATABASE_URL });
     registerPublicRoutes(app);
+    registerDeviceRoutes(app);
   }
 
   app.get('/healthz', async () => ({ status: 'ok' as const }));

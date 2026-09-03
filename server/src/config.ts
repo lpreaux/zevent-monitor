@@ -12,6 +12,18 @@ const configSchema = z.object({
   GOALS_SYNC_REQUEST_DELAY_MS: z.coerce.number().int().min(0).default(150),
   // ZEvent 2026 sur EvenMoreStats, cf. GET https://api.ppr.evenmorestats.fr/events
   EVENMORESTATS_EVENT_ID: z.string().default('019f5bd1-fe07-7d78-a326-a02198a9d50f'),
+  // Feed des dons Streamlabs Charity (team ZEvent 2026, cf. PLAN.md §1.2)
+  DONATIONS_ENABLED: z.stringbool().default(true),
+  DONATIONS_INTERVAL_MS: z.coerce.number().int().min(10_000).default(20_000),
+  /** Au-delà, un don du feed est archivé mais plus annoncé en direct. */
+  DONATIONS_MAX_AGE_MS: z.coerce.number().int().min(60_000).default(1_800_000),
+  STREAMLABS_TEAM_ID: z.string().default('945347664248182491'),
+  // Moteur de notifications
+  NOTIFICATIONS_ENABLED: z.stringbool().default(true),
+  EXPO_ACCESS_TOKEN: z.string().optional(),
+  /** Part d'un palier atteinte à partir de laquelle il est annoncé « proche ». */
+  GOAL_NEAR_RATIO: z.coerce.number().min(0.5).max(0.999).default(0.9),
+  PUSH_RECEIPTS_INTERVAL_MS: z.coerce.number().int().min(30_000).default(300_000),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

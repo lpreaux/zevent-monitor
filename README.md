@@ -111,6 +111,35 @@ retourné par `/v1/collection-status` n'augmente pas. Les autres routes disponib
 `/v1/timeseries?edition=2026&resolution=1m` et `/v1/goals`, alimentée toutes les 5 min par
 synchronisation avec EvenMoreStats/InGDoc (source communautaire non officielle, cf. PLAN.md §1.3).
 
+## Notifications push
+
+La détection et l'envoi se font côté serveur : une alerte arrive donc même application fermée.
+
+- **Enregistrement de l'appareil** : l'application génère au premier lancement un `installationId`
+  et un secret aléatoire, conservés localement, puis appelle `PUT /v1/device` avec le token Expo, le
+  fuseau et la plateforme. Les écritures suivantes (`GET`/`PUT /v1/preferences`, `DELETE /v1/device`)
+  s'authentifient avec `x-installation-id` et `Authorization: Bearer <secret>`. Le serveur ne
+  conserve qu'une empreinte salée du secret ; il n'y a pas de compte utilisateur en V1.
+- **Préférences** : catégories indépendantes (paliers de la cagnotte avec pas configurable, démarrage
+  de live d'un favori, palier de favori atteint ou proche, gros dons avec seuil global et surcharge
+  par streamer), plage silencieuse évaluée dans le fuseau de l'appareil, son, vibration, interrupteur
+  général et suspension temporaire. Réglages dans l'app : onglet Accueil → icône cloche.
+- **Déduplication** : chaque événement détecté porte une clé unique (`detected_events.dedupe_key`) et
+  chaque envoi une contrainte `(installation_id, event_id)` posée *avant* l'appel à Expo. Deux
+  collectes identiques ne peuvent donc pas produire deux notifications.
+- **Reçus Expo** : traités périodiquement (`PUSH_RECEIPTS_INTERVAL_MS`) ; un token rejeté
+  (`DeviceNotRegistered`) est effacé automatiquement.
+- **Amorçage** : au tout premier passage, les paliers déjà atteints et le feed de dons initial sont
+  enregistrés sans notification, et un don plus vieux que `DONATIONS_MAX_AGE_MS` n'est plus annoncé.
+
+Variables serveur associées : `NOTIFICATIONS_ENABLED`, `EXPO_ACCESS_TOKEN` (facultatif),
+`GOAL_NEAR_RATIO`, `PUSH_RECEIPTS_INTERVAL_MS`, `DONATIONS_ENABLED`, `DONATIONS_INTERVAL_MS`,
+`DONATIONS_MAX_AGE_MS` et `STREAMLABS_TEAM_ID`.
+
+Côté Android, la réception exige une build EAS : `eas init` (pour `extra.eas.projectId`) puis un
+projet FCM associé au compte Expo. Sans cela, l'application reste utilisable et l'écran de réglages
+indique pourquoi l'enregistrement échoue.
+
 ## Statut
 
 ✅ Étapes 1 à 4 terminées côté dépôt — collecte officielle 2026, stockage PostgreSQL, déploiement
@@ -135,6 +164,11 @@ allumé, verrouillage d'orientation paysage/portrait relâché en quittant l'éc
 en quatre paliers et déplacement lent anti burn-in. La mise en page s'adapte au ratio d'écran
 (une ou deux colonnes) via `src/lib/always-on-layout.ts`, couvert par `npm test` sur sept ratios
 (2:3, 16:9, 9:20 et 4:3, portrait et paysage, avec et sans encoche).
+
+✅ Étape 8 (PLAN.md §6) — notifications : enregistrement du token Expo, préférences granulaires
+synchronisées avec le backend et moteur d'alertes dédupliqué (paliers globaux, lives des favoris,
+donation goals atteints ou proches, gros dons issus du feed Streamlabs). Voir la section
+« Notifications push » ci-dessus.
 
 ## Avertissement
 

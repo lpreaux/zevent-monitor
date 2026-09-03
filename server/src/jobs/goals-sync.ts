@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import type { AppConfig } from '../config.js';
+import type { NotificationEngine } from '../notifications/engine.js';
 import { EvenMoreStatsSource, SourceClient } from '../sources/index.js';
 
 const overviewEntrySchema = z
@@ -91,6 +92,7 @@ export class GoalsSync {
   constructor(
     private readonly app: FastifyInstance,
     private readonly config: AppConfig,
+    private readonly engine?: NotificationEngine,
   ) {
     this.#source = new EvenMoreStatsSource(new SourceClient());
   }
@@ -133,6 +135,7 @@ export class GoalsSync {
         [new Date(), 'ingdoc', stale, payload],
       );
       this.app.log.info({ streamers: streamers.length, stale }, 'Donation goals snapshot stored');
+      await this.engine?.onGoals(payload);
     } catch (error) {
       this.app.log.error({ err: error }, 'Donation goals sync failed');
     } finally {

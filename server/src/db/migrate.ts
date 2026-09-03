@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 
-const migration = `
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  version integer PRIMARY KEY,
-  applied_at timestamptz NOT NULL DEFAULT now()
-);
-
+/**
+ * Migrations appliquées dans l'ordre, une seule fois chacune (`schema_migrations`).
+ * Ne jamais modifier une migration déjà déployée : en ajouter une nouvelle.
+ */
+const migrations: string[] = [
+  // 1 — collecte 2026 et snapshots de donation goals
+  `
 CREATE TABLE IF NOT EXISTS samples (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   edition smallint NOT NULL,
@@ -27,18 +28,100 @@ CREATE TABLE IF NOT EXISTS goals_snapshots (
   stale boolean NOT NULL DEFAULT false,
   payload jsonb NOT NULL
 );
-`;
+`,
+  // 2 — appareils, préférences de notification et moteur d'alertes dédupliqué
+  `
+CREATE TABLE IF NOT EXISTS devices (
+  installation_id text PRIMARY KEY,
+  secret_salt text NOT NULL,
+  secret_hash text NOT NULL,
+  expo_push_token text,
+  timezone text NOT NULL DEFAULT 'Europe/Paris',
+  platform text,
+  app_version text,
+  disabled_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS devices_push_token_idx
+  ON devices (expo_push_token) WHERE expo_push_token IS NOT NULL AND disabled_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  installation_id text PRIMARY KEY REFERENCES devices (installation_id) ON DELETE CASCADE,
+  preferences jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS favorites (
+  installation_id text NOT NULL REFERENCES devices (installation_id) ON DELETE CASCADE,
+  twitch text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (installation_id, twitch)
+);
+
+CREATE TABLE IF NOT EXISTS donations (
+  id text PRIMARY KEY,
+  amount_cents bigint NOT NULL,
+  donor text NOT NULL,
+  comment text,
+  country text,
+  twitch_display_name text,
+  created_at timestamptz NOT NULL,
+  seen_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS donations_created_at_idx ON donations (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS detected_events (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  kind text NOT NULL,
+  dedupe_key text NOT NULL UNIQUE,
+  occurred_at timestamptz NOT NULL,
+  payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS detected_events_occurred_at_idx ON detected_events (occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS push_deliveries (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  installation_id text NOT NULL REFERENCES devices (installation_id) ON DELETE CASCADE,
+  event_id bigint NOT NULL REFERENCES detected_events (id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'pending',
+  ticket_id text,
+  error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (installation_id, event_id)
+);
+CREATE INDEX IF NOT EXISTS push_deliveries_pending_receipt_idx
+  ON push_deliveries (created_at) WHERE status = 'sent' AND ticket_id IS NOT NULL;
+`,
+];
 
 export async function migrateDatabase(app: FastifyInstance): Promise<void> {
   const client = await app.pg.connect();
   try {
-    await client.query('BEGIN');
-    await client.query(migration);
-    await client.query('INSERT INTO schema_migrations (version) VALUES (1) ON CONFLICT DO NOTHING');
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
+    await client.query(`
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version integer PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+)`);
+    const applied = await client.query<{ version: number }>('SELECT version FROM schema_migrations');
+    const done = new Set(applied.rows.map((row) => row.version));
+
+    for (const [index, sql] of migrations.entries()) {
+      const version = index + 1;
+      if (done.has(version)) continue;
+      await client.query('BEGIN');
+      try {
+        await client.query(sql);
+        await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
+        await client.query('COMMIT');
+        app.log.info({ version }, 'Database migration applied');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      }
+    }
   } finally {
     client.release();
   }

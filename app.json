@@ -6,18 +6,43 @@
     "orientation": "default",
     "scheme": "zevent-monitor",
     "userInterfaceStyle": "automatic",
-    "plugins": ["expo-router", "expo-dev-client"],
+    "plugins": [
+      "expo-router",
+      "expo-dev-client",
+      [
+        "expo-notifications",
+        {
+          "color": "#8b5cf6",
+          "defaultChannel": "alerts"
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "android": {
       "package": "app.zeventmonitor.mobile",
+      "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
       "output": "static"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ebf08712-898e-4a59-903b-9eb4ff6a3ac9"
+      }
+    },
+    "owner": "lpreaux",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ebf08712-898e-4a59-903b-9eb4ff6a3ac9"
+    },
+    "ios": {}
   }
 }

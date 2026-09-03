@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { AppConfig } from '../config.js';
+import type { NotificationEngine } from '../notifications/engine.js';
 import { SourceClient, ZeventSource, type ZeventState } from '../sources/index.js';
 
 type LastSample = { sampledAt: Date; donationCents: number; viewers: number; websiteMode: string };
@@ -11,7 +12,11 @@ export class Collector {
   #running = false;
   #last?: LastSample;
 
-  constructor(private readonly app: FastifyInstance, private readonly config: AppConfig) {
+  constructor(
+    private readonly app: FastifyInstance,
+    private readonly config: AppConfig,
+    private readonly engine?: NotificationEngine,
+  ) {
     this.#source = new ZeventSource(new SourceClient());
   }
 
@@ -42,6 +47,8 @@ export class Collector {
       const result = await this.#source.getState();
       const now = new Date();
       const state = result.data;
+      // Le moteur d'alertes voit chaque collecte fraîche, même celles qui ne sont pas persistées.
+      if (!result.stale) await this.engine?.onState(state, now);
       if (!this.#shouldPersist(state, now)) return;
       const donationCents = Math.round(state.donationAmount.number * 100);
       await this.app.pg.query(
