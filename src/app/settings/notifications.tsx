@@ -175,6 +175,21 @@ export default function NotificationSettingsScreen() {
         </SettingsSection>
 
         <SettingsSection
+          title="Statut de l’événement"
+          description="Le badge affiché en haut du dashboard (attente, concert, direct)."
+        >
+          <SwitchRow
+            label="Changement de statut"
+            hint="Ouverture du concert, passage en direct, retour en attente"
+            value={preferences.websiteMode.enabled}
+            disabled={alertsOff}
+            onValueChange={(enabled) =>
+              update((current) => ({ ...current, websiteMode: { enabled } }))
+            }
+          />
+        </SettingsSection>
+
+        <SettingsSection
           title="Favoris"
           description="Ces alertes ne concernent que les streamers mis en favori."
         >

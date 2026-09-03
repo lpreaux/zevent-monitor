@@ -10,6 +10,8 @@ export interface NotificationPreferences {
   vibration: boolean;
   quietHours: { enabled: boolean; start: string; end: string };
   globalMilestones: { enabled: boolean; stepCents: number; extraCents: number[] };
+  /** Passage de l'événement en attente / concert / direct. */
+  websiteMode: { enabled: boolean };
   favoriteLive: { enabled: boolean };
   favoriteGoals: { enabled: boolean; nearEnabled: boolean };
   bigDonations: {
@@ -27,6 +29,7 @@ export const defaultNotificationPreferences = (): NotificationPreferences => ({
   vibration: true,
   quietHours: { enabled: false, start: '00:00', end: '08:00' },
   globalMilestones: { enabled: true, stepCents: 100_000_000, extraCents: [] },
+  websiteMode: { enabled: true },
   favoriteLive: { enabled: true },
   favoriteGoals: { enabled: true, nearEnabled: false },
   bigDonations: { enabled: true, minCents: 50_000, favoritesOnly: false, perStreamerMinCents: {} },
@@ -43,6 +46,7 @@ export function mergePreferences(
     ...value,
     quietHours: { ...defaults.quietHours, ...value.quietHours },
     globalMilestones: { ...defaults.globalMilestones, ...value.globalMilestones },
+    websiteMode: { ...defaults.websiteMode, ...value.websiteMode },
     favoriteLive: { ...defaults.favoriteLive, ...value.favoriteLive },
     favoriteGoals: { ...defaults.favoriteGoals, ...value.favoriteGoals },
     bigDonations: { ...defaults.bigDonations, ...value.bigDonations },

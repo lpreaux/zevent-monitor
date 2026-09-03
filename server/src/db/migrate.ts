@@ -95,6 +95,18 @@ CREATE TABLE IF NOT EXISTS push_deliveries (
 CREATE INDEX IF NOT EXISTS push_deliveries_pending_receipt_idx
   ON push_deliveries (created_at) WHERE status = 'sent' AND ticket_id IS NOT NULL;
 `,
+  // 3 — snapshots du planning (shows EvenMoreStats + calendar officiel fusionnés)
+  `
+CREATE TABLE IF NOT EXISTS planning_snapshots (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  fetched_at timestamptz NOT NULL,
+  source text NOT NULL,
+  stale boolean NOT NULL DEFAULT false,
+  payload jsonb NOT NULL
+);
+CREATE INDEX IF NOT EXISTS planning_snapshots_fetched_at_idx
+  ON planning_snapshots (fetched_at DESC);
+`,
 ];
 
 export async function migrateDatabase(app: FastifyInstance): Promise<void> {

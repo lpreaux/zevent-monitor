@@ -1,6 +1,7 @@
 import { fetchJson } from './client';
 import type {
   GoalsResponse,
+  PlanningResponse,
   StateResponse,
   TimeseriesResolution,
   TimeseriesResponse,
@@ -14,6 +15,11 @@ export function getState(): Promise<StateResponse> {
 /** Dernier snapshot de donation goals mis en cache côté backend (source InGDoc/EvenMoreStats). */
 export function getGoals(): Promise<GoalsResponse> {
   return fetchJson<GoalsResponse>('/v1/goals');
+}
+
+/** Dernier snapshot du planning (shows InGDoc/EvenMoreStats + `calendar` officiel fusionnés). */
+export function getPlanning(): Promise<PlanningResponse> {
+  return fetchJson<PlanningResponse>('/v1/planning');
 }
 
 /** Courbe agrégée de la collecte, alimentée par le collecteur central (édition 2026 par défaut). */

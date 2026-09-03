@@ -9,6 +9,7 @@ import {
 
 export type DetectedEventKind =
   | 'global_milestone'
+  | 'website_mode'
   | 'favorite_live'
   | 'goal_reached'
   | 'goal_near'
@@ -25,6 +26,7 @@ type GoalPayload = {
 
 export type DetectedEventPayload = {
   global_milestone: { thresholdCents: number; totalCents: number };
+  website_mode: { previous: WebsiteMode; current: WebsiteMode };
   favorite_live: { twitch: string; display: string; game: string; viewers: number };
   goal_reached: GoalPayload;
   goal_near: GoalPayload;
@@ -58,6 +60,30 @@ export function milestoneEvent(
     occurredAt,
     payload: { thresholdCents, totalCents },
   };
+}
+
+export type WebsiteMode = ZeventState['websiteMode'];
+
+/**
+ * Changement du statut principal de l'événement (`websiteMode`), celui affiché en tête
+ * du dashboard. Sans état précédent on ne notifie pas : le premier relevé n'est pas un changement.
+ */
+export function detectWebsiteModeChange(
+  previous: ZeventState | undefined,
+  current: ZeventState,
+  occurredAt: Date,
+): DetectedEvent[] {
+  if (!previous || previous.websiteMode === current.websiteMode) return [];
+  // Clé horodatée à l'heure : un aller-retour du site dans l'heure ne re-notifie pas.
+  const bucket = occurredAt.toISOString().slice(0, 13);
+  return [
+    {
+      kind: 'website_mode',
+      dedupeKey: `website_mode:${previous.websiteMode}->${current.websiteMode}:${bucket}`,
+      occurredAt,
+      payload: { previous: previous.websiteMode, current: current.websiteMode },
+    },
+  ];
 }
 
 /**
@@ -199,6 +225,8 @@ export function shouldDeliver(event: DetectedEvent, device: DeviceContext, now: 
       const threshold = event.payload.thresholdCents;
       return enabled && (threshold % stepCents === 0 || extraCents.includes(threshold));
     }
+    case 'website_mode':
+      return preferences.websiteMode.enabled;
     case 'favorite_live':
       return preferences.favoriteLive.enabled && favorites.has(event.payload.twitch);
     case 'goal_reached':
@@ -222,6 +250,19 @@ export function shouldDeliver(event: DetectedEvent, device: DeviceContext, now: 
   }
 }
 
+/** Libellés alignés sur le badge de statut du dashboard (`WebsiteModeBadge`). */
+const WEBSITE_MODE_TITLES: Record<WebsiteMode, string> = {
+  offline: 'ZEvent : retour en attente',
+  concert: 'Le concert d’ouverture commence',
+  online: 'Le ZEvent est en direct !',
+};
+
+const WEBSITE_MODE_BODIES: Record<WebsiteMode, string> = {
+  offline: 'Le site est repassé en mode attente.',
+  concert: 'Le concert d’ouverture du ZEvent 2026 démarre.',
+  online: 'Les streams et la collecte sont lancés.',
+};
+
 const euros = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
   currency: 'EUR',
@@ -239,6 +280,12 @@ export function renderNotification(event: DetectedEvent): {
       return {
         title: `${euros.format(event.payload.thresholdCents / 100)} atteints !`,
         body: `La cagnotte ZEvent 2026 dépasse ${euros.format(event.payload.thresholdCents / 100)} (${euros.format(event.payload.totalCents / 100)} collectés).`,
+        data: { kind: event.kind, url: '/' },
+      };
+    case 'website_mode':
+      return {
+        title: WEBSITE_MODE_TITLES[event.payload.current],
+        body: WEBSITE_MODE_BODIES[event.payload.current],
         data: { kind: event.kind, url: '/' },
       };
     case 'favorite_live':

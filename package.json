@@ -17,6 +17,8 @@
     "check": "npm run typecheck && npm run test && npm run server:build && npm run server:test",
     "content:import-history-2025": "node scripts/import-history-2025.mjs",
     "content:export-goals-2026": "node scripts/export-goals-2026.mjs",
+    "content:export-planning-2026": "node scripts/export-planning-2026.mjs",
+    "assets:icons": "node scripts/generate-icons.mjs",
     "test": "vitest run"
   },
   "dependencies": {

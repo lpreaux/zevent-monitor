@@ -42,6 +42,15 @@ export function registerPublicRoutes(app: FastifyInstance): void {
     return { edition, resolution, points: result.rows };
   });
 
+  app.get('/v1/planning', async (_request, reply) => {
+    const result = await app.pg.query(
+      'SELECT fetched_at, source, stale, payload FROM planning_snapshots ORDER BY fetched_at DESC LIMIT 1',
+    );
+    const row = result.rows[0];
+    if (!row) return reply.code(503).send({ error: 'planning_unavailable' });
+    return { data: row.payload, fetchedAt: row.fetched_at, source: row.source, stale: row.stale };
+  });
+
   app.get('/v1/goals', async (_request, reply) => {
     const result = await app.pg.query(
       'SELECT fetched_at, source, stale, payload FROM goals_snapshots ORDER BY fetched_at DESC LIMIT 1',

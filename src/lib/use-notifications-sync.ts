@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 
-import { notificationUrl } from '@/lib/push';
+import { notificationUrl, PUSH_NOTIFICATIONS_ENABLED } from '@/lib/push';
 import { useFavoritesStore } from '@/store/favorites';
 import { useNotificationsStore } from '@/store/notifications';
 
@@ -14,6 +14,8 @@ export function useNotificationRouting(): void {
   const router = useRouter();
 
   useEffect(() => {
+    if (!PUSH_NOTIFICATIONS_ENABLED) return;
+
     let cancelled = false;
 
     void Notifications.getLastNotificationResponseAsync().then((response) => {

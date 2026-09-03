@@ -3,15 +3,23 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-/** Notifications affichées même quand l'app est au premier plan (bannière + son). */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+/**
+ * Expo Go ne prend pas en charge les notifications push distantes. On ne les
+ * initialise donc que dans une build de production (preview/production EAS).
+ */
+export const PUSH_NOTIFICATIONS_ENABLED = !__DEV__;
+
+if (PUSH_NOTIFICATIONS_ENABLED) {
+  /** Notifications affichées même quand l'app est au premier plan (bannière + son). */
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export const ALERTS_CHANNEL_ID = 'alerts';
 export const SILENT_CHANNEL_ID = 'alerts-silent';
@@ -53,6 +61,13 @@ function projectId(): string | undefined {
  * en arrière-plan sont perdues (cf. PLAN.md §5).
  */
 export async function registerForPushNotifications(): Promise<PushRegistration> {
+  if (!PUSH_NOTIFICATIONS_ENABLED) {
+    return {
+      status: 'unsupported',
+      reason: 'Les notifications push sont désactivées en mode développement.',
+    };
+  }
+
   if (!Device.isDevice) {
     return { status: 'unsupported', reason: "Les notifications push exigent un appareil réel." };
   }
