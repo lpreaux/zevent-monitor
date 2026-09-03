@@ -25,11 +25,13 @@ Le projet prendra la forme d'un monorepo composé de deux parties :
 Le backend centralisera la collecte des différentes sources, conservera les séries temporelles et pilotera les notifications Expo. L'application privilégiera ce backend et conservera localement le dernier état valide.
 
 ```text
-src/app/             routes et écrans Expo Router
-src/                 API, composants, état local et cache mobile
-server/              backend Fastify, jobs et accès PostgreSQL
-content/             snapshots et données historiques versionnées
-docker-compose.yml   déploiement du backend et de PostgreSQL
+src/app/                  routes et écrans Expo Router
+src/                      API, composants, état local et cache mobile
+src/content/              snapshots versionnés (goals 2026, courbe historique 2025)
+server/                   backend Fastify, jobs et accès PostgreSQL
+docker-compose.yml        déploiement du backend et de PostgreSQL (Dockploy)
+docker-compose.override.yml  port 3000 publié en local uniquement
+scripts/                  imports ponctuels des snapshots src/content/
 ```
 
 ## Sources de données envisagées
@@ -73,16 +75,30 @@ Le démarrage complet avec PostgreSQL se fait à partir d'une copie locale de `.
 docker compose up --build
 ```
 
+`docker compose` fusionne automatiquement `docker-compose.override.yml` en l'absence de `-f` explicite :
+le service `server` est alors publié sur `http://localhost:${SERVER_PORT:-3000}`. Ce fichier n'est
+utile qu'en local (voir section suivante pour Dockploy).
+
 Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL. La suite de vérification locale s'exécute avec `npm run check`.
+
+Pour régénérer les snapshots versionnés dans `src/content/` (courbe 2025 et donation goals 2026,
+cf. PLAN.md §1.3 et §1.5) :
+
+```bash
+npm run content:import-history-2025
+npm run content:export-goals-2026
+```
 
 ## Déploiement Dockploy
 
 Créer un projet **Docker Compose** pointant vers ce dépôt et conserver `docker-compose.yml` comme
-fichier de composition. Définir au minimum `POSTGRES_PASSWORD` avec une valeur longue et aléatoire ;
-`POSTGRES_DB`, `POSTGRES_USER`, `SERVER_PORT`, `LOG_LEVEL`, `COLLECTOR_ENABLED` et
-`COLLECT_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`. Exposer le service
-`server` (port interne 3000) derrière le domaine HTTPS choisi. Le volume nommé `postgres-data`
-conserve les échantillons lors des redéploiements.
+fichier de composition (Dockploy l'utilise seul, sans fusionner `docker-compose.override.yml` : aucun
+port n'est donc publié sur l'hôte, le service reste joignable uniquement via le domaine HTTPS choisi
+côté Dockploy). Définir au minimum `POSTGRES_PASSWORD` avec une valeur longue et aléatoire ;
+`POSTGRES_DB`, `POSTGRES_USER`, `LOG_LEVEL`, `COLLECTOR_ENABLED`, `COLLECT_INTERVAL_MS`,
+`GOALS_SYNC_ENABLED` et `GOALS_SYNC_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`
+(`SERVER_PORT` n'a d'effet qu'en local). Le volume nommé `postgres-data` conserve les échantillons
+lors des redéploiements.
 
 Après le premier déploiement, vérifier la santé et l'accumulation pendant au moins une minute :
 
@@ -91,13 +107,15 @@ npm --prefix server run verify:deployment -- https://api.example.org
 ```
 
 La commande échoue si `/healthz` ou `/readyz` ne répond pas correctement, ou si le nombre de points
-retourné par `/v1/collection-status` n'augmente pas. Les autres routes disponibles sont
-`/v1/state`, `/v1/timeseries?edition=2026&resolution=1m` et `/v1/goals` (alimentée à l'étape 4).
+retourné par `/v1/collection-status` n'augmente pas. Les autres routes disponibles sont `/v1/state`,
+`/v1/timeseries?edition=2026&resolution=1m` et `/v1/goals`, alimentée toutes les 5 min par
+synchronisation avec EvenMoreStats/InGDoc (source communautaire non officielle, cf. PLAN.md §1.3).
 
 ## Statut
 
-✅ Étapes 1 à 3 terminées côté dépôt — collecte officielle 2026, stockage PostgreSQL et déploiement
-Docker/Dockploy vérifiable. Le déploiement sur le serveur dédié reste à déclencher avec les accès de
+✅ Étapes 1 à 4 terminées côté dépôt — collecte officielle 2026, stockage PostgreSQL, déploiement
+Docker/Dockploy vérifiable, synchronisation des donation goals et snapshots versionnés (courbe 2025,
+secours goals 2026). Le déploiement sur le serveur dédié reste à déclencher avec les accès de
 l'instance Dockploy ; aucune version mobile installable n'est encore publiée.
 
 ## Avertissement

@@ -27,6 +27,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       COLLECTOR_ENABLED: ${COLLECTOR_ENABLED:-true}
       COLLECT_INTERVAL_MS: ${COLLECT_INTERVAL_MS:-15000}
+      GOALS_SYNC_ENABLED: ${GOALS_SYNC_ENABLED:-true}
+      GOALS_SYNC_INTERVAL_MS: ${GOALS_SYNC_INTERVAL_MS:-300000}
       DATABASE_URL: postgres://${POSTGRES_USER:-zevent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zevent}
     depends_on:
       postgres:

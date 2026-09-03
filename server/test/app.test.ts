@@ -10,6 +10,10 @@ const config: AppConfig = {
   DATABASE_URL: 'postgres://zevent:zevent@localhost:5432/zevent',
   COLLECTOR_ENABLED: false,
   COLLECT_INTERVAL_MS: 15_000,
+  GOALS_SYNC_ENABLED: false,
+  GOALS_SYNC_INTERVAL_MS: 300_000,
+  GOALS_SYNC_REQUEST_DELAY_MS: 150,
+  EVENMORESTATS_EVENT_ID: '019f5bd1-fe07-7d78-a326-a02198a9d50f',
 };
 
 const apps = [] as ReturnType<typeof buildApp>[];
