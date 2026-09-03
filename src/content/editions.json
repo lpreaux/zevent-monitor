@@ -1,0 +1,23 @@
+{
+  "note": "Totaux historiques figés (PLAN.md §1.4). Le ZEvent n'a pas eu lieu en 2023.",
+  "editions": [
+    { "year": 2016, "label": "Projet Avengers", "dates": "4–6 mars 2016", "totalEur": 170770, "streamers": 16 },
+    { "year": 2017, "label": null, "dates": "8–10 sept. 2017", "totalEur": 451851, "streamers": 30 },
+    { "year": 2018, "label": null, "dates": "9–11 nov. 2018", "totalEur": 1094731, "streamers": 37 },
+    { "year": 2019, "label": null, "dates": "20–22 sept. 2019", "totalEur": 3509878, "streamers": 54 },
+    { "year": 2020, "label": null, "dates": "16–18 oct. 2020", "totalEur": 5724377, "streamers": 54 },
+    { "year": 2021, "label": null, "dates": "29–31 oct. 2021", "totalEur": 10064480, "streamers": 51 },
+    { "year": 2022, "label": null, "dates": "9–11 sept. 2022", "totalEur": 10182126, "streamers": 57 },
+    { "year": 2024, "label": null, "dates": "6–8 sept. 2024", "totalEur": 10145881, "streamers": 135 },
+    {
+      "year": 2025,
+      "label": null,
+      "dates": "5–7 sept. 2025",
+      "totalEur": 16179096,
+      "totalSource": "zevent.fr",
+      "altTotalEur": 16636297,
+      "altTotalSource": "Streamlabs Charity",
+      "streamers": 327
+    }
+  ]
+}

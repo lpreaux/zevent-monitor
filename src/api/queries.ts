@@ -3,12 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 
 import { GOALS_REFETCH_INTERVAL_MS, LIVE_REFETCH_INTERVAL_MS } from '@/lib/config';
 import { loadBundledGoals } from './goals-fallback';
-import { getGoals, getState } from './zevent';
-import type { Goal, Streamer } from './types';
+import { getGoals, getState, getTimeseries } from './zevent';
+import type { Goal, Streamer, TimeseriesResolution } from './types';
 
 export const queryKeys = {
   state: ['zevent', 'state'] as const,
   goals: ['zevent', 'goals'] as const,
+  timeseries: ['zevent', 'timeseries'] as const,
 };
 
 /** Polling de l'état courant (cagnotte, viewers, live) toutes les 15 s en avant-plan. */
@@ -26,6 +27,16 @@ export function useGoals() {
     queryKey: queryKeys.goals,
     queryFn: getGoals,
     refetchInterval: GOALS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Courbe de collecte 2026 collectée côté serveur (pour les stats et la superposition 2025/2026). */
+export function useTimeseries2026(resolution: TimeseriesResolution = '10m') {
+  return useQuery({
+    queryKey: [...queryKeys.timeseries, 2026, resolution] as const,
+    queryFn: () => getTimeseries(2026, resolution),
+    refetchInterval: LIVE_REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   });
 }

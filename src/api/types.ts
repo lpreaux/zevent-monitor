@@ -67,3 +67,19 @@ export interface GoalsResponse {
   source: string;
   stale: boolean;
 }
+
+export type TimeseriesResolution = '1m' | '5m' | '10m';
+
+/** Un point agrégé renvoyé par `GET /v1/timeseries` (les `bigint` PostgreSQL arrivent en chaîne). */
+export interface TimeseriesPoint {
+  bucket: string;
+  sampled_at: string;
+  donation_cents: number | string;
+  viewers: number | string;
+}
+
+export interface TimeseriesResponse {
+  edition: number;
+  resolution: TimeseriesResolution;
+  points: TimeseriesPoint[];
+}

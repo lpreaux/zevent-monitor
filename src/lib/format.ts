@@ -25,6 +25,27 @@ export function formatCount(value: number): string {
   return groupThousands(String(Math.round(Math.max(value, 0))));
 }
 
+/** Montant compact pour axes et légendes : `1,2 M€`, `950 k€`, `120 €`. */
+export function formatEurosCompact(value: number): string {
+  if (!Number.isFinite(value)) return `—${NBSP}€`;
+  const v = Math.max(value, 0);
+  if (v >= 1_000_000) {
+    const millions = Math.round((v / 1_000_000) * 10) / 10;
+    return `${String(millions).replace('.', ',')}${NBSP}M€`;
+  }
+  if (v >= 1_000) return `${Math.round(v / 1_000)}${NBSP}k€`;
+  return `${Math.round(v)}${NBSP}€`;
+}
+
+/** Date courte `JJ/MM/AAAA`, sans dépendre d'Intl. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return 'date inconnue';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'date inconnue';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+}
+
 /** Fraîcheur d'une donnée horodatée, ex. « il y a 12 s », « il y a 3 min ». */
 export function formatRelativeTime(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return 'date inconnue';
