@@ -1,0 +1,69 @@
+/** Types des réponses du backend ZEvent Monitor (voir server/src/routes/public.ts). */
+
+export interface Amount {
+  number: number;
+  formatted: string;
+}
+
+export interface Streamer {
+  twitch_id: string;
+  display: string;
+  twitch: string;
+  profileUrl: string;
+  online: boolean;
+  game: string;
+  viewersAmount: Amount;
+  streamlabsId: string | null;
+  donationUrl: string;
+  ref: string;
+  donationAmount: Amount;
+}
+
+export type WebsiteMode = 'offline' | 'concert' | 'online';
+
+export interface ZeventState {
+  live: Streamer[];
+  globalDonationUrl: string;
+  streamlabsCampaignId: string;
+  donationAmount: Amount;
+  viewersCount: Amount;
+  calendar: unknown[];
+  marquee: unknown;
+  widgetVersionId: number;
+  eventSourceDisabled: boolean;
+  websiteMode: WebsiteMode;
+  eventSourceWhitelist: string[];
+}
+
+export interface StateResponse {
+  data: ZeventState;
+  sampledAt: string;
+  source: { fetchedAt: string; stale: boolean };
+}
+
+export interface Goal {
+  id: string | number;
+  amountCents: number;
+  label: string;
+  category: string | null;
+  reached: boolean;
+}
+
+export interface GoalsSnapshotStreamer {
+  twitch: string;
+  displayName?: string;
+  participationId: string;
+  goals: Goal[];
+}
+
+export interface GoalsPayload {
+  eventId: string;
+  streamers: GoalsSnapshotStreamer[];
+}
+
+export interface GoalsResponse {
+  data: GoalsPayload;
+  fetchedAt: string;
+  source: string;
+  stale: boolean;
+}

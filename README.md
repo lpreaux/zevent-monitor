@@ -116,7 +116,14 @@ synchronisation avec EvenMoreStats/InGDoc (source communautaire non officielle, 
 ✅ Étapes 1 à 4 terminées côté dépôt — collecte officielle 2026, stockage PostgreSQL, déploiement
 Docker/Dockploy vérifiable, synchronisation des donation goals et snapshots versionnés (courbe 2025,
 secours goals 2026). Le déploiement sur le serveur dédié reste à déclencher avec les accès de
-l'instance Dockploy ; aucune version mobile installable n'est encore publiée.
+l'instance Dockploy.
+
+✅ Étape 5 (PLAN.md §6) — application mobile : dashboard temps réel (cagnotte animée, viewers,
+websiteMode, bandeau `marquee`), favoris persistés, liste des streamers (recherche + tri) et fiche
+streamer (paliers InGDoc avec progression, deep link Twitch, lien de don). Données consommées via le
+backend (`EXPO_PUBLIC_API_BASE_URL`, défaut `https://zevent-api.lofgplv.fr`), TanStack Query en
+polling 15 s, Zustand + AsyncStorage pour les favoris. Aucune version mobile installable n'est encore
+publiée (EAS Build : étape 11).
 
 ## Avertissement
 
