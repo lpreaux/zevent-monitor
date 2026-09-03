@@ -14,9 +14,10 @@
     "server:dev": "npm --prefix server run dev",
     "server:build": "npm --prefix server run build",
     "server:test": "npm --prefix server test",
-    "check": "npm run typecheck && npm run server:build && npm run server:test",
+    "check": "npm run typecheck && npm run test && npm run server:build && npm run server:test",
     "content:import-history-2025": "node scripts/import-history-2025.mjs",
-    "content:export-goals-2026": "node scripts/export-goals-2026.mjs"
+    "content:export-goals-2026": "node scripts/export-goals-2026.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -25,8 +26,10 @@
     "expo": "~57.0.19",
     "expo-constants": "~57.0.17",
     "expo-dev-client": "~57.0.18",
+    "expo-keep-awake": "~57.0.1",
     "expo-linking": "~57.0.9",
     "expo-router": "~57.0.18",
+    "expo-screen-orientation": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "nativewind": "^4.2.6",
     "react": "19.2.3",
@@ -47,6 +50,7 @@
     "eslint-config-expo": "~57.0.2",
     "prettier-plugin-tailwindcss": "^0.5.11",
     "tailwindcss": "^3.4.17",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.0"
   }
 }

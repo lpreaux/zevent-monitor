@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 
 import { useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
@@ -24,6 +26,7 @@ function readMarquee(marquee: unknown): string | null {
 }
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const { data, isLoading, isError, error, refetch, isRefetching } = useZeventState();
   const favorites = useFavoritesStore((s) => s.favorites);
 
@@ -91,12 +94,23 @@ export default function DashboardScreen() {
           />
         </View>
 
-        <Pressable
-          onPress={() => void Linking.openURL(state.globalDonationUrl)}
-          className="items-center rounded-2xl bg-zevent-500 py-3.5 active:opacity-80"
-        >
-          <Text className="text-base font-bold text-white">Faire un don</Text>
-        </Pressable>
+        <View className="flex-row gap-3">
+          <Pressable
+            onPress={() => void Linking.openURL(state.globalDonationUrl)}
+            className="flex-1 items-center rounded-2xl bg-zevent-500 py-3.5 active:opacity-80"
+          >
+            <Text className="text-base font-bold text-white">Faire un don</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/always-on')}
+            accessibilityRole="button"
+            accessibilityLabel="Activer le mode AlwaysOn"
+            className="flex-row items-center gap-2 rounded-2xl border border-gray-800 bg-gray-900 px-4 py-3.5 active:opacity-70"
+          >
+            <Ionicons name="tv-outline" size={18} color="#c4b5fd" />
+            <Text className="text-base font-bold text-zevent-200">AlwaysOn</Text>
+          </Pressable>
+        </View>
 
         <View className="mt-2 gap-3">
           <Text className="text-base font-bold text-white">Mes favoris</Text>

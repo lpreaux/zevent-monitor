@@ -79,7 +79,7 @@ docker compose up --build
 le service `server` est alors publié sur `http://localhost:${SERVER_PORT:-3000}`. Ce fichier n'est
 utile qu'en local (voir section suivante pour Dockploy).
 
-Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL. La suite de vérification locale s'exécute avec `npm run check`.
+Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL. La suite de vérification locale s'exécute avec `npm run check` (types, tests mobiles `npm test`, build et tests du serveur).
 
 Pour régénérer les snapshots versionnés dans `src/content/` (courbe 2025 et donation goals 2026,
 cf. PLAN.md §1.3 et §1.5) :
@@ -124,6 +124,17 @@ streamer (paliers InGDoc avec progression, deep link Twitch, lien de don). Donn�
 backend (`EXPO_PUBLIC_API_BASE_URL`, défaut `https://zevent-api.lofgplv.fr`), TanStack Query en
 polling 15 s, Zustand + AsyncStorage pour les favoris. Aucune version mobile installable n'est encore
 publiée (EAS Build : étape 11).
+
+✅ Étape 6 (PLAN.md §6) — statistiques : superposition des courbes 2025/2026 alignées sur le temps
+écoulé (euros ou % du total 2025), repères de paliers, projection désactivable, repères 2026 et
+tableau des éditions précédentes avec la provenance des totaux.
+
+✅ Étape 7 (PLAN.md §6) — mode AlwaysOn : écran secondaire `/always-on` (fond AMOLED noir, cagnotte
+géante, progression sur 1 h, viewers, streamers en live, heure et top 5 des favoris), écran maintenu
+allumé, verrouillage d'orientation paysage/portrait relâché en quittant l'écran, gradation logicielle
+en quatre paliers et déplacement lent anti burn-in. La mise en page s'adapte au ratio d'écran
+(une ou deux colonnes) via `src/lib/always-on-layout.ts`, couvert par `npm test` sur sept ratios
+(2:3, 16:9, 9:20 et 4:3, portrait et paysage, avec et sans encoche).
 
 ## Avertissement
 

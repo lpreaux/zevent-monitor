@@ -90,3 +90,22 @@ export function resampleToGrid(
   }
   return out;
 }
+
+/**
+ * Progression sur les `windowMinutes` dernières minutes de la série, ou `null` si
+ * la fenêtre n'est pas entièrement couverte (début d'événement, collecte trouée).
+ * `currentEur` permet d'utiliser la cagnotte live, plus fraîche que le dernier point.
+ */
+export function recentDeltaEur(
+  points: ElapsedPoint[],
+  windowMinutes: number,
+  currentEur?: number,
+): number | null {
+  if (points.length < 2 || windowMinutes <= 0) return null;
+  const last = points[points.length - 1];
+  const from = last.minutes - windowMinutes;
+  if (from < points[0].minutes) return null;
+  const past = interpolateEur(points, from);
+  if (past == null) return null;
+  return (currentEur ?? last.eur) - past;
+}

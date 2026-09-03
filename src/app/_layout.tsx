@@ -24,6 +24,10 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
+            name="always-on"
+            options={{ animation: 'fade', contentStyle: { backgroundColor: '#000000' } }}
+          />
+          <Stack.Screen
             name="streamer/[twitch]"
             options={{
               headerShown: true,
