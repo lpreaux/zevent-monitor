@@ -7,8 +7,8 @@ import type { ZeventState } from '../sources/index.js';
  * Routes de lecture autour des dons Streamlabs archivés (`donations`) et des échantillons
  * `samples` : classements, feed, analyses et courbes par streamer.
  *
- * Le feed Streamlabs ne montre qu'une centaine de dons à chaque relevé : en période de forte
- * affluence des dons passent entre deux relevés. Tout ce qui sort d'ici est donc « d'après les
+ * Le feed Streamlabs ne montre que les 3000 derniers dons à chaque relevé : en période de forte
+ * affluence, des dons peuvent passer entre deux relevés. Tout ce qui sort d'ici est donc « d'après les
  * dons observés » et chaque réponse porte un bloc `observed` pour que l'app l'affiche.
  */
 

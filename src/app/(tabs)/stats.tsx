@@ -200,10 +200,11 @@ function CompareFavoritesSection({ originAt, maxMinutes }: { originAt: number | 
       });
     });
     const yMax = niceCeil(yMaxRaw);
-    const referenceLines = [0.5, 1].map((ratio) => ({
-      value: yMax * ratio,
-      label: formatEurosCompact(yMax * ratio),
-    }));
+    // Sans données, `yMax` retombe à 1 et les deux repères s'afficheraient « 1 € » :
+    // on ne garde qu'un repère par libellé.
+    const referenceLines = [0.5, 1]
+      .map((ratio) => ({ value: yMax * ratio, label: formatEurosCompact(yMax * ratio) }))
+      .filter((line, index, all) => all.findIndex((other) => other.label === line.label) === index);
     const span = Math.max(xMax, Math.min(maxMinutes, xMax + 60));
     const xTicks: { minutes: number; label: string }[] = [];
     const step = span > 48 * 60 ? 12 : span > 12 * 60 ? 6 : 2;

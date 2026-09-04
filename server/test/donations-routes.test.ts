@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../src/app.js';
-import { normalizeCountry, toDonationRecords } from '../src/jobs/donations.js';
+import { commentText, normalizeCountry, toDonationRecords } from '../src/jobs/donations.js';
 import {
   computeMomentum,
   isAnonymousDonor,
@@ -93,13 +93,39 @@ describe('outils des routes de dons', () => {
 
   it('archive le pays normalisé des dons Streamlabs', () => {
     expect(normalizeCountry(' fr ')).toBe('FR');
-    expect(normalizeCountry('France')).toBeNull();
+    expect(normalizeCountry('France')).toBe('FR');
+    expect(normalizeCountry('United Kingdom')).toBe('GB');
+    expect(normalizeCountry('United States')).toBe('US');
+    expect(normalizeCountry('Reunion')).toBe('RE');
+    expect(normalizeCountry('The Netherlands')).toBe('NL');
+    expect(normalizeCountry('Ivory Coast')).toBe('CI');
+    expect(normalizeCountry('Czechia')).toBe('CZ');
+    expect(normalizeCountry('Atlantide')).toBeNull();
     expect(normalizeCountry(null)).toBeNull();
     const [record] = toDonationRecords(
       [{ id: 1, display_name: 'Lucas', converted_amount: '1500', created_at: '2026-09-05T14:00:00Z', country: 'be' }],
       () => null,
     );
     expect(record?.country).toBe('BE');
+  });
+
+  it('lit le commentaire du feed sous forme de chaîne ou d’objet', () => {
+    expect(commentText('  GG  ')).toBe('GG');
+    expect(commentText({ text: 'Bravo !' })).toBe('Bravo !');
+    expect(commentText({ text: '   ' })).toBeNull();
+    expect(commentText(null)).toBeNull();
+    expect(commentText(undefined)).toBeNull();
+  });
+
+  it('déduplique les dons répétés dans un même relevé', () => {
+    const records = toDonationRecords(
+      [
+        { id: 7, display_name: 'A', converted_amount: 100, created_at: '2026-09-05T14:00:00Z' },
+        { id: '7', display_name: 'A', converted_amount: 100, created_at: '2026-09-05T14:00:00Z' },
+      ],
+      () => null,
+    );
+    expect(records).toHaveLength(1);
   });
 });
 

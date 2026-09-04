@@ -25,7 +25,10 @@ import type { ZeventState } from '../src/sources/index.js';
 
 const amount = (value: number) => ({ number: value, formatted: `${value}` });
 
-function streamer(twitch: string, options: { online?: boolean; donation?: number } = {}) {
+function streamer(
+  twitch: string,
+  options: { online?: boolean; donation?: number; streamlabsId?: string | null } = {},
+) {
   return {
     twitch_id: `id-${twitch}`,
     display: twitch.toUpperCase(),
@@ -34,7 +37,7 @@ function streamer(twitch: string, options: { online?: boolean; donation?: number
     online: options.online ?? false,
     game: 'Just Chatting',
     viewersAmount: amount(10),
-    streamlabsId: null,
+    streamlabsId: options.streamlabsId ?? null,
     donationUrl: `https://zevent.fr/don/${twitch}`,
     ref: 'ref',
     donationAmount: amount(options.donation ?? 0),
@@ -344,32 +347,41 @@ describe('gros dons', () => {
 });
 
 describe('feed Streamlabs', () => {
-  const resolver = buildLoginResolver(state([streamer('aducine')]));
+  const resolver = buildLoginResolver(
+    state([streamer('aducine', { streamlabsId: '983355095670461514' }), streamer('ponce')]),
+  );
 
-  it('associe le nom affiché au login Twitch connu', () => {
+  it('associe le membre Streamlabs au login Twitch connu', () => {
+    const donation = (id: number) => ({
+      id,
+      display_name: 'Donateur',
+      converted_amount: 5_000,
+      comment: { id: 'c', text: 'GG' },
+      created_at: '2026-09-05T14:00:00.000Z',
+      // Pseudo Twitch du donateur, pas le streamer soutenu : ne doit pas servir à l'association.
+      z_event_name: { twitch_display_name: 'PONCE' },
+    });
     const records = toDonationRecords(
       [
-        {
-          id: 1,
-          display_name: 'Donateur',
-          converted_amount: 5_000,
-          comment: null,
-          created_at: '2026-09-05T14:00:00.000Z',
-          z_event_name: { twitch_display_name: 'ADUCINE' },
-        },
-        {
-          id: 2,
-          display_name: 'Donateur',
-          converted_amount: 5_000,
-          created_at: '2026-09-05T14:01:00.000Z',
-          z_event_name: { twitch_display_name: 'Inconnu' },
-        },
+        // Par identifiant Streamlabs, même si le slug diffère du login.
+        { id: 'w1', donation: donation(1), member: { id: '983355095670461514', user: { display_name: 'Autre', slug: 'autre' } } },
+        // Par nom affiché, à défaut d'identifiant connu.
+        { id: 'w2', donation: donation(2), member: { id: '1', user: { display_name: 'PONCE', slug: 'p0nce' } } },
+        // Membre inconnu de l'API ZEvent : on garde son slug.
+        { id: 'w3', donation: donation(3), member: { id: '2', user: { display_name: 'Inconnu', slug: 'Inconnu' } } },
+        // Don à la cagnotte globale.
+        { id: 'w4', donation: donation(4), member: null },
+        // Ancien format à plat.
+        { ...donation(5), comment: 'À plat' },
       ],
       resolver,
     );
 
-    expect(records[0]).toMatchObject({ id: '1', twitch: 'aducine', amountCents: 5_000 });
-    expect(records[1]?.twitch).toBeNull();
+    expect(records[0]).toMatchObject({ id: '1', twitch: 'aducine', amountCents: 5_000, comment: 'GG' });
+    expect(records[1]?.twitch).toBe('ponce');
+    expect(records[2]?.twitch).toBe('inconnu');
+    expect(records[3]?.twitch).toBeNull();
+    expect(records[4]).toMatchObject({ id: '5', twitch: null, comment: 'À plat' });
   });
 
   it('déduplique par identifiant de don via la clé d’événement', () => {

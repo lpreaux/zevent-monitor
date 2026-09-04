@@ -1,11 +1,30 @@
-{
-  "data": [{
-    "id": "donation-1",
-    "display_name": "Anonymous",
-    "converted_amount": 5000,
-    "comment": "Bravo !",
-    "country": "FR",
-    "created_at": "2026-09-04T18:01:00Z",
-    "z_event_name": { "twitch_display_name": "Aducine" }
-  }]
-}
+[
+  {
+    "id": "455845029494260120",
+    "donation": {
+      "id": "455768204818760248",
+      "display_name": "Anonymous",
+      "amount_usd": 5810,
+      "converted_currency": "EUR",
+      "converted_amount": 5000,
+      "original_currency": "EUR",
+      "original_amount": 5000,
+      "presentment_amount": null,
+      "presentment_currency": null,
+      "team_currency": "EUR",
+      "team_amount": 5000,
+      "member_currency": "EUR",
+      "member_amount": 5000,
+      "country": "France",
+      "created_at": "2026-09-04T18:01:00+00:00",
+      "team_member_id": "983355095670461514",
+      "comment": { "id": "455845021506974748", "text": "Bravo !" },
+      "extra_information": null,
+      "z_event_name": { "id": "1", "twitch_display_name": "pseudo_du_donateur", "donation_id": 455768204818760248 }
+    },
+    "member": {
+      "id": "983355095670461514",
+      "user": { "id": "257564346450841600", "display_name": "Aducine", "slug": "aducine", "is_live": true, "currency": "EUR" }
+    }
+  }
+]
