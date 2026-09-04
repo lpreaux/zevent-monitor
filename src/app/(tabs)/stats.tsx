@@ -27,8 +27,10 @@ import { formatCount, formatDate, formatEuros, formatEurosCompact } from '@/lib/
 import { loadHistory2025 } from '@/lib/history-2025';
 import { useFavoritesStore } from '@/store/favorites';
 import {
+  COLLECTION_START_THRESHOLD_EUR,
   interpolateEur,
   lastElapsedMinutes,
+  shiftElapsed,
   toElapsedSeries,
   type RawPoint,
 } from '@/lib/timeseries';
@@ -51,6 +53,28 @@ const RATE_OPTIONS: { key: RateBucket; label: string }[] = [
   { key: '60', label: '1 h' },
   { key: '180', label: '3 h' },
 ];
+
+/**
+ * Recalage des deux éditions. Sans lui, aligner chaque série sur son propre T+0
+ * comparerait le jeudi soir 2026 au vendredi soir 2025 : la cagnotte 2026 a ouvert
+ * le jeudi à 20 h, celle de 2025 le vendredi à 18 h seulement.
+ */
+const OPENING_GAP_MINUTES = 22 * 60;
+/**
+ * T+0 d'une série est son premier point au-dessus de `COLLECTION_START_THRESHOLD_EUR`,
+ * pas l'horaire d'ouverture : les premiers dons 2026 arrivent ~30 min avant 20 h,
+ * alors que la série 2025 démarre pile à 18 h. On compense pour que les deux
+ * ouvertures tombent bien au même endroit sur l'axe.
+ */
+const PRE_OPENING_2026_MINUTES = 30;
+const OFFSET_2025_MINUTES = OPENING_GAP_MINUTES + PRE_OPENING_2026_MINUTES;
+
+/** `T+22 h 30` — l'unité d'heure reste devant les minutes, comme « 20 h 30 ». */
+const OFFSET_2025_LABEL = (() => {
+  const hours = Math.floor(OFFSET_2025_MINUTES / 60);
+  const minutes = OFFSET_2025_MINUTES % 60;
+  return minutes === 0 ? `T+${hours} h` : `T+${hours} h ${String(minutes).padStart(2, '0')}`;
+})();
 
 type DisplayMode = 'eur' | 'pct';
 
@@ -289,6 +313,7 @@ export default function StatsScreen() {
 
     const elapsed2025 = toElapsedSeries(history.points);
     const elapsed2026 = toElapsedSeries(raw2026);
+    const points2025 = shiftElapsed(elapsed2025.points, OFFSET_2025_MINUTES);
 
     const liveState = stateQuery.data?.data;
     const current2026Eur =
@@ -296,18 +321,23 @@ export default function StatsScreen() {
     const current2026Minutes = lastElapsedMinutes(elapsed2026.points);
     const has2026Curve = elapsed2026.points.length >= 2;
 
+    // Avant ce décalage, 2025 n'avait pas encore ouvert sa cagnotte : la comparaison
+    // vaut 0 € plutôt que « indisponible ».
     const eur2025SameElapsed =
       has2026Curve && current2026Minutes > 0
-        ? interpolateEur(elapsed2025.points, current2026Minutes)
+        ? current2026Minutes < OFFSET_2025_MINUTES
+          ? 0
+          : interpolateEur(points2025, current2026Minutes)
         : null;
 
+    // Une base 2025 quasi nulle (tout début de collecte) ferait exploser le ratio.
     const projected2026Eur =
-      eur2025SameElapsed && eur2025SameElapsed > 0
+      eur2025SameElapsed && eur2025SameElapsed >= COLLECTION_START_THRESHOLD_EUR
         ? current2026Eur * (history.finalEur / eur2025SameElapsed)
         : null;
 
     const maxMinutes = Math.max(
-      lastElapsedMinutes(elapsed2025.points),
+      lastElapsedMinutes(points2025),
       lastElapsedMinutes(elapsed2026.points),
       60,
     );
@@ -316,7 +346,7 @@ export default function StatsScreen() {
 
     return {
       originAt2026: elapsed2026.originAt,
-      elapsed2025,
+      points2025,
       elapsed2026,
       has2026Curve,
       current2026Eur,
@@ -340,7 +370,7 @@ export default function StatsScreen() {
         id: '2025',
         label: '2025',
         color: COLOR_2025,
-        points: model.elapsed2025.points.map((p) => ({ minutes: p.minutes, eur: toUnit(p.eur) })),
+        points: model.points2025.map((p) => ({ minutes: p.minutes, eur: toUnit(p.eur) })),
       },
     ];
     if (model.has2026Curve) {
@@ -441,7 +471,7 @@ export default function StatsScreen() {
         value={formatEuros(history.finalEur)}
       />
       <LegendRow
-        label="2025 au même temps écoulé"
+        label="2025 au même moment de l’édition"
         value={model.eur2025SameElapsed != null ? formatEuros(model.eur2025SameElapsed) : '—'}
       />
       {delta2026 != null ? (
@@ -492,7 +522,9 @@ export default function StatsScreen() {
 
         <Section title="Comparaison 2025 / 2026">
           <Text className="text-xs text-gray-500">
-            Les deux courbes sont alignées sur le temps écoulé depuis l’ouverture de la collecte.
+            Les deux courbes sont alignées sur le déroulé de l’événement. La cagnotte 2026 ayant
+            ouvert le jeudi à 20 h, T+0 correspond à cette ouverture ; celle de 2025 n’ayant ouvert
+            que le vendredi à 18 h, sa courbe démarre à {OFFSET_2025_LABEL}.
           </Text>
           <Segmented options={MODE_OPTIONS} value={mode} onChange={setMode} />
           <Segmented options={PROJECTION_OPTIONS} value={projection} onChange={setProjection} />
