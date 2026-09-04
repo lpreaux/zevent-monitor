@@ -13,7 +13,8 @@ export type DetectedEventKind =
   | 'favorite_live'
   | 'goal_reached'
   | 'goal_near'
-  | 'big_donation';
+  | 'big_donation'
+  | 'record_donation';
 
 type GoalPayload = {
   twitch: string;
@@ -35,6 +36,14 @@ export type DetectedEventPayload = {
     donor: string;
     amountCents: number;
     comment: string | null;
+    twitch: string | null;
+  };
+  record_donation: {
+    donationId: string;
+    donor: string;
+    amountCents: number;
+    /** Plus gros don observé avant celui-ci. */
+    previousCents: number;
     twitch: string | null;
   };
 };
@@ -188,6 +197,8 @@ export type DonationRecord = {
   donor: string;
   amountCents: number;
   comment: string | null;
+  /** Code pays fourni par Streamlabs, ou `null`. */
+  country: string | null;
   twitch: string | null;
   createdAt: Date;
 };
@@ -205,6 +216,39 @@ export function donationEvent(donation: DonationRecord): DetectedEvent {
       twitch: donation.twitch,
     },
   };
+}
+
+/**
+ * « Nouveau record » : parmi des dons inédits, ceux qui dépassent successivement le plus
+ * gros don observé jusque-là (`previousMaxCents`), à partir d'un plancher. Le feed Streamlabs
+ * ne montrant qu'une fenêtre récente, il s'agit du record *observé*, pas d'une vérité absolue.
+ */
+export function detectRecordDonations(
+  donations: DonationRecord[],
+  previousMaxCents: number | null,
+  minCents: number,
+): DetectedEvent[] {
+  if (previousMaxCents === null) return [];
+  let best = Math.max(previousMaxCents, minCents - 1);
+  const events: DetectedEvent[] = [];
+  const ordered = [...donations].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  for (const donation of ordered) {
+    if (donation.amountCents <= best) continue;
+    events.push({
+      kind: 'record_donation',
+      dedupeKey: `record_donation:${donation.id}`,
+      occurredAt: donation.createdAt,
+      payload: {
+        donationId: donation.id,
+        donor: donation.donor,
+        amountCents: donation.amountCents,
+        previousCents: best,
+        twitch: donation.twitch,
+      },
+    });
+    best = donation.amountCents;
+  }
+  return events;
 }
 
 export type DeviceContext = {
@@ -245,6 +289,8 @@ export function shouldDeliver(event: DetectedEvent, device: DeviceContext, now: 
       }
       return event.payload.amountCents >= donationThresholdCents(twitch, preferences);
     }
+    case 'record_donation':
+      return preferences.recordDonations.enabled;
     default:
       return false;
   }
@@ -317,6 +363,14 @@ export function renderNotification(event: DetectedEvent): {
           kind: event.kind,
           url: event.payload.twitch ? `/streamer/${event.payload.twitch}` : '/',
         },
+      };
+    }
+    case 'record_donation': {
+      const target = event.payload.twitch ? ` pour ${event.payload.twitch}` : '';
+      return {
+        title: `Nouveau record : ${euros.format(event.payload.amountCents / 100)}`,
+        body: `${event.payload.donor}${target} — précédent record observé : ${euros.format(event.payload.previousCents / 100)}`,
+        data: { kind: event.kind, url: '/(tabs)/donations' },
       };
     }
     default:

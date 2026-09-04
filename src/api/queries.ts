@@ -2,10 +2,24 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  DONATIONS_REFETCH_INTERVAL_MS,
   GOALS_REFETCH_INTERVAL_MS,
   LIVE_REFETCH_INTERVAL_MS,
   PLANNING_REFETCH_INTERVAL_MS,
+  SERIES_REFETCH_INTERVAL_MS,
 } from '@/lib/config';
+import {
+  getCollectionRate,
+  getDonationStats,
+  getLargestDonations,
+  getMomentum,
+  getRecentDonations,
+  getStreamerDonations,
+  getStreamerSeries,
+  getTopDonors,
+  type DonationWindow,
+  type RecentDonationsParams,
+} from './donations';
 import { loadBundledGoals } from './goals-fallback';
 import { loadBundledPlanning } from './planning-fallback';
 import { getGoals, getPlanning, getState, getTimeseries } from './zevent';
@@ -16,6 +30,8 @@ export const queryKeys = {
   goals: ['zevent', 'goals'] as const,
   planning: ['zevent', 'planning'] as const,
   timeseries: ['zevent', 'timeseries'] as const,
+  donations: ['zevent', 'donations'] as const,
+  streamers: ['zevent', 'streamers'] as const,
 };
 
 /** Polling de l'état courant (cagnotte, viewers, live) toutes les 15 s en avant-plan. */
@@ -149,13 +165,97 @@ function sortGoals(goals: Goal[]): Goal[] {
   return [...goals].sort((a, b) => a.amountCents - b.amountCents);
 }
 
-export type StreamerSort = 'donation' | 'viewers' | 'live';
+/** Feed des derniers dons observés (rafraîchi au rythme du direct). */
+export function useRecentDonations(params: RecentDonationsParams = {}) {
+  const twitch = params.twitch ? [...params.twitch].sort().join(',') : '';
+  return useQuery({
+    queryKey: [...queryKeys.donations, 'recent', params.limit ?? 50, twitch, params.minCents ?? 0, params.withComment ?? false] as const,
+    queryFn: () => getRecentDonations(params),
+    refetchInterval: LIVE_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useTopDonors(window: DonationWindow, limit = 20) {
+  return useQuery({
+    queryKey: [...queryKeys.donations, 'top', window, limit] as const,
+    queryFn: () => getTopDonors(window, limit),
+    refetchInterval: DONATIONS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useLargestDonations(window: DonationWindow, limit = 10) {
+  return useQuery({
+    queryKey: [...queryKeys.donations, 'largest', window, limit] as const,
+    queryFn: () => getLargestDonations(window, limit),
+    refetchInterval: DONATIONS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useDonationStats(window: DonationWindow) {
+  return useQuery({
+    queryKey: [...queryKeys.donations, 'stats', window] as const,
+    queryFn: () => getDonationStats(window),
+    refetchInterval: DONATIONS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Dons reçus par un streamer (stats, plus gros dons, derniers messages). */
+export function useStreamerDonations(twitch: string | undefined) {
+  const login = (twitch ?? '').toLowerCase();
+  return useQuery({
+    queryKey: [...queryKeys.streamers, login, 'donations'] as const,
+    queryFn: () => getStreamerDonations(login),
+    enabled: login.length > 0,
+    refetchInterval: DONATIONS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Streamers ayant le plus progressé sur les dernières minutes. */
+export function useMomentum(windowMinutes: number, limit = 10) {
+  return useQuery({
+    queryKey: [...queryKeys.streamers, 'momentum', windowMinutes, limit] as const,
+    queryFn: () => getMomentum(windowMinutes, limit),
+    refetchInterval: LIVE_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Rythme de collecte (euros levés par tranche), calculé depuis les échantillons du backend. */
+export function useCollectionRate(bucketMinutes: number) {
+  return useQuery({
+    queryKey: [...queryKeys.timeseries, 'rate', bucketMinutes] as const,
+    queryFn: () => getCollectionRate(bucketMinutes),
+    refetchInterval: SERIES_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Courbes de cagnotte de quelques streamers (fiche, comparaison de favoris). */
+export function useStreamerSeries(logins: string[], resolution: '1m' | '5m' | '10m' = '10m') {
+  const normalized = [...new Set(logins.map((l) => l.toLowerCase()))].sort();
+  return useQuery({
+    queryKey: [...queryKeys.timeseries, 'streamers', resolution, normalized.join(',')] as const,
+    queryFn: () => getStreamerSeries(normalized, resolution),
+    enabled: normalized.length > 0,
+    refetchInterval: SERIES_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export type StreamerSort = 'donation' | 'viewers' | 'live' | 'momentum';
 
 /** Tri + filtre de la liste des streamers pour l'onglet dédié. */
 export function sortStreamers(
   streamers: Streamer[],
   sort: StreamerSort,
   search: string,
+  /** Progression récente par login (centimes), pour le tri « momentum ». */
+  momentum?: ReadonlyMap<string, number>,
 ): Streamer[] {
   const needle = search.trim().toLowerCase();
   const filtered = needle
@@ -168,6 +268,13 @@ export function sortStreamers(
 
   const sorted = [...filtered];
   switch (sort) {
+    case 'momentum': {
+      const delta = (s: Streamer) => momentum?.get(s.twitch.toLowerCase()) ?? 0;
+      sorted.sort(
+        (a, b) => delta(b) - delta(a) || b.donationAmount.number - a.donationAmount.number,
+      );
+      break;
+    }
     case 'viewers':
       sorted.sort((a, b) => b.viewersAmount.number - a.viewersAmount.number);
       break;

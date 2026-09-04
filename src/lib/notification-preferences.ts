@@ -20,6 +20,8 @@ export interface NotificationPreferences {
     favoritesOnly: boolean;
     perStreamerMinCents: Record<string, number>;
   };
+  /** Un don dépasse le plus gros don observé jusque-là (plancher fixé côté serveur). */
+  recordDonations: { enabled: boolean };
   /** Notification envoyée quand un récapitulatif programmé devient disponible. */
   recaps: { enabled: boolean; respectQuietHours: boolean };
 }
@@ -35,6 +37,7 @@ export const defaultNotificationPreferences = (): NotificationPreferences => ({
   favoriteLive: { enabled: true },
   favoriteGoals: { enabled: true, nearEnabled: false },
   bigDonations: { enabled: true, minCents: 50_000, favoritesOnly: false, perStreamerMinCents: {} },
+  recordDonations: { enabled: true },
   recaps: { enabled: true, respectQuietHours: true },
 });
 
@@ -53,6 +56,7 @@ export function mergePreferences(
     favoriteLive: { ...defaults.favoriteLive, ...value.favoriteLive },
     favoriteGoals: { ...defaults.favoriteGoals, ...value.favoriteGoals },
     bigDonations: { ...defaults.bigDonations, ...value.bigDonations },
+    recordDonations: { ...defaults.recordDonations, ...value.recordDonations },
     recaps: { ...defaults.recaps, ...value.recaps },
   };
 }

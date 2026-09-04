@@ -264,6 +264,19 @@ Tables minimales : `samples`, `donations`, `detected_events`, `goals_snapshots`,
 | `PUT /v1/preferences` | favoris, seuils, catégories et horaires de récaps |
 | `GET /v1/recaps` / `GET /v1/recaps/:id` | historique et détail |
 | `POST /v1/recaps/generate` | récap à la volée sur les X dernières heures |
+| `GET /v1/donations/recent?limit&twitch&minCents&withComment` | feed des derniers dons observés |
+| `GET /v1/donations/top?window=1h|6h|24h|all` | top donateurs nominatifs (anonymes exclus) |
+| `GET /v1/donations/largest?window&twitch` | plus gros dons observés |
+| `GET /v1/donations/stats?window&twitch` | médiane, moyenne, distribution par tranche, pays |
+| `GET /v1/streamers/:twitch/donations` | synthèse, plus gros dons et derniers dons d'un streamer |
+| `GET /v1/streamers/momentum?window=10` | streamers ayant le plus progressé sur N minutes, rangs |
+| `GET /v1/timeseries/rate?bucket=60` | euros levés par tranche, depuis `samples` |
+| `GET /v1/timeseries/streamers?twitch=a,b,c` | courbes de cagnotte par streamer (jusqu'à 5) |
+
+Les routes de dons portent un bloc `observed` (nombre de dons vus, première/dernière date) : le feed
+Streamlabs ne montrant qu'une centaine de dons par relevé, ces classements sont établis « d'après
+les dons observés » et l'app l'affiche systématiquement. Les réponses sont mises en cache mémoire
+15 à 60 s côté serveur.
 
 Les mutations sont idempotentes. Aucun commentaire de don ni token push ne doit apparaître dans les
 logs. Le service n'envoie une notification qu'après insertion réussie d'une clé de déduplication.
@@ -284,7 +297,9 @@ logs. Le service n'envoie une notification qu'après insertion réussie d'une cl
 - EAS Build configuré (`preview` APK + `production` AAB), test d'installation sur le téléphone.
 
 ### P1 — pendant le week-end
-- Feed des derniers dons (Streamlabs `donations`) avec messages, filtrable par streamer favori.
+- Feed des derniers dons (Streamlabs `donations`) avec messages, filtrable par streamer favori. ✅
+  Onglet **Dons** : feed (filtres favoris / ≥ 100 € / messages), classements (top donateurs par
+  fenêtre, plus gros dons) et analyse (médiane, moyenne, distribution par tranche, pays).
 - Stats : total par édition, courbe 2026 collectée côté serveur et **superposition 2025/2026** alignée
   sur le temps écoulé ; repères 1 M€/5 M€/10 M€, totaux finaux, nombre de streamers, €/streamer et
   viewers max. Toute projection est marquée comme estimation et peut être désactivée.
@@ -315,9 +330,15 @@ logs. Le service n'envoie une notification qu'après insertion réussie d'une cl
 - Widget écran d'accueil Android (cagnotte globale) via `react-native-android-widget`.
 
 ### P2 — idées bonus
-- Top donateurs / top streamers du moment (delta sur 10 min) pour repérer les moments forts.
+- Top donateurs / top streamers du moment (delta sur 10 min) pour repérer les moments forts. ✅
+  (« Top du moment » sur le dashboard avec évolution de rang, tri « En forme » dans la liste.)
+- Visualisations : rythme de collecte €/tranche (Stats), courbe de cagnotte et dons reçus sur la
+  fiche streamer, comparaison de jusqu'à 3 favoris sur le même axe (Stats). ✅
+- Notification « nouveau record » quand un don dépasse le plus gros don observé
+  (`RECORD_DONATION_MIN_CENTS`, 1 000 € par défaut ; catégorie `recordDonations`). ✅
 - Page associations (Fondation de France + liste historique, liens).
-- Partage d'une carte image « cagnotte à l'instant T ».
+- Partage d'une carte image « cagnotte à l'instant T ». ✅ (`/share-card`, capture via
+  `react-native-view-shot` + `expo-sharing`, repli texte ; nécessite une nouvelle build native.)
 - Thèmes : sombre AMOLED, ZEvent (violet), clair.
 - Synchronisation multi-appareils via compte optionnel (hors V1).
 

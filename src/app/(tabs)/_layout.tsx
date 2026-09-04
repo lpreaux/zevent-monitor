@@ -56,6 +56,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="donations"
+        options={{
+          title: 'Dons',
+          tabBarIcon: (props) => <TabBarIcon name="heart" {...props} />,
+        }}
+      />
+      <Tabs.Screen
         name="planning"
         options={{
           title: 'Planning',

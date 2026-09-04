@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { sortStreamers, useZeventState, type StreamerSort } from '@/api/queries';
+import { sortStreamers, useMomentum, useZeventState, type StreamerSort } from '@/api/queries';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
 import { SourceFreshness } from '@/components/source-freshness';
 import { StreamerRow } from '@/components/streamer-row';
@@ -11,7 +11,11 @@ const SORTS: { key: StreamerSort; label: string }[] = [
   { key: 'donation', label: 'Cagnotte' },
   { key: 'viewers', label: 'Viewers' },
   { key: 'live', label: 'En live' },
+  { key: 'momentum', label: 'En forme' },
 ];
+
+/** Fenêtre du tri « en forme » : progression de la cagnotte sur la dernière heure. */
+const MOMENTUM_WINDOW_MINUTES = 60;
 
 export default function StreamersScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useZeventState();
@@ -20,9 +24,15 @@ export default function StreamersScreen() {
 
   const onRefresh = useCallback(() => void refetch(), [refetch]);
 
+  const momentumQuery = useMomentum(MOMENTUM_WINDOW_MINUTES, 50);
+  const momentum = useMemo(
+    () => new Map((momentumQuery.data?.streamers ?? []).map((item) => [item.twitch, item.deltaCents])),
+    [momentumQuery.data],
+  );
+
   const streamers = useMemo(
-    () => (data ? sortStreamers(data.data.live, sort, search) : []),
-    [data, sort, search],
+    () => (data ? sortStreamers(data.data.live, sort, search, momentum) : []),
+    [data, sort, search, momentum],
   );
 
   if (isLoading && !data) return <LoadingState label="Chargement des streamers…" />;
@@ -83,6 +93,11 @@ export default function StreamersScreen() {
             </View>
             {data ? (
               <SourceFreshness fetchedAt={data.source.fetchedAt} stale={data.source.stale} />
+            ) : null}
+            {sort === 'momentum' ? (
+              <Text className="text-xs text-gray-500">
+                Classés par progression de la cagnotte sur la dernière heure (50 premiers), puis par cagnotte.
+              </Text>
             ) : null}
           </View>
         }
