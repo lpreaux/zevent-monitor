@@ -49,6 +49,8 @@ export const notificationPreferencesSchema = z.object({
       perStreamerMinCents: z.record(z.string(), z.number().int().min(100)).prefault({}),
     })
     .prefault({}),
+  /** Un don dépasse le plus gros don observé jusque-là (au-delà d'un plancher côté serveur). */
+  recordDonations: z.object({ enabled: z.boolean().default(true) }).prefault({}),
   /**
    * Récapitulatifs programmés. Les horaires eux-mêmes vivent dans `recap_schedules` :
    * ici on ne règle que la notification envoyée quand un récap devient disponible.

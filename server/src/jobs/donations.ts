@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { AppConfig } from '../config.js';
 import type { NotificationEngine } from '../notifications/engine.js';
-import type { DonationRecord } from '../notifications/events.js';
+import { detectRecordDonations, type DonationRecord } from '../notifications/events.js';
 import {
   SourceClient,
   StreamlabsSource,
@@ -28,6 +28,12 @@ export function buildLoginResolver(state: ZeventState | undefined): (name: strin
   return (name) => (name ? (byName.get(name.trim().toLowerCase()) ?? null) : null);
 }
 
+/** Code pays Streamlabs (ISO 3166-1 alpha-2 en pratique), normalisé en majuscules. */
+export function normalizeCountry(value: string | null | undefined): string | null {
+  const trimmed = (value ?? '').trim().toUpperCase();
+  return /^[A-Z]{2,3}$/.test(trimmed) ? trimmed : null;
+}
+
 export function toDonationRecords(
   data: StreamlabsDonations,
   resolveLogin: (name: string | null | undefined) => string | null,
@@ -42,6 +48,7 @@ export function toDonationRecords(
       donor: donation.display_name,
       amountCents,
       comment: donation.comment ?? null,
+      country: normalizeCountry(donation.country),
       twitch: resolveLogin(donation.z_event_name?.twitch_display_name),
       createdAt,
     });
@@ -93,13 +100,20 @@ export class DonationsCollector {
       );
       const records = toDonationRecords(result.data, buildLoginResolver(latest.rows[0]?.state));
 
+      // Plus gros don observé avant ce passage, pour détecter un nouveau record.
+      const maxResult = await this.app.pg.query<{ max: string | null }>(
+        'SELECT max(amount_cents)::text AS max FROM donations',
+      );
+      const maxValue = maxResult.rows[0]?.max ?? null;
+      const previousMaxCents = maxValue === null ? null : Number(maxValue);
+
       const fresh: DonationRecord[] = [];
       for (const record of records) {
         const inserted = await this.app.pg.query(
           `INSERT INTO donations (id, amount_cents, donor, comment, country, twitch_display_name, created_at)
-           VALUES ($1, $2, $3, $4, NULL, $5, $6)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
            ON CONFLICT (id) DO NOTHING`,
-          [record.id, record.amountCents, record.donor, record.comment, record.twitch, record.createdAt],
+          [record.id, record.amountCents, record.donor, record.comment, record.country, record.twitch, record.createdAt],
         );
         if (inserted.rowCount) fresh.push(record);
       }
@@ -113,6 +127,9 @@ export class DonationsCollector {
       const cutoff = Date.now() - this.config.DONATIONS_MAX_AGE_MS;
       const recent = fresh.filter((record) => record.createdAt.getTime() >= cutoff);
       await this.engine?.onDonations(recent);
+      await this.engine?.publish(
+        detectRecordDonations(recent, previousMaxCents, this.config.RECORD_DONATION_MIN_CENTS),
+      );
     } catch (error) {
       this.app.log.error({ err: error }, 'Streamlabs donations collection failed');
     } finally {

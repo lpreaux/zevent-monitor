@@ -22,3 +22,9 @@ export const GOALS_REFETCH_INTERVAL_MS = 120_000;
 
 /** Le planning ne change qu'au gré des annonces du staff : une resynchro toutes les 5 min suffit. */
 export const PLANNING_REFETCH_INTERVAL_MS = 300_000;
+
+/** Classements et analyses de dons : le backend les met en cache 20 s, inutile d'aller plus vite. */
+export const DONATIONS_REFETCH_INTERVAL_MS = 30_000;
+
+/** Courbes agrégées (rythme horaire, séries par streamer) : mises en cache 60 s côté backend. */
+export const SERIES_REFETCH_INTERVAL_MS = 60_000;

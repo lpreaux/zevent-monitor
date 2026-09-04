@@ -258,6 +258,15 @@ export default function NotificationSettingsScreen() {
             }
           />
           <SwitchRow
+            label="Nouveau record de don"
+            hint="Quand un don dépasse le plus gros don observé depuis le début (à partir de 1 000 €)."
+            value={preferences.recordDonations.enabled}
+            disabled={alertsOff}
+            onValueChange={(enabled) =>
+              update((current) => ({ ...current, recordDonations: { enabled } }))
+            }
+          />
+          <SwitchRow
             label="Uniquement pour mes favoris"
             value={preferences.bigDonations.favoritesOnly}
             disabled={alertsOff || !preferences.bigDonations.enabled}

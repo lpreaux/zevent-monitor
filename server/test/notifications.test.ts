@@ -4,6 +4,7 @@ import { toDonationRecords, buildLoginResolver } from '../src/jobs/donations.js'
 import {
   detectGoalEvents,
   detectLiveStarts,
+  detectRecordDonations,
   detectWebsiteModeChange,
   donationEvent,
   milestoneEvent,
@@ -308,6 +309,7 @@ describe('gros dons', () => {
       donor: 'Anonyme',
       amountCents: overrides.amountCents ?? 60_000,
       comment: 'Courage !',
+      country: 'FR',
       twitch: overrides.twitch === undefined ? 'aducine' : overrides.twitch,
       createdAt: now,
     });
@@ -398,5 +400,49 @@ describe('Expo push', () => {
     expect(isUnrecoverableTokenError('DeviceNotRegistered')).toBe(true);
     expect(isUnrecoverableTokenError('MessageRateExceeded')).toBe(false);
     expect(isUnrecoverableTokenError(undefined)).toBe(false);
+  });
+});
+
+describe('nouveau record de don', () => {
+  const donation = (id: string, amountCents: number, minute: number) => ({
+    id,
+    donor: `donor-${id}`,
+    amountCents,
+    comment: null,
+    country: 'FR',
+    twitch: 'aducine',
+    createdAt: new Date(`2026-09-05T14:${String(minute).padStart(2, '0')}:00Z`),
+  });
+
+  it('ne signale que les dons dépassant successivement le record observé', () => {
+    const events = detectRecordDonations(
+      [donation('c', 300_000, 3), donation('a', 150_000, 1), donation('b', 120_000, 2)],
+      100_000,
+      50_000,
+    );
+
+    expect(events.map((e) => e.payload)).toEqual([
+      expect.objectContaining({ donationId: 'a', amountCents: 150_000, previousCents: 100_000 }),
+      expect.objectContaining({ donationId: 'c', amountCents: 300_000, previousCents: 150_000 }),
+    ]);
+    expect(events[0]?.dedupeKey).toBe('record_donation:a');
+  });
+
+  it('respecte le plancher et ignore l’absence de record précédent', () => {
+    expect(detectRecordDonations([donation('a', 5_000, 1)], 1_000, 100_000)).toEqual([]);
+    expect(detectRecordDonations([donation('a', 500_000, 1)], null, 100_000)).toEqual([]);
+    expect(detectRecordDonations([donation('a', 150_000, 1)], 0, 100_000)).toHaveLength(1);
+  });
+
+  it('se règle par catégorie et pointe vers l’onglet Dons', () => {
+    const [event] = detectRecordDonations([donation('a', 150_000, 1)], 100_000, 50_000);
+    expect(shouldDeliver(event!, device(), now)).toBe(true);
+    expect(
+      shouldDeliver(event!, device({ preferences: parsePreferences({ recordDonations: { enabled: false } }) }), now),
+    ).toBe(false);
+
+    const rendered = renderNotification(event!);
+    expect(rendered.title).toContain('Nouveau record');
+    expect(rendered.data.url).toBe('/(tabs)/donations');
   });
 });

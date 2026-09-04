@@ -1,16 +1,31 @@
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useTimeseries2026, useZeventState } from '@/api/queries';
+import {
+  useCollectionRate,
+  useStreamerSeries,
+  useTimeseries2026,
+  useZeventState,
+} from '@/api/queries';
+import { BarChart } from '@/components/bar-chart';
 import { EditionsTable, type EditionRow } from '@/components/editions-table';
 import { Expandable } from '@/components/expandable';
 import { OverlayChart, type ChartSeries } from '@/components/overlay-chart';
 import { LoadingState } from '@/components/screen-state';
 import { Segmented } from '@/components/segmented';
 import { StatTile } from '@/components/stat-tile';
+import { niceCeil, parisHourLabel } from '@/lib/donations';
 import { formatCount, formatDate, formatEuros, formatEurosCompact } from '@/lib/format';
 import { loadHistory2025 } from '@/lib/history-2025';
+import { useFavoritesStore } from '@/store/favorites';
 import {
   interpolateEur,
   lastElapsedMinutes,
@@ -24,6 +39,18 @@ const editionsContent = require('@/content/editions.json') as {
 
 const COLOR_2025 = '#f59e0b';
 const COLOR_2026 = '#8b5cf6';
+
+/** Couleurs des courbes de la comparaison de favoris (au plus trois streamers). */
+const COMPARE_COLORS = ['#8b5cf6', '#f59e0b', '#22d3ee'];
+const MAX_COMPARED = 3;
+
+type RateBucket = '30' | '60' | '180';
+
+const RATE_OPTIONS: { key: RateBucket; label: string }[] = [
+  { key: '30', label: '30 min' },
+  { key: '60', label: '1 h' },
+  { key: '180', label: '3 h' },
+];
 
 type DisplayMode = 'eur' | 'pct';
 
@@ -43,6 +70,182 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <Text className="text-base font-bold text-white">{title}</Text>
       {children}
     </View>
+  );
+}
+
+/** Rythme de collecte : euros levés par tranche horaire, d'après les échantillons du backend. */
+function CollectionRateSection() {
+  const [bucket, setBucket] = useState<RateBucket>('60');
+  const rateQuery = useCollectionRate(Number(bucket));
+
+  const model = useMemo(() => {
+    const points = (rateQuery.data?.points ?? []).filter((p) => p.samples > 0);
+    const bars = points.map((point) => ({
+      key: point.bucket,
+      label: parisHourLabel(point.bucket, bucket === '180' || points.length > 30),
+      value: point.raisedCents / 100,
+      hint: `pic ${formatCount(point.peakViewers)} viewers`,
+    }));
+    const peak = points.reduce<(typeof points)[number] | null>(
+      (best, point) => (best === null || point.raisedCents > best.raisedCents ? point : best),
+      null,
+    );
+    const labelEvery = bars.length > 36 ? 6 : bars.length > 18 ? 3 : bars.length > 9 ? 2 : 1;
+    return { bars, peak, labelEvery };
+  }, [rateQuery.data, bucket]);
+
+  return (
+    <Section title="Rythme de collecte">
+      <Text className="text-xs text-gray-500">
+        Euros levés par tranche, en heure de Paris, d’après la collecte du backend (indépendant du
+        feed Streamlabs).
+      </Text>
+      <Segmented options={RATE_OPTIONS} value={bucket} onChange={setBucket} />
+      {rateQuery.isError && !rateQuery.data ? (
+        <Text className="text-xs text-amber-200">Rythme indisponible : backend injoignable.</Text>
+      ) : (
+        <BarChart
+          bars={model.bars}
+          height={150}
+          formatValue={(value) => formatEurosCompact(value)}
+          labelEvery={model.labelEvery}
+        />
+      )}
+      <View className="flex-row gap-3">
+        <StatTile
+          label="Tranche la plus généreuse"
+          value={model.peak ? formatEurosCompact(model.peak.raisedCents / 100) : '—'}
+          hint={model.peak ? parisHourLabel(model.peak.bucket) : undefined}
+        />
+        <StatTile
+          label="Moyenne par tranche"
+          value={
+            model.bars.length
+              ? formatEurosCompact(model.bars.reduce((acc, bar) => acc + bar.value, 0) / model.bars.length)
+              : '—'
+          }
+          hint={`${model.bars.length} tranches`}
+        />
+      </View>
+    </Section>
+  );
+}
+
+/** Superposition des cagnottes de quelques favoris, alignées sur le T+0 de la collecte. */
+function CompareFavoritesSection({ originAt, maxMinutes }: { originAt: number | null; maxMinutes: number }) {
+  const favorites = useFavoritesStore((s) => s.favorites);
+  const [selected, setSelected] = useState<string[]>([]);
+  const chosen = useMemo(
+    () => (selected.length ? selected : favorites.slice(0, MAX_COMPARED)),
+    [selected, favorites],
+  );
+  const seriesQuery = useStreamerSeries(chosen);
+
+  const toggle = (login: string) => {
+    setSelected((current) => {
+      const base = current.length ? current : favorites.slice(0, MAX_COMPARED);
+      if (base.includes(login)) return base.filter((entry) => entry !== login);
+      if (base.length >= MAX_COMPARED) return [...base.slice(1), login];
+      return [...base, login];
+    });
+  };
+
+  const chart = useMemo(() => {
+    const origin = originAt;
+    const series: ChartSeries[] = [];
+    let yMaxRaw = 0;
+    let xMax = 60;
+    chosen.forEach((login, index) => {
+      const points = seriesQuery.data?.streamers[login] ?? [];
+      const elapsed = points
+        .map((point) => {
+          const t = Date.parse(point.bucket);
+          const minutes = origin === null ? 0 : (t - origin) / 60_000;
+          return { minutes, eur: point.eur };
+        })
+        .filter((point) => point.minutes >= 0);
+      for (const point of elapsed) {
+        yMaxRaw = Math.max(yMaxRaw, point.eur);
+        xMax = Math.max(xMax, point.minutes);
+      }
+      series.push({
+        id: login,
+        label: login,
+        color: COMPARE_COLORS[index % COMPARE_COLORS.length]!,
+        points: elapsed,
+      });
+    });
+    const yMax = niceCeil(yMaxRaw);
+    const referenceLines = [0.5, 1].map((ratio) => ({
+      value: yMax * ratio,
+      label: formatEurosCompact(yMax * ratio),
+    }));
+    const span = Math.max(xMax, Math.min(maxMinutes, xMax + 60));
+    const xTicks: { minutes: number; label: string }[] = [];
+    const step = span > 48 * 60 ? 12 : span > 12 * 60 ? 6 : 2;
+    for (let hour = 0; hour * 60 <= span; hour += step) xTicks.push({ minutes: hour * 60, label: `${hour} h` });
+    return { series, yMax, referenceLines, xTicks, span };
+  }, [chosen, seriesQuery.data, originAt, maxMinutes]);
+
+  return (
+    <Section title="Comparer mes favoris">
+      {favorites.length === 0 ? (
+        <Text className="text-sm text-gray-500">
+          Ajoutez des favoris depuis l’onglet Streamers pour superposer leurs cagnottes ici.
+        </Text>
+      ) : (
+        <>
+          <Text className="text-xs text-gray-500">
+            Jusqu’à {MAX_COMPARED} streamers, sur le même axe de temps écoulé que la courbe globale.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {favorites.map((login) => {
+              const active = chosen.includes(login);
+              return (
+                <Pressable
+                  key={login}
+                  onPress={() => toggle(login)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: active }}
+                  className={`rounded-full border px-3 py-1.5 ${
+                    active ? 'border-zevent-500 bg-zevent-500/20' : 'border-gray-800 bg-gray-900'
+                  }`}
+                >
+                  <Text className={`text-xs font-semibold ${active ? 'text-zevent-200' : 'text-gray-400'}`}>
+                    {login}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {seriesQuery.isError && !seriesQuery.data ? (
+            <Text className="text-xs text-amber-200">Courbes indisponibles : backend injoignable.</Text>
+          ) : (
+            <OverlayChart
+              series={chart.series}
+              maxMinutes={chart.span}
+              yMax={chart.yMax}
+              referenceLines={chart.referenceLines}
+              xTicks={chart.xTicks}
+              height={180}
+            />
+          )}
+          <View className="gap-1.5 rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
+            {chart.series.map((entry) => {
+              const last = entry.points.at(-1);
+              return (
+                <LegendRow
+                  key={entry.id}
+                  color={entry.color}
+                  label={entry.label}
+                  value={last ? formatEuros(last.eur) : '—'}
+                />
+              );
+            })}
+          </View>
+        </>
+      )}
+    </Section>
   );
 }
 
@@ -112,6 +315,7 @@ export default function StatsScreen() {
     const viewersMax2026 = viewers2026.length ? Math.max(...viewers2026) : 0;
 
     return {
+      originAt2026: elapsed2026.originAt,
       elapsed2025,
       elapsed2026,
       has2026Curve,
@@ -328,6 +532,10 @@ export default function StatsScreen() {
             {formatDate(history.provenance.fetchedAt)}. Créditer InGDoc / EvenMoreStats.
           </Text>
         </Section>
+
+        <CollectionRateSection />
+
+        <CompareFavoritesSection originAt={model.originAt2026} maxMinutes={model.maxMinutes} />
 
         <Section title="Repères 2026">
           <View className="flex-row gap-3">
