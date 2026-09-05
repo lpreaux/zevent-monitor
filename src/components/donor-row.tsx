@@ -35,7 +35,9 @@ function DonorRowComponent({ donor, intensity, lead = false, mine = false, now }
 
   return (
     <View
-      className={`rounded-2xl px-2 ${lead ? 'py-3' : 'py-2.5'} ${mine ? 'bg-zevent-500/10' : ''}`}
+      // Même règle que sur les lignes de dons : le fond de mise en avant est une bande,
+      // pas une carte arrondie posée au milieu de la liste.
+      className={`px-2 ${lead ? 'py-3' : 'py-2.5'} ${mine ? 'bg-zevent-500/10' : ''}`}
       accessibilityLabel={`${donor.rank}. ${donor.donor}, ${formatEuros(donor.totalCents / 100)} en ${formatCount(donor.count)} dons`}
     >
       <View className="flex-row items-center gap-2.5">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
+  Pressable,
   RefreshControl,
   ScrollView,
   Share,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 
 import type { Donation, DonationWindow, RecentDonationsResponse } from '@/api/donations';
@@ -23,7 +25,7 @@ import {
 } from '@/api/queries';
 import { AppHeader, type HeaderAction } from '@/components/app-header';
 import { BarChart } from '@/components/bar-chart';
-import { DonationLine } from '@/components/donation-line';
+import { DonationLine, DONATION_LINE_INSET } from '@/components/donation-line';
 import { DonorIdentity } from '@/components/donor-identity';
 import { DonorRow } from '@/components/donor-row';
 import { HorizontalBars, type HorizontalBar } from '@/components/horizontal-bars';
@@ -99,6 +101,13 @@ const NEW_ITEMS_FROM = 220;
 
 /** Fenêtre de mesure du rythme du feed. */
 const PULSE_WINDOW_MS = 10 * 60_000;
+
+/**
+ * Respiration entre le bas de la barre de commandes et le contenu. La réserve laissée en
+ * tête de liste vaut exactement la hauteur de la barre : sans ce supplément, la première
+ * ligne vient se coller contre son filet.
+ */
+const CONTENT_GAP = 8;
 
 function shareDonation(donation: Donation) {
   void Share.share({ message: buildDonationShareText(donation, donation.twitch) });
@@ -271,11 +280,23 @@ function FeedSection({ favorites, streamer, onClearStreamer }: FeedSectionProps)
           );
         })}
       </View>
-      <SectionLink
-        label={`M’alerter au-delà de ${formatEurosCompact(thresholdCents / 100)}`}
-        accessibilityLabel="Ouvrir les réglages des notifications de gros dons"
-        onPress={() => router.push('/settings/notifications')}
-      />
+
+      {/* Ne s'affiche qu'un seuil posé : hors de ce moment-là, le raccourci ne répond à
+          aucune question, et la cloche de la barre du haut mène déjà aux mêmes réglages. */}
+      {bigOnly ? (
+        <Pressable
+          onPress={() => router.push('/settings/notifications')}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir les réglages des notifications de gros dons"
+          hitSlop={8}
+          className="flex-row items-center gap-1.5 self-start active:opacity-60"
+        >
+          <Ionicons name="notifications-outline" size={12} color="#c4b5fd" />
+          <Text className="text-[11px] font-semibold text-zevent-300">
+            M’alerter au-delà de {formatEurosCompact(thresholdCents / 100)}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 
@@ -308,7 +329,7 @@ function FeedSection({ favorites, streamer, onClearStreamer }: FeedSectionProps)
         data={visible}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{
-          paddingTop: controls.paddingTop,
+          paddingTop: controls.paddingTop + CONTENT_GAP,
           paddingHorizontal: 18,
           paddingBottom: 40,
         }}
@@ -329,7 +350,7 @@ function FeedSection({ favorites, streamer, onClearStreamer }: FeedSectionProps)
             progressViewOffset={controls.paddingTop}
           />
         }
-        ItemSeparatorComponent={() => <RowSeparator inset={104} />}
+        ItemSeparatorComponent={() => <RowSeparator inset={DONATION_LINE_INSET} />}
         renderItem={({ item }) => (
           <Animated.View entering={seen.current.has(item.id) ? undefined : FadeIn.duration(280)}>
             <DonationLine
@@ -501,7 +522,7 @@ function TopSection({
       <ScrollView
         contentContainerStyle={{
           gap: 28,
-          paddingTop: controls.paddingTop,
+          paddingTop: controls.paddingTop + CONTENT_GAP,
           paddingHorizontal: 18,
           paddingBottom: 40,
         }}
@@ -605,7 +626,7 @@ function TopSection({
             <View>
               {largestQuery.data.donations.map((donation, index) => (
                 <View key={donation.id}>
-                  {index > 0 ? <RowSeparator inset={104} /> : null}
+                  {index > 0 ? <RowSeparator inset={DONATION_LINE_INSET} /> : null}
                   <DonationLine
                     donation={donation}
                     rank={index + 1}
@@ -745,7 +766,7 @@ function AnalysisSection({
       <ScrollView
         contentContainerStyle={{
           gap: 28,
-          paddingTop: controls.paddingTop,
+          paddingTop: controls.paddingTop + CONTENT_GAP,
           paddingHorizontal: 18,
           paddingBottom: 40,
         }}

@@ -12,7 +12,7 @@ import {
   useZeventState,
 } from '@/api/queries';
 import { AnimatedEuros } from '@/components/animated-euros';
-import { DonationLine } from '@/components/donation-line';
+import { DonationLine, DONATION_LINE_INSET } from '@/components/donation-line';
 import { GoalProgress } from '@/components/goal-progress';
 import { LiveDot } from '@/components/live-dot';
 import { ObservedChip } from '@/components/observed-chip';
@@ -112,7 +112,7 @@ function StreamerDonations({ twitch }: { twitch: string }) {
         <View>
           {highlighted.slice(0, 12).map((donation, index) => (
             <View key={donation.id}>
-              {index > 0 ? <RowSeparator inset={104} /> : null}
+              {index > 0 ? <RowSeparator inset={DONATION_LINE_INSET} /> : null}
               <DonationLine donation={donation} hideStreamer highlightCents={10_000} now={now} />
             </View>
           ))}
