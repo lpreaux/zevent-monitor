@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 
 import type { Donation } from '@/api/donations';
-import { donorLabel, flagEmoji, parisClock } from '@/lib/donations';
+import { donationTimeLabel, donorLabel, flagEmoji } from '@/lib/donations';
 import { formatEuros } from '@/lib/format';
 
 interface DonationRowProps {
@@ -16,6 +16,8 @@ interface DonationRowProps {
   favorite?: boolean;
   /** Affiche le rang (top des plus gros dons). */
   rank?: number;
+  /** Instant de référence pour « il y a … » ; fourni par l'écran pour vieillir sans refetch. */
+  now?: number;
 }
 
 function DonationRowComponent({
@@ -24,6 +26,7 @@ function DonationRowComponent({
   hideStreamer,
   favorite,
   rank,
+  now,
 }: DonationRowProps) {
   const big = donation.amountCents >= highlightCents;
   const flag = flagEmoji(donation.country);
@@ -77,7 +80,7 @@ function DonationRowComponent({
         ) : (
           <View />
         )}
-        <Text className="text-xs text-gray-500">{parisClock(donation.createdAt)}</Text>
+        <Text className="text-xs text-gray-500">{donationTimeLabel(donation.createdAt, now)}</Text>
       </View>
     </View>
   );

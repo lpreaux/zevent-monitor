@@ -18,6 +18,7 @@ import { ObservedNotice } from '@/components/observed-notice';
 import { OverlayChart } from '@/components/overlay-chart';
 import { EmptyState, LoadingState } from '@/components/screen-state';
 import { FavoriteButton } from '@/components/favorite-button';
+import { useNow } from '@/lib/use-now';
 import { StatTile } from '@/components/stat-tile';
 import { niceCeil } from '@/lib/donations';
 import { formatCount, formatEuros, formatEurosCompact, formatRelativeTime, twitchLinks } from '@/lib/format';
@@ -81,6 +82,7 @@ function StreamerCurve({ twitch, currentEur }: { twitch: string; currentEur: num
 /** Dons observés pour ce streamer : synthèse, plus gros dons et derniers messages. */
 function StreamerDonations({ twitch }: { twitch: string }) {
   const query = useStreamerDonations(twitch);
+  const now = useNow();
   const data = query.data;
 
   if (query.isError && !data) {
@@ -110,7 +112,7 @@ function StreamerDonations({ twitch }: { twitch: string }) {
         <EmptyState message="Aucun don observé pour ce streamer." />
       ) : (
         highlighted.slice(0, 12).map((donation) => (
-          <DonationRow key={donation.id} donation={donation} hideStreamer highlightCents={10_000} />
+          <DonationRow key={donation.id} donation={donation} hideStreamer highlightCents={10_000} now={now} />
         ))
       )}
       <ObservedNotice

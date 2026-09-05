@@ -1,6 +1,6 @@
 import type { Donation, StreamerMomentum } from '@/api/donations';
 import type { Streamer, ZeventState } from '@/api/types';
-import { formatCount, formatEuros } from './format';
+import { formatCount, formatEuros, formatRelativeTime } from './format';
 import { parisParts } from './planning';
 
 /** Bornes « rondes » d'axe : 1, 2, 2,5 ou 5 × 10^n juste au-dessus de la valeur. */
@@ -29,11 +29,27 @@ export function parisHourLabel(iso: string, withDay = true): string {
   return withDay ? `${WEEKDAYS_SHORT[parts.weekday]} ${hour}` : hour;
 }
 
-/** Heure de Paris « 14:05 », pour les dons du feed. */
+/** Heure de Paris « 14:05 ». */
 export function parisClock(iso: string): string {
   const parts = parisParts(iso);
   if (!parts) return '';
   return `${String(parts.hours).padStart(2, '0')}:${String(parts.minutes).padStart(2, '0')}`;
+}
+
+/** Sous une heure, un don est daté en relatif ; au-delà, jour et heure de Paris : « sam. 14:05 ». */
+export const RELATIVE_TIME_MAX_MS = 60 * 60_000;
+
+/**
+ * Libellé de date d'un don. Le feed en direct lit mieux en « il y a 40 s » ; sur les
+ * classements du week-end, « 14:05 » sans jour serait ambigu.
+ */
+export function donationTimeLabel(iso: string, now = Date.now()): string {
+  const parts = parisParts(iso);
+  if (!parts) return '';
+  const age = now - Date.parse(iso);
+  // Une horloge de téléphone en retard donne un âge négatif : formatRelativeTime le ramène à 0 s.
+  if (age < RELATIVE_TIME_MAX_MS) return formatRelativeTime(iso, now);
+  return `${WEEKDAYS_SHORT[parts.weekday]} ${parisClock(iso)}`;
 }
 
 const COUNTRY_NAMES: Record<string, string> = {

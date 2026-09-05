@@ -18,6 +18,7 @@ import { Segmented } from '@/components/segmented';
 import { StatTile } from '@/components/stat-tile';
 import { countryName, flagEmoji, medalFor, percentOf } from '@/lib/donations';
 import { formatCount, formatEuros, formatEurosCompact, formatRelativeTime } from '@/lib/format';
+import { useNow } from '@/lib/use-now';
 import { useFavoritesStore } from '@/store/favorites';
 
 type Section = 'feed' | 'top' | 'analysis';
@@ -66,6 +67,7 @@ function Banner({ message }: { message: string }) {
 function FeedSection({ favorites }: { favorites: readonly string[] }) {
   const [filter, setFilter] = useState<FeedFilter>('all');
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+  const now = useNow();
 
   const params = useMemo(() => {
     switch (filter) {
@@ -104,6 +106,7 @@ function FeedSection({ favorites }: { favorites: readonly string[] }) {
           donation={item}
           highlightCents={BIG_DONATION_CENTS}
           favorite={item.twitch ? favoriteSet.has(item.twitch) : false}
+          now={now}
         />
       )}
       contentContainerClassName="gap-2 px-5 pb-10"
@@ -131,6 +134,7 @@ function FeedSection({ favorites }: { favorites: readonly string[] }) {
 function TopSection({ favorites }: { favorites: readonly string[] }) {
   const [window, setWindow] = useState<DonationWindow>('24h');
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+  const now = useNow();
   const topQuery = useTopDonors(window, 20);
   const largestQuery = useLargestDonations(window, 10);
 
@@ -196,7 +200,7 @@ function TopSection({ favorites }: { favorites: readonly string[] }) {
                   </View>
                   <Text className="ml-9 text-xs text-gray-500">
                     {donor.count} don{donor.count > 1 ? 's' : ''} · plus gros {formatEuros(donor.largestCents / 100)} ·
-                    dernier {formatRelativeTime(donor.lastAt)}
+                    dernier {formatRelativeTime(donor.lastAt, now)}
                   </Text>
                 </View>
               );
@@ -216,6 +220,7 @@ function TopSection({ favorites }: { favorites: readonly string[] }) {
               rank={index + 1}
               highlightCents={Number.POSITIVE_INFINITY}
               favorite={donation.twitch ? favoriteSet.has(donation.twitch) : false}
+              now={now}
             />
           ))
         ) : (

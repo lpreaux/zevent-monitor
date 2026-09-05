@@ -6,6 +6,7 @@ import {
   buildShareCardModel,
   buildShareText,
   countryName,
+  donationTimeLabel,
   donorLabel,
   flagEmoji,
   niceCeil,
@@ -68,6 +69,18 @@ describe('libellés', () => {
     expect(parisHourLabel('2026-09-05T12:00:00Z')).toBe('sam. 14h');
     expect(parisHourLabel('2026-09-05T12:00:00Z', false)).toBe('14h');
     expect(parisHourLabel('pas une date')).toBe('');
+  });
+
+  it('date un don en relatif sous une heure, puis en jour et heure de Paris', () => {
+    const now = Date.parse('2026-09-05T12:00:00Z');
+    // `\s` couvre l'espace insécable utilisée par formatRelativeTime.
+    expect(donationTimeLabel('2026-09-05T11:59:20Z', now)).toMatch(/^il y a 40\ss$/);
+    expect(donationTimeLabel('2026-09-05T11:35:00Z', now)).toMatch(/^il y a 25\smin$/);
+    expect(donationTimeLabel('2026-09-05T11:00:00Z', now)).toBe('sam. 13:00');
+    expect(donationTimeLabel('2026-09-04T20:05:00Z', now)).toBe('ven. 22:05');
+    // Horloge du téléphone en retard sur Streamlabs : pas de « il y a -3 s ».
+    expect(donationTimeLabel('2026-09-05T12:00:03Z', now)).toMatch(/^il y a 0\ss$/);
+    expect(donationTimeLabel('pas une date', now)).toBe('');
   });
 
   it('nomme les pays et produit un drapeau', () => {
