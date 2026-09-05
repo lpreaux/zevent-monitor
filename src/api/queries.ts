@@ -23,7 +23,7 @@ import {
 import { loadBundledGoals } from './goals-fallback';
 import { loadBundledPlanning } from './planning-fallback';
 import { getGoals, getPlanning, getState, getTimeseries } from './zevent';
-import type { Goal, PlanningEntry, Streamer, TimeseriesResolution } from './types';
+import type { Goal, PlanningEntry, TimeseriesResolution } from './types';
 
 export const queryKeys = {
   state: ['zevent', 'state'] as const,
@@ -245,50 +245,4 @@ export function useStreamerSeries(logins: string[], resolution: '1m' | '5m' | '1
     refetchInterval: SERIES_REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   });
-}
-
-export type StreamerSort = 'donation' | 'viewers' | 'live' | 'momentum';
-
-/** Tri + filtre de la liste des streamers pour l'onglet dédié. */
-export function sortStreamers(
-  streamers: Streamer[],
-  sort: StreamerSort,
-  search: string,
-  /** Progression récente par login (centimes), pour le tri « momentum ». */
-  momentum?: ReadonlyMap<string, number>,
-): Streamer[] {
-  const needle = search.trim().toLowerCase();
-  const filtered = needle
-    ? streamers.filter(
-        (s) =>
-          s.display.toLowerCase().includes(needle) ||
-          s.twitch.toLowerCase().includes(needle),
-      )
-    : streamers;
-
-  const sorted = [...filtered];
-  switch (sort) {
-    case 'momentum': {
-      const delta = (s: Streamer) => momentum?.get(s.twitch.toLowerCase()) ?? 0;
-      sorted.sort(
-        (a, b) => delta(b) - delta(a) || b.donationAmount.number - a.donationAmount.number,
-      );
-      break;
-    }
-    case 'viewers':
-      sorted.sort((a, b) => b.viewersAmount.number - a.viewersAmount.number);
-      break;
-    case 'live':
-      sorted.sort(
-        (a, b) =>
-          Number(b.online) - Number(a.online) ||
-          b.viewersAmount.number - a.viewersAmount.number,
-      );
-      break;
-    case 'donation':
-    default:
-      sorted.sort((a, b) => b.donationAmount.number - a.donationAmount.number);
-      break;
-  }
-  return sorted;
 }

@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { formatCount } from '@/lib/format';
 import { FAVORITES_MOMENTUM_WINDOW_MINUTES, useRankedFavorites } from '@/lib/use-ranked-favorites';
 import { FavoriteHighlightCard } from './favorite-highlight-card';
-import { FavoriteLiveRow } from './favorite-live-row';
+import { LiveStreamerRow } from './live-streamer-row';
 import { RowSeparator } from './row-separator';
 import { SectionHeader } from './section-header';
 import { SectionLink } from './section-link';
@@ -92,8 +92,9 @@ export function FavoritesSection() {
               {liveRows.map((item, index) => (
                 <Fragment key={item.streamer.twitch_id}>
                   {index > 0 ? <RowSeparator inset={50} /> : null}
-                  <FavoriteLiveRow
-                    item={item}
+                  <LiveStreamerRow
+                    streamer={item.streamer}
+                    deltaCents={item.deltaCents}
                     show={shows.get(item.streamer.twitch.toLowerCase())}
                   />
                 </Fragment>
