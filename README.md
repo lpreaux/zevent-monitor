@@ -234,9 +234,13 @@ donation goals atteints ou proches, gros dons issus du feed Streamlabs). Voir la
 ✅ Étape 10 (PLAN.md §6) — planning réel : synchronisation des « shows » InGDoc/EvenMoreStats côté
 backend (`GET /v1/planning`, table `planning_snapshots`), fusion avec le champ `calendar` officiel de
 `zevent.fr/api/` dès qu'il devient exploitable (il est resté vide au lancement de l'édition 2026), et
-écran mobile regroupé par journée en heure de Paris : badge « en cours », compte à rebours, filtre
-« À venir / Tout », participants cliquables (fiche interne ou Twitch) et repli sur le snapshot
-embarqué `src/content/planning-2026.json` quand le backend est injoignable.
+écran mobile en heure de Paris : en tête, les émissions à l'antenne avec leur jauge de temps
+restant — deux d'emblée, les autres annoncées et dépliables — puis la suivante en compte à rebours ; en dessous, le programme complet en lignes dépliables
+sur un rail qui montre l'heure et la durée de chaque créneau, avec repère « maintenant » et retour au
+présent d'un geste. Filtre par journée ou par streamers suivis, marquage des créneaux en parallèle,
+rappel local 10 min avant le début d'une émission (aucun réglage backend), participants cliquables
+(fiche interne ou Twitch) et repli sur le snapshot embarqué `src/content/planning-2026.json` quand le
+backend est injoignable.
 
 ## Avertissement
 

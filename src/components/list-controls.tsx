@@ -228,7 +228,14 @@ export function ListControls<T extends string>({
         {showSearch ? (
           <Animated.View
             layout={transition}
-            style={collapsed ? { flexGrow: 1, flexShrink: 1, flexBasis: 72 } : { width: '100%' }}
+            // Toute la largeur seulement quand un rail de tri attend la ligne suivante.
+            // Sans lui, la recherche déployée à 100 % reléguait la bascule sur une rangée
+            // pour elle seule — un bouton perdu au milieu du vide.
+            style={
+              collapsed || !showSorts
+                ? { flexGrow: 1, flexShrink: 1, flexBasis: 72 }
+                : { width: '100%' }
+            }
             className={
               collapsed
                 ? 'flex-row items-center gap-1.5'

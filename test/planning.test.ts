@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlanningEntry } from '../src/api/types';
 import {
+  entryDurationMs,
+  entryProgress,
   entryStatus,
-  focusIndex,
   formatCountdown,
+  formatCountdownPrecise,
+  formatDuration,
   formatParisDayLabel,
+  formatParisDayShort,
   formatParisRange,
   formatParisTime,
-  groupPlanningByDay,
+  formatRemaining,
+  isLongRun,
   parisDayKey,
   parisOffsetMinutes,
 } from '../src/lib/planning';
@@ -68,38 +73,6 @@ describe('entryStatus', () => {
   });
 });
 
-describe('groupPlanningByDay', () => {
-  it('regroupe et ordonne les entrées par journée parisienne', () => {
-    const days = groupPlanningByDay([
-      entry({ id: 'b', title: 'Rush final', startsAt: '2026-09-06T18:00:00Z' }),
-      entry({ id: 'a', title: 'Lancement', startsAt: '2026-09-04T16:00:00Z' }),
-      entry({ id: 'c', title: 'Pyjama Party', startsAt: '2026-09-04T20:00:00Z' }),
-    ]);
-
-    expect(days.map((day) => [day.key, day.entries.length])).toEqual([
-      ['2026-09-04', 2],
-      ['2026-09-06', 1],
-    ]);
-    expect(days[0]?.entries.map((item) => item.title)).toEqual(['Lancement', 'Pyjama Party']);
-    expect(days[0]?.label).toBe('vendredi 4 septembre');
-  });
-});
-
-describe('focusIndex', () => {
-  const entries = [
-    entry({ id: '1', startsAt: '2026-09-04T16:00:00Z', endsAt: '2026-09-04T16:10:00Z' }),
-    entry({ id: '2', startsAt: '2026-09-05T13:00:00Z', endsAt: '2026-09-05T15:00:00Z' }),
-    entry({ id: '3', startsAt: '2026-09-06T18:00:00Z', endsAt: '2026-09-06T23:00:00Z' }),
-  ];
-
-  it('vise l’entrée en cours, sinon la prochaine, sinon la dernière', () => {
-    expect(focusIndex(entries, Date.parse('2026-09-05T14:00:00Z'))).toBe(1);
-    expect(focusIndex(entries, Date.parse('2026-09-05T17:00:00Z'))).toBe(2);
-    expect(focusIndex(entries, Date.parse('2026-09-07T02:00:00Z'))).toBe(2);
-    expect(focusIndex([], Date.now())).toBe(0);
-  });
-});
-
 describe('formatCountdown', () => {
   it('affiche un délai court avant le début', () => {
     const start = '2026-09-05T13:00:00Z';
@@ -107,5 +80,62 @@ describe('formatCountdown', () => {
     expect(formatCountdown(start, Date.parse('2026-09-05T10:00:00Z'))).toBe('dans 3 h');
     expect(formatCountdown(start, Date.parse('2026-09-03T13:00:00Z'))).toBe('dans 2 j');
     expect(formatCountdown(start, Date.parse('2026-09-05T13:30:00Z'))).toBeNull();
+  });
+});
+
+describe('durée et avancement', () => {
+  const show = entry({ startsAt: '2026-09-05T13:00:00Z', endsAt: '2026-09-05T15:00:00Z' });
+
+  it('mesure le créneau, fin implicite comprise', () => {
+    expect(entryDurationMs(show)).toBe(2 * 3_600_000);
+    expect(entryDurationMs(entry({ startsAt: '2026-09-05T13:00:00Z' }))).toBe(3_600_000);
+  });
+
+  it('distingue un rendez-vous d’un créneau au long cours', () => {
+    expect(isLongRun(show)).toBe(false);
+    expect(
+      isLongRun(entry({ startsAt: '2026-09-05T11:00:00Z', endsAt: '2026-09-05T20:00:00Z' })),
+    ).toBe(true);
+  });
+
+  it('borne l’avancement au créneau', () => {
+    expect(entryProgress(show, Date.parse('2026-09-05T14:00:00Z')).ratio).toBe(0.5);
+    expect(entryProgress(show, Date.parse('2026-09-05T12:00:00Z')).ratio).toBe(0);
+    const after = entryProgress(show, Date.parse('2026-09-05T16:00:00Z'));
+    expect(after.ratio).toBe(1);
+    expect(after.remainingMs).toBe(0);
+  });
+
+  it('formate une durée sans jamais aligner plus de deux nombres', () => {
+    expect(formatDuration(45 * 60_000)).toBe('45 min');
+    expect(formatDuration(65 * 60_000)).toBe('1 h 05');
+    expect(formatDuration(9 * 3_600_000)).toBe('9 h');
+  });
+
+  it('annonce le temps restant, et la fin imminente autrement', () => {
+    expect(formatRemaining(show, Date.parse('2026-09-05T13:55:00Z'))).toBe('il reste 1 h 05');
+    expect(formatRemaining(show, Date.parse('2026-09-05T14:59:00Z'))).toBe('se termine');
+    expect(formatRemaining(show, Date.parse('2026-09-05T15:00:00Z'))).toBeNull();
+  });
+});
+
+describe('formatCountdownPrecise', () => {
+  const start = '2026-09-05T13:00:00Z';
+
+  it('passe aux secondes dans les dernières minutes', () => {
+    expect(formatCountdownPrecise(start, Date.parse('2026-09-05T12:56:12Z'))).toBe('3:48');
+    expect(formatCountdownPrecise(start, Date.parse('2026-09-05T12:59:59Z'))).toBe('0:01');
+  });
+
+  it('garde le libellé long au-delà du seuil', () => {
+    expect(formatCountdownPrecise(start, Date.parse('2026-09-05T12:35:00Z'))).toBe('dans 25 min');
+    expect(formatCountdownPrecise(start, Date.parse('2026-09-05T13:30:00Z'))).toBeNull();
+  });
+});
+
+describe('formatParisDayShort', () => {
+  it('abrège la journée pour le rail de navigation', () => {
+    expect(formatParisDayShort('2026-09-04T16:00:00Z')).toBe('Ven 4');
+    expect(formatParisDayShort('2026-09-05T22:30:00Z')).toBe('Dim 6');
   });
 });
