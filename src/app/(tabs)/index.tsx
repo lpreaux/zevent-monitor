@@ -1,13 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 
 import { useMomentum, useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
 import { AnimatedEuros } from '@/components/animated-euros';
+import { AppHeader, type HeaderAction } from '@/components/app-header';
+import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
+import { FavoriteOfflineRow } from '@/components/favorite-offline-row';
 import { FavoriteStreamerCard } from '@/components/favorite-streamer-card';
 import { MomentumRow } from '@/components/momentum-row';
 import { Segmented } from '@/components/segmented';
@@ -74,65 +76,85 @@ function readMarquee(marquee: unknown): string | null {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { data, isLoading, isError, error, refetch, isRefetching } = useZeventState();
+  const { data, isError, error, refetch, isRefetching } = useZeventState();
   const favorites = useFavoritesStore((s) => s.favorites);
 
-  const favoriteStreamers = useMemo<Streamer[]>(() => {
-    if (!data) return [];
+  const headerActions = useMemo<HeaderAction[]>(
+    () => [
+      {
+        icon: 'share-social-outline',
+        label: 'Partager la cagnotte',
+        onPress: () => router.push('/share-card'),
+      },
+      {
+        icon: 'notifications-outline',
+        label: 'Réglages des notifications',
+        onPress: () => router.push('/settings/notifications'),
+      },
+    ],
+    [router],
+  );
+
+  /** Favoris scindés : les lives passent en cartes, les hors ligne en lignes discrètes. */
+  const { liveFavorites, offlineFavorites } = useMemo(() => {
+    if (!data) return { liveFavorites: [] as Streamer[], offlineFavorites: [] as Streamer[] };
     const set = new Set(favorites);
-    return data.data.live.filter((s) => set.has(s.twitch.toLowerCase()));
+    const mine = data.data.live
+      .filter((s) => set.has(s.twitch.toLowerCase()))
+      .sort((a, b) => b.donationAmount.number - a.donationAmount.number);
+    return {
+      liveFavorites: mine.filter((s) => s.online),
+      offlineFavorites: mine.filter((s) => !s.online),
+    };
   }, [data, favorites]);
+  const favoriteCount = liveFavorites.length + offlineFavorites.length;
 
   const onRefresh = useCallback(() => void refetch(), [refetch]);
 
-  if (isLoading && !data) return <LoadingState label="Connexion au backend…" />;
-  if (isError && !data) {
+  if (!data) {
     return (
-      <ErrorState
-        message={error instanceof Error ? error.message : 'Backend injoignable'}
-        onRetry={onRefresh}
-      />
+      <ScreenShell
+        header={
+          <AppHeader
+            title="ZEvent Monitor"
+            subtitle="Édition 2026"
+            actions={headerActions}
+          />
+        }
+      >
+        {isError ? (
+          <ErrorState
+            message={error instanceof Error ? error.message : 'Backend injoignable'}
+            onRetry={onRefresh}
+          />
+        ) : (
+          <LoadingState label="Connexion au backend…" />
+        )}
+      </ScreenShell>
     );
   }
-  if (!data) return <LoadingState />;
 
   const state = data.data;
   const marquee = readMarquee(state.marquee);
   const liveCount = state.live.filter((s) => s.online).length;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
+    <ScreenShell
+      header={
+        <AppHeader
+          title="ZEvent Monitor"
+          subtitle={`Édition 2026 · ${formatCount(liveCount)} en live`}
+          badge={<WebsiteModeBadge mode={state.websiteMode} />}
+          actions={headerActions}
+        />
+      }
+    >
       <ScrollView
         contentContainerClassName="gap-4 px-5 pb-10 pt-4"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor="#a78bfa" />
         }
       >
-        <View className="flex-row items-center justify-between">
-          <Text className="text-xs font-semibold uppercase tracking-widest text-zevent-400">
-            ZEvent Monitor 2026
-          </Text>
-          <View className="flex-row items-center gap-3">
-            <WebsiteModeBadge mode={state.websiteMode} />
-            <Pressable
-              onPress={() => router.push('/share-card')}
-              accessibilityRole="button"
-              accessibilityLabel="Partager la cagnotte"
-              hitSlop={8}
-            >
-              <Ionicons name="share-social-outline" size={20} color="#c4b5fd" />
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/settings/notifications')}
-              accessibilityRole="button"
-              accessibilityLabel="Réglages des notifications"
-              hitSlop={8}
-            >
-              <Ionicons name="notifications-outline" size={20} color="#c4b5fd" />
-            </Pressable>
-          </View>
-        </View>
-
         {marquee ? (
           <View className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
             <Text className="text-sm text-amber-200">{marquee}</Text>
@@ -178,30 +200,51 @@ export default function DashboardScreen() {
         </View>
 
         <View className="mt-2 gap-3">
-          <Text className="text-base font-bold text-white">Mes favoris</Text>
+          <View className="flex-row items-baseline justify-between">
+            <Text className="text-base font-bold text-white">Mes favoris</Text>
+            {favoriteCount > 0 ? (
+              <Text className="text-xs text-gray-500">
+                {formatCount(liveFavorites.length)} en live sur {formatCount(favoriteCount)}
+              </Text>
+            ) : null}
+          </View>
           {favorites.length === 0 ? (
             <Text className="text-sm text-gray-500">
               Ajoutez des streamers en favori depuis l’onglet Streamers pour les suivre ici.
             </Text>
-          ) : favoriteStreamers.length === 0 ? (
+          ) : favoriteCount === 0 ? (
             <Text className="text-sm text-gray-500">
               Vos favoris ne figurent pas dans la liste officielle actuelle.
             </Text>
           ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerClassName="gap-3 pr-5"
-            >
-              {favoriteStreamers.map((streamer) => (
-                <FavoriteStreamerCard key={streamer.twitch_id} streamer={streamer} />
-              ))}
-            </ScrollView>
+            <>
+              {liveFavorites.length === 0 ? (
+                <Text className="text-sm text-gray-500">Aucun favori en live pour le moment.</Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerClassName="gap-3 pr-5"
+                >
+                  {liveFavorites.map((streamer) => (
+                    <FavoriteStreamerCard key={streamer.twitch_id} streamer={streamer} />
+                  ))}
+                </ScrollView>
+              )}
+
+              {offlineFavorites.length > 0 ? (
+                <View className="gap-1 rounded-2xl border border-gray-800/70 bg-gray-900/30 px-2 py-1.5">
+                  {offlineFavorites.map((streamer) => (
+                    <FavoriteOfflineRow key={streamer.twitch_id} streamer={streamer} />
+                  ))}
+                </View>
+              ) : null}
+            </>
           )}
         </View>
 
         <MomentumSection favorites={favorites} />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

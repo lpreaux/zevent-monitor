@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, SectionList, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePlanning, useZeventState } from '@/api/queries';
 import type { PlanningEntry } from '@/api/types';
+import { AppHeader } from '@/components/app-header';
+import { ScreenShell } from '@/components/screen-shell';
 import { PlanningEntryCard } from '@/components/planning-entry-card';
 import { EmptyState, LoadingState } from '@/components/screen-state';
 import { Segmented } from '@/components/segmented';
@@ -79,12 +80,18 @@ export default function PlanningScreen() {
 
   const onRefresh = useCallback(() => planning.refetch(), [planning]);
 
+  const header = <AppHeader title="Planning" subtitle="Horaires en heure de Paris" />;
+
   if (planning.isLoading && planning.entries.length === 0) {
-    return <LoadingState label="Chargement du planning…" />;
+    return (
+      <ScreenShell header={header}>
+        <LoadingState label="Chargement du planning…" />
+      </ScreenShell>
+    );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
+    <ScreenShell header={header}>
       <SectionList
         ref={listRef}
         sections={sections}
@@ -120,8 +127,7 @@ export default function PlanningScreen() {
               label="planning"
             />
             <Text className="text-xs text-gray-500">
-              Horaires en heure de Paris. Planning compilé par les InGDocs (non officiel) —
-              susceptible de changer en direct.
+              Planning compilé par les InGDocs (non officiel) — susceptible de changer en direct.
             </Text>
             {planning.origin === 'bundled' ? (
               <Text className="text-xs text-amber-400">
@@ -149,6 +155,6 @@ export default function PlanningScreen() {
           </Pressable>
         }
       />
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

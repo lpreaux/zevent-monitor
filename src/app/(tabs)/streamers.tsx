@@ -1,11 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlatList, RefreshControl, Text, TextInput, View } from 'react-native';
 
 import { sortStreamers, useMomentum, useZeventState, type StreamerSort } from '@/api/queries';
+import { AppHeader } from '@/components/app-header';
+import { ScreenShell } from '@/components/screen-shell';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
+import { Segmented } from '@/components/segmented';
 import { SourceFreshness } from '@/components/source-freshness';
 import { StreamerRow } from '@/components/streamer-row';
+import { formatCount } from '@/lib/format';
 
 const SORTS: { key: StreamerSort; label: string }[] = [
   { key: 'donation', label: 'Cagnotte' },
@@ -18,7 +21,7 @@ const SORTS: { key: StreamerSort; label: string }[] = [
 const MOMENTUM_WINDOW_MINUTES = 60;
 
 export default function StreamersScreen() {
-  const { data, isLoading, isError, error, refetch, isRefetching } = useZeventState();
+  const { data, isError, error, refetch, isRefetching } = useZeventState();
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<StreamerSort>('donation');
 
@@ -35,18 +38,35 @@ export default function StreamersScreen() {
     [data, sort, search, momentum],
   );
 
-  if (isLoading && !data) return <LoadingState label="Chargement des streamers…" />;
-  if (isError && !data) {
+  const liveCount = data ? data.data.live.filter((s) => s.online).length : 0;
+  const header = (
+    <AppHeader
+      title="Streamers"
+      subtitle={
+        data
+          ? `${formatCount(liveCount)} en live · ${formatCount(data.data.live.length)} inscrits`
+          : 'Liste officielle du ZEvent'
+      }
+    />
+  );
+
+  if (!data) {
     return (
-      <ErrorState
-        message={error instanceof Error ? error.message : 'Backend injoignable'}
-        onRetry={onRefresh}
-      />
+      <ScreenShell header={header}>
+        {isError ? (
+          <ErrorState
+            message={error instanceof Error ? error.message : 'Backend injoignable'}
+            onRetry={onRefresh}
+          />
+        ) : (
+          <LoadingState label="Chargement des streamers…" />
+        )}
+      </ScreenShell>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
+    <ScreenShell header={header}>
       <FlatList
         data={streamers}
         keyExtractor={(item) => item.twitch_id}
@@ -67,33 +87,8 @@ export default function StreamersScreen() {
               autoCorrect={false}
               className="rounded-2xl border border-gray-800 bg-gray-900 px-4 py-3 text-base text-white"
             />
-            <View className="flex-row gap-2">
-              {SORTS.map((entry) => {
-                const active = entry.key === sort;
-                return (
-                  <Pressable
-                    key={entry.key}
-                    onPress={() => setSort(entry.key)}
-                    className={`flex-1 items-center rounded-full border py-2 ${
-                      active
-                        ? 'border-zevent-500 bg-zevent-500/20'
-                        : 'border-gray-800 bg-gray-900'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-semibold ${
-                        active ? 'text-zevent-200' : 'text-gray-400'
-                      }`}
-                    >
-                      {entry.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {data ? (
-              <SourceFreshness fetchedAt={data.source.fetchedAt} stale={data.source.stale} />
-            ) : null}
+            <Segmented options={SORTS} value={sort} onChange={setSort} />
+            <SourceFreshness fetchedAt={data.source.fetchedAt} stale={data.source.stale} />
             {sort === 'momentum' ? (
               <Text className="text-xs text-gray-500">
                 Classés par progression de la cagnotte sur la dernière heure (50 premiers), puis par cagnotte.
@@ -107,6 +102,6 @@ export default function StreamersScreen() {
           />
         }
       />
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

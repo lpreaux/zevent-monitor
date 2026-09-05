@@ -1,11 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
+import { Tabs } from 'expo-router/js-tabs';
 import type { ColorValue } from 'react-native';
 
-const tabBarStyle = {
-  backgroundColor: '#111827',
-  borderTopColor: '#374151',
-};
+import { AppTabBar } from '@/components/app-tab-bar';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -33,13 +30,10 @@ function TabBarIcon({
 export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{
-        headerStyle: { backgroundColor: '#111827' },
-        headerTintColor: '#f9fafb',
-        tabBarActiveTintColor: '#a78bfa',
-        tabBarInactiveTintColor: '#9ca3af',
-        tabBarStyle,
-      }}
+      // Chaque écran fournit sa propre barre du haut (`AppHeader`), plus riche que
+      // le titre par défaut : mode de l'événement, compteurs, actions.
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <AppTabBar {...props} />}
     >
       <Tabs.Screen
         name="index"
