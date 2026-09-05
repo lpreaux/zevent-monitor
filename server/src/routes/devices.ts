@@ -201,23 +201,41 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
     const client = await app.pg.connect();
     try {
       await client.query('BEGIN');
+      const account = await client.query<{ clerk_user_id: string | null }>(
+        'SELECT clerk_user_id FROM devices WHERE installation_id = $1 FOR UPDATE',
+        [id],
+      );
+      const userId = account.rows[0]?.clerk_user_id;
+      const targets = userId
+        ? await client.query<{ installation_id: string }>(
+            'SELECT installation_id FROM devices WHERE clerk_user_id = $1',
+            [userId],
+          )
+        : { rows: [{ installation_id: id }] };
+      const targetIds = targets.rows.map((row) => row.installation_id);
       if (preferences) {
         await client.query(
           `INSERT INTO notification_preferences (installation_id, preferences)
-           VALUES ($1, $2)
+           SELECT unnest($1::text[]), $2
            ON CONFLICT (installation_id)
            DO UPDATE SET preferences = EXCLUDED.preferences, updated_at = now()`,
-          [id, preferences],
+          [targetIds, preferences],
         );
       }
       if (favorites) {
         const logins = [...new Set(favorites.map((twitch) => twitch.toLowerCase()))];
-        await client.query('DELETE FROM favorites WHERE installation_id = $1 AND NOT (twitch = ANY($2::text[]))', [id, logins]);
+        await client.query(
+          'DELETE FROM favorites WHERE installation_id = ANY($1::text[]) AND NOT (twitch = ANY($2::text[]))',
+          [targetIds, logins],
+        );
         if (logins.length > 0) {
           await client.query(
-            `INSERT INTO favorites (installation_id, twitch)
-             SELECT $1, unnest($2::text[]) ON CONFLICT DO NOTHING`,
-            [id, logins],
+             `INSERT INTO favorites (installation_id, twitch)
+             SELECT installation_id, twitch
+             FROM unnest($1::text[]) AS installations(installation_id)
+             CROSS JOIN unnest($2::text[]) AS logins(twitch)
+             ON CONFLICT DO NOTHING`,
+            [targetIds, logins],
           );
         }
       }

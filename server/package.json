@@ -11,10 +11,11 @@
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
-    ,"verify:deployment": "node scripts/verify-deployment.mjs"
+    "test": "vitest run",
+    "verify:deployment": "node scripts/verify-deployment.mjs"
   },
   "dependencies": {
+    "@clerk/backend": "^3.17.1",
     "@fastify/postgres": "^6.1.0",
     "fastify": "^5.12.1",
     "pg": "^8.23.0",

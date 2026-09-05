@@ -40,6 +40,7 @@ interface NotificationsState {
   ) => Promise<void>;
   syncFavorites: (favorites: string[]) => Promise<void>;
   refresh: () => Promise<void>;
+  applyAccountPreferences: (preferences: NotificationPreferences) => void;
 }
 
 const deviceTimezone = (): string => {
@@ -155,6 +156,9 @@ export const useNotificationsStore = create<NotificationsState>()(
               pushToken: state.pushEnabled ? get().pushToken : null,
             });
           });
+        },
+        applyAccountPreferences: (preferences) => {
+          set({ preferences: mergePreferences(preferences), lastSyncedAt: new Date().toISOString() });
         },
       };
     },

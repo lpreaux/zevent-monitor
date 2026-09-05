@@ -54,3 +54,30 @@ export function putPreferences(
 export function deleteDevicePushToken(identity: DeviceIdentity): Promise<void> {
   return requestJson<void>('/v1/device', { method: 'DELETE', headers: authHeaders(identity) });
 }
+
+export interface AccountSyncResponse {
+  userId: string;
+  preferences: NotificationPreferences;
+  favorites: string[];
+  deviceCount: number;
+}
+
+/** Rattache cette installation au compte Clerk et fusionne ses données. */
+export function syncAccount(
+  identity: DeviceIdentity,
+  clerkToken: string,
+  payload: { preferences: NotificationPreferences; favorites: string[] },
+): Promise<AccountSyncResponse> {
+  return requestJson<AccountSyncResponse>('/v1/account/sync', {
+    method: 'POST',
+    headers: { ...authHeaders(identity), 'x-clerk-token': clerkToken },
+    body: payload,
+  });
+}
+
+export function unlinkAccount(identity: DeviceIdentity, clerkToken: string): Promise<void> {
+  return requestJson<void>('/v1/account/link', {
+    method: 'DELETE',
+    headers: { ...authHeaders(identity), 'x-clerk-token': clerkToken },
+  });
+}

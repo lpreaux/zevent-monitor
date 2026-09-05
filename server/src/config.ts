@@ -34,6 +34,9 @@ const configSchema = z.object({
   PUSH_RECEIPTS_INTERVAL_MS: z.coerce.number().int().min(30_000).default(300_000),
   RECAPS_ENABLED: z.stringbool().default(true),
   RECAPS_INTERVAL_MS: z.coerce.number().int().min(15_000).default(60_000),
+  /** Clé Clerk backend. Sans elle, l'app reste utilisable en mode local/anonyme. */
+  CLERK_SECRET_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional()),
+  CLERK_JWT_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional()),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

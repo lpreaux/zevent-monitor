@@ -81,6 +81,11 @@ export default function DashboardScreen() {
 
   const headerActions = useMemo<HeaderAction[]>(
     () => [
+      ...(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ? [{
+        icon: 'person-circle-outline',
+        label: 'Compte et synchronisation',
+        onPress: () => router.push('/account' as never),
+      } satisfies HeaderAction] : []),
       {
         icon: 'share-social-outline',
         label: 'Partager la cagnotte',

@@ -6,11 +6,16 @@ import { Stack, type NativeStackHeaderProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ClerkProvider } from '@clerk/expo';
+import { tokenCache } from '@clerk/expo/token-cache';
 
 import { AppHeader } from '@/components/app-header';
 import { createQueryClient, setupAppStateFocus } from '@/lib/query-client';
 import { colors } from '@/theme';
 import { useNotificationRouting, useNotificationsSync } from '@/lib/use-notifications-sync';
+import { useAccountSync } from '@/lib/use-account-sync';
+
+const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 interface StackHeaderConfig {
   title: string;
@@ -42,7 +47,12 @@ function stackHeader({ title, subtitle, modal = false }: StackHeaderConfig) {
   };
 }
 
-export default function RootLayout() {
+function AccountSync() {
+  useAccountSync();
+  return null;
+}
+
+function AppLayout({ accountsEnabled = true }: { accountsEnabled?: boolean }) {
   const [queryClient] = useState(createQueryClient);
 
   useEffect(() => setupAppStateFocus(), []);
@@ -52,6 +62,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
+        {accountsEnabled ? <AccountSync /> : null}
         <Stack
           screenOptions={{
             headerShown: false,
@@ -59,6 +70,15 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="account"
+            options={{
+              headerShown: true,
+              header: stackHeader({ title: 'Mon compte', subtitle: 'Synchronisation multi-appareils' }),
+            }}
+          />
+          {/* Connexion : écran immersif sans barre du haut, il porte sa propre fermeture. */}
+          <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
           <Stack.Screen
             name="always-on"
             options={{ animation: 'fade', contentStyle: { backgroundColor: '#000000' } }}
@@ -100,5 +120,16 @@ export default function RootLayout() {
         <StatusBar style="light" />
       </QueryClientProvider>
     </SafeAreaProvider>
+  );
+}
+
+export default function RootLayout() {
+  if (!clerkPublishableKey) {
+    return <AppLayout accountsEnabled={false} />;
+  }
+  return (
+    <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
+      <AppLayout />
+    </ClerkProvider>
   );
 }

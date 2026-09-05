@@ -14,6 +14,7 @@ Application Android dédiée au suivi en temps réel du ZEvent 2026. Elle réuni
 - Afficher un tableau de bord paysage Always-On utilisable comme écran secondaire.
 - Recevoir des alertes granulaires : paliers, débuts de live, gros dons et récapitulatifs.
 - Continuer à fonctionner en mode dégradé lorsqu'une source tierce est indisponible.
+- Retrouver ses favoris et préférences sur plusieurs appareils via un compte Clerk.
 
 ## Architecture cible
 
@@ -69,6 +70,27 @@ npm --prefix server install
 npm run server:dev
 ```
 
+### Compte utilisateur (Clerk)
+
+Créer une application dans Clerk, puis activer **Google** et **Twitch** dans *SSO connections*.
+La connexion par email (code ou lien magique) est affichée par l'Account Portal Clerk selon les
+méthodes activées dans *User & authentication*.
+Google et Twitch sont uniquement les fournisseurs de connexion Clerk : l'application ne demande
+pas d'accès aux comptes YouTube/Twitch et n'importe aucun abonnement.
+
+Copier `.env.example` vers `.env`, puis renseigner :
+
+```dotenv
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+```
+
+Dans Clerk, ajouter `zevent-monitor://account` à l'allowlist des redirections mobiles. La clé
+publique est embarquée dans l'application Expo ; la clé secrète reste exclusivement sur le
+backend. Une connexion fusionne les favoris et conserve les préférences du compte existant ; les
+modifications suivantes sont propagées aux installations rattachées. Les tokens push restent
+propres à chaque appareil.
+
 Le démarrage complet avec PostgreSQL se fait à partir d'une copie locale de `.env.example` :
 
 ```bash
@@ -98,7 +120,8 @@ port n'est donc publié sur l'hôte, le service reste joignable uniquement via l
 côté Dockploy). Définir au minimum `POSTGRES_PASSWORD` avec une valeur longue et aléatoire ;
 `POSTGRES_DB`, `POSTGRES_USER`, `LOG_LEVEL`, `COLLECTOR_ENABLED`, `COLLECT_INTERVAL_MS`,
 `GOALS_SYNC_ENABLED`, `GOALS_SYNC_INTERVAL_MS`, `PLANNING_SYNC_ENABLED` et
-`PLANNING_SYNC_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`
+`PLANNING_SYNC_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`. Pour activer la
+synchronisation de compte, `CLERK_SECRET_KEY` doit aussi être fournie au service backend
 (`SERVER_PORT` n'a d'effet qu'en local). Le volume nommé `postgres-data` conserve les échantillons
 lors des redéploiements.
 

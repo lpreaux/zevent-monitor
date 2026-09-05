@@ -8,6 +8,7 @@ interface FavoritesState {
   favorites: string[];
   hydrated: boolean;
   toggle: (twitch: string) => void;
+  replace: (favorites: string[]) => void;
   isFavorite: (twitch: string) => boolean;
 }
 
@@ -25,6 +26,7 @@ export const useFavoritesStore = create<FavoritesState>()(
             : [...current, login],
         });
       },
+      replace: (favorites) => set({ favorites: [...new Set(favorites.map((item) => item.toLowerCase()))] }),
       isFavorite: (twitch) => get().favorites.includes(twitch.toLowerCase()),
     }),
     {

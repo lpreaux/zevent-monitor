@@ -6,6 +6,7 @@ import { registerDeviceRoutes } from './routes/devices.js';
 import { registerDonationRoutes } from './routes/donations.js';
 import { registerPublicRoutes } from './routes/public.js';
 import { registerRecapRoutes } from './routes/recaps.js';
+import { registerAccountRoutes } from './routes/account.js';
 
 type BuildAppOptions = {
   config: AppConfig;
@@ -24,6 +25,7 @@ export function buildApp({ config, database = true, logger = true }: BuildAppOpt
     registerDeviceRoutes(app);
     registerRecapRoutes(app);
     registerDonationRoutes(app);
+    registerAccountRoutes(app, config);
   }
 
   app.get('/healthz', async () => ({ status: 'ok' as const }));

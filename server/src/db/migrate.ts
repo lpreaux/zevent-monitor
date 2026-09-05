@@ -178,6 +178,12 @@ CREATE INDEX IF NOT EXISTS donations_twitch_created_idx
   ON donations (twitch_display_name, created_at DESC) WHERE twitch_display_name IS NOT NULL;
 CREATE INDEX IF NOT EXISTS donations_donor_idx ON donations (lower(btrim(donor)));
 `,
+  // 7 — compte Clerk : plusieurs installations partagent favoris et préférences.
+  `
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS clerk_user_id text;
+CREATE INDEX IF NOT EXISTS devices_clerk_user_id_idx
+  ON devices (clerk_user_id) WHERE clerk_user_id IS NOT NULL;
+`,
 ];
 
 export async function migrateDatabase(app: FastifyInstance): Promise<void> {
