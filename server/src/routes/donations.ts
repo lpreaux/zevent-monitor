@@ -209,7 +209,30 @@ const recentQuery = z.object({
   minCents: z.coerce.number().int().min(0).default(0),
   /** Ne garder que les dons avec message. */
   withComment: z.stringbool().default(false),
+  /** Page suivante : curseur rendu par la réponse précédente. Voir `decodeCursor`. */
+  cursor: z.string().min(1).max(120).optional(),
 });
+
+/**
+ * Curseur de pagination du feed.
+ *
+ * Il porte le couple (date, identifiant) du dernier don rendu plutôt qu'un décalage :
+ * le feed s'enrichit par le haut en permanence, et un `OFFSET` ferait alors réapparaître
+ * en page suivante des dons déjà lus. L'identifiant départage les dons de même horodatage
+ * — Streamlabs en livre régulièrement plusieurs à la même seconde.
+ */
+export function encodeCursor(donation: { createdAt: string; id: string }): string {
+  return `${donation.createdAt}_${donation.id}`;
+}
+
+export function decodeCursor(value: string): { createdAt: Date; id: string } | null {
+  const separator = value.indexOf('_');
+  if (separator <= 0) return null;
+  const createdAt = new Date(value.slice(0, separator));
+  const id = value.slice(separator + 1);
+  if (Number.isNaN(createdAt.getTime()) || id.length === 0) return null;
+  return { createdAt, id };
+}
 
 const topQuery = z.object({
   window: windowSchema,
@@ -275,9 +298,13 @@ export function registerDonationRoutes(app: FastifyInstance, cache = new TtlCach
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_query', details: parsed.error.issues });
     const { limit, minCents, withComment } = parsed.data;
     const logins = parseLogins(parsed.data.twitch, 50);
+    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor) : null;
+    if (parsed.data.cursor && !cursor) return reply.code(400).send({ error: 'invalid_cursor' });
 
-    const key = `recent:${limit}:${minCents}:${withComment}:${logins.join(',')}`;
-    return cache.get(key, STATE_CACHE_MS, async () => {
+    const key = `recent:${limit}:${minCents}:${withComment}:${logins.join(',')}:${parsed.data.cursor ?? ''}`;
+    // Les pages suivantes portent sur du passé, qui ne bouge plus : elles se gardent plus
+    // longtemps que la tête du feed, seule à devoir suivre le direct.
+    return cache.get(key, cursor ? LIST_CACHE_MS : STATE_CACHE_MS, async () => {
       const { where, params } = buildFilter(null, logins);
       const extra: string[] = [];
       if (minCents > 0) {
@@ -285,6 +312,10 @@ export function registerDonationRoutes(app: FastifyInstance, cache = new TtlCach
         extra.push(`amount_cents >= $${params.length}`);
       }
       if (withComment) extra.push(`comment IS NOT NULL AND btrim(comment) <> ''`);
+      if (cursor) {
+        params.push(cursor.createdAt, cursor.id);
+        extra.push(`(created_at, id) < ($${params.length - 1}::timestamptz, $${params.length}::text)`);
+      }
       const fullWhere = extra.length
         ? `${where ? `${where} AND ` : 'WHERE '}${extra.join(' AND ')}`
         : where;
@@ -292,12 +323,21 @@ export function registerDonationRoutes(app: FastifyInstance, cache = new TtlCach
       const [rows, observed] = await Promise.all([
         app.pg.query<DonationRow>(
           `SELECT id, amount_cents::text, donor, comment, country, twitch_display_name, created_at
-           FROM donations ${fullWhere} ORDER BY created_at DESC LIMIT $${params.length}`,
+           FROM donations ${fullWhere} ORDER BY created_at DESC, id DESC LIMIT $${params.length}`,
           params,
         ),
-        observedFor('', []),
+        // Le bloc « observé » porte sur toute la table : le recalculer à chaque page
+        // ferait payer un balayage complet à chaque pas de défilement.
+        cursor ? undefined : observedFor('', []),
       ]);
-      return { donations: rows.rows.map(toDonationDto), observed };
+      const donations = rows.rows.map(toDonationDto);
+      const last = donations[donations.length - 1];
+      return {
+        donations,
+        // Une page pleine laisse supposer une suite ; une page courte est la fin du feed.
+        nextCursor: last && donations.length === limit ? encodeCursor(last) : null,
+        observed,
+      };
     });
   });
 
@@ -347,7 +387,7 @@ export function registerDonationRoutes(app: FastifyInstance, cache = new TtlCach
     const parsed = largestQuery.safeParse(request.query);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_query', details: parsed.error.issues });
     const { window, limit } = parsed.data;
-    const logins = parseLogins(parsed.data.twitch);
+    const logins = parseLogins(parsed.data.twitch, 50);
 
     return cache.get(`largest:${window}:${limit}:${logins.join(',')}`, LIST_CACHE_MS, async () => {
       const since = windowStart(window);
@@ -355,9 +395,14 @@ export function registerDonationRoutes(app: FastifyInstance, cache = new TtlCach
       const filterParams = [...params];
       params.push(limit);
       const [rows, observed] = await Promise.all([
+        // Tri qualifié : la projection expose « amount_cents » sous son nom d'origine bien
+        // qu'elle le rende en texte, et un ORDER BY non qualifié se résout d'abord sur les
+        // colonnes de sortie. Le classement se faisait donc sur l'écriture du montant —
+        // 9 999 passait devant 99 900.
         app.pg.query<DonationRow>(
           `SELECT id, amount_cents::text, donor, comment, country, twitch_display_name, created_at
-           FROM donations ${where} ORDER BY amount_cents DESC, created_at DESC LIMIT $${params.length}`,
+           FROM donations ${where}
+           ORDER BY donations.amount_cents DESC, donations.created_at DESC LIMIT $${params.length}`,
           params,
         ),
         observedFor(where, filterParams),
@@ -431,7 +476,7 @@ export function registerDonationRoutes(app: FastifyInstance, cache = new TtlCach
     const parsed = statsQuery.safeParse(request.query);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_query', details: parsed.error.issues });
     const { window } = parsed.data;
-    const logins = parseLogins(parsed.data.twitch);
+    const logins = parseLogins(parsed.data.twitch, 50);
     return cache.get(`stats:${window}:${logins.join(',')}`, LIST_CACHE_MS, async () => {
       const since = windowStart(window);
       return { window, since: since ? since.toISOString() : null, ...(await statsFor(since, logins)) };
@@ -449,7 +494,8 @@ export function registerDonationRoutes(app: FastifyInstance, cache = new TtlCach
         statsFor(null, [login]),
         app.pg.query<DonationRow>(
           `SELECT id, amount_cents::text, donor, comment, country, twitch_display_name, created_at
-           FROM donations ${where} ORDER BY amount_cents DESC, created_at DESC LIMIT 5`,
+           FROM donations ${where}
+           ORDER BY donations.amount_cents DESC, donations.created_at DESC LIMIT 5`,
           params,
         ),
         app.pg.query<DonationRow>(

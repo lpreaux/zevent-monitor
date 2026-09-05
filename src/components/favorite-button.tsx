@@ -1,4 +1,5 @@
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useFavoritesStore } from '@/store/favorites';
 
@@ -7,7 +8,13 @@ interface FavoriteButtonProps {
   size?: number;
 }
 
-/** Étoile pour ajouter / retirer un streamer des favoris (persisté via AsyncStorage). */
+/**
+ * Étoile pour suivre / ne plus suivre un streamer (persistée via AsyncStorage).
+ *
+ * En icône vectorielle plutôt qu'en caractère : les glyphes ★ et ☆ n'ont ni la même
+ * chasse ni la même hauteur d'un appareil à l'autre, ce qui décalait la fin de ligne
+ * au moment même où l'on tape dessus.
+ */
 export function FavoriteButton({ twitch, size = 22 }: FavoriteButtonProps) {
   const isFavorite = useFavoritesStore((s) => s.favorites.includes(twitch.toLowerCase()));
   const toggle = useFavoritesStore((s) => s.toggle);
@@ -16,12 +23,16 @@ export function FavoriteButton({ twitch, size = 22 }: FavoriteButtonProps) {
     <Pressable
       hitSlop={10}
       accessibilityRole="button"
+      accessibilityState={{ selected: isFavorite }}
       accessibilityLabel={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
       onPress={() => toggle(twitch)}
+      className="active:opacity-60"
     >
-      <Text style={{ fontSize: size }} className={isFavorite ? 'text-amber-400' : 'text-gray-600'}>
-        {isFavorite ? '★' : '☆'}
-      </Text>
+      <Ionicons
+        name={isFavorite ? 'star' : 'star-outline'}
+        size={size}
+        color={isFavorite ? '#fbbf24' : '#4b5563'}
+      />
     </Pressable>
   );
 }

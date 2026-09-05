@@ -184,6 +184,10 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS clerk_user_id text;
 CREATE INDEX IF NOT EXISTS devices_clerk_user_id_idx
   ON devices (clerk_user_id) WHERE clerk_user_id IS NOT NULL;
 `,
+  // 8 — pagination par curseur du feed : le tri porte sur (date, identifiant), l'index aussi.
+  `
+CREATE INDEX IF NOT EXISTS donations_created_id_idx ON donations (created_at DESC, id DESC);
+`,
 ];
 
 export async function migrateDatabase(app: FastifyInstance): Promise<void> {

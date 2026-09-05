@@ -3,16 +3,22 @@ import { describe, expect, it } from 'vitest';
 import type { ZeventState } from '../src/api/types';
 import { formatEuros } from '../src/lib/format';
 import {
+  buildDonationShareText,
   buildShareCardModel,
   buildShareText,
   countryName,
+  donationPulse,
   donationTimeLabel,
+  donorKey,
   donorLabel,
   flagEmoji,
+  foldText,
+  matchesDonation,
   niceCeil,
   parisHourLabel,
   percentOf,
   rankChange,
+  spanLabel,
 } from '../src/lib/donations';
 
 const amount = (value: number) => ({ number: value, formatted: `${value}` });
@@ -92,6 +98,22 @@ describe('libellés', () => {
     expect(flagEmoji('FRA')).toBe('');
   });
 
+  it('replie accents, casse et espaces', () => {
+    expect(foldText('  Jérôme   DUPONT ')).toBe('jerome dupont');
+    expect(foldText('Cœur')).toBe('coeur');
+    expect(donorKey('Léa')).toBe(donorKey('LEA'));
+  });
+
+  it('cherche dans le nom du donateur comme dans son message', () => {
+    const donation = { donor: 'Jérôme', comment: 'Allez les Bleus' };
+    expect(matchesDonation(donation, 'jerome')).toBe(true);
+    expect(matchesDonation(donation, 'bleus')).toBe(true);
+    expect(matchesDonation(donation, 'zerator')).toBe(false);
+    // Recherche vide : tout passe, la liste n'est pas filtrée.
+    expect(matchesDonation(donation, '')).toBe(true);
+    expect(matchesDonation({ donor: 'Lucas', comment: null }, 'lucas')).toBe(true);
+  });
+
   it('homogénéise les anonymes', () => {
     expect(donorLabel({ donor: 'anonymous', anonymous: true })).toBe('Anonyme');
     expect(donorLabel({ donor: '  Lucas ', anonymous: false })).toBe('Lucas');
@@ -127,5 +149,76 @@ describe('carte de partage', () => {
   it('omet la progression quand elle est inconnue', () => {
     const text = buildShareText(buildShareCardModel(state, [], null, '2026-09-05T12:34:00Z'));
     expect(text).not.toContain('dernière heure');
+  });
+
+  it('résume un don marquant', () => {
+    const text = buildDonationShareText(
+      {
+        id: '1',
+        donor: 'Lucas',
+        anonymous: false,
+        amountCents: 50_000,
+        comment: '  Bravo à tous  ',
+        country: 'FR',
+        twitch: 'aducine',
+        createdAt: '2026-09-05T12:34:00Z',
+      },
+      'Aducine',
+    );
+
+    expect(text).toContain(`${formatEuros(500)} de Lucas pour Aducine`);
+    expect(text).toContain('« Bravo à tous »');
+    expect(text).toContain('14:34 (Paris)');
+  });
+});
+
+describe('rythme du feed', () => {
+  const now = Date.parse('2026-09-05T12:00:00Z');
+  const donation = (minutesAgo: number, amountCents = 1_000) => ({
+    amountCents,
+    createdAt: new Date(now - minutesAgo * 60_000).toISOString(),
+  });
+
+  it('mesure sur la fenêtre demandée quand le lot la dépasse', () => {
+    // Vingt dons sur dix minutes, plus un plus vieux qui prouve que le lot dépasse la fenêtre.
+    const donations = [...Array(20)].map((_, index) => donation(index * 0.5, 2_000));
+    donations.push(donation(30));
+
+    const pulse = donationPulse(donations, now, 10 * 60_000);
+
+    expect(pulse).toMatchObject({ count: 20, spanMs: 10 * 60_000 });
+    expect(pulse?.perMinute).toBeCloseTo(2);
+    expect(pulse?.centsPerMinute).toBeCloseTo(4_000);
+  });
+
+  it('mesure sur la portée réelle quand le lot est plus court que la fenêtre', () => {
+    // Lot saturé : quatre dons sur deux minutes, rien avant. Diviser par dix minutes
+    // ferait chuter le rythme au moment précis où il s'emballe.
+    const donations = [donation(0), donation(1), donation(1.5), donation(2)];
+
+    const pulse = donationPulse(donations, now, 10 * 60_000);
+
+    expect(pulse).toMatchObject({ count: 4, spanMs: 2 * 60_000 });
+    expect(pulse?.perMinute).toBeCloseTo(2);
+  });
+
+  it('plancher de dix secondes et absence de dons', () => {
+    // Quarante dons en trois secondes : le plancher évite la division par zéro sans
+    // écraser un rythme de pointe bien réel.
+    const burst = [...Array(40)].map((_, index) => donation((index % 4) * 0.0125));
+    expect(donationPulse(burst, now)?.spanMs).toBe(10_000);
+    expect(donationPulse(burst, now)?.perMinute).toBeCloseTo(240);
+
+    expect(donationPulse([], now)).toBeNull();
+    expect(donationPulse([donation(45)], now, 10 * 60_000)).toBeNull();
+    expect(donationPulse([{ amountCents: 100, createdAt: 'pas une date' }], now)).toBeNull();
+  });
+
+  it('nomme la durée observée', () => {
+    expect(spanLabel(1_000)).toBe('la dernière seconde');
+    expect(spanLabel(6_400)).toBe('les 6 dernières secondes');
+    expect(spanLabel(62_000)).toBe('les 62 dernières secondes');
+    expect(spanLabel(95_000)).toBe('les 2 dernières minutes');
+    expect(spanLabel(10 * 60_000)).toBe('les 10 dernières minutes');
   });
 });

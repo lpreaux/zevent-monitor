@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import {
   DONATIONS_REFETCH_INTERVAL_MS,
@@ -23,7 +23,7 @@ import {
 import { loadBundledGoals } from './goals-fallback';
 import { loadBundledPlanning } from './planning-fallback';
 import { getGoals, getPlanning, getState, getTimeseries } from './zevent';
-import type { Goal, PlanningEntry, Streamer, TimeseriesResolution } from './types';
+import type { Goal, PlanningEntry, TimeseriesResolution } from './types';
 
 export const queryKeys = {
   state: ['zevent', 'state'] as const,
@@ -176,6 +176,42 @@ export function useRecentDonations(params: RecentDonationsParams = {}) {
   });
 }
 
+/** Taille d'une page du feed paginé. Assez pour remplir deux écrans, assez peu pour arriver vite. */
+export const DONATION_PAGE_SIZE = 40;
+
+/**
+ * Feed paginé des dons, curseur côté serveur : chaque page repart du dernier don rendu,
+ * jamais d'un décalage — la tête du feed s'enrichissant en continu, un `OFFSET` finirait
+ * par resservir des dons déjà lus.
+ *
+ * Le rafraîchissement automatique ne vaut que pour la tête : dès qu'une page suivante est
+ * chargée, on ne lit plus le direct mais le passé, et React Query rejouerait toutes les
+ * pages à chaque relève. Le geste de rafraîchir (voir `resetDonationFeed`) ramène à la tête.
+ */
+export function donationFeedKey(params: RecentDonationsParams = {}) {
+  return [
+    ...queryKeys.donations,
+    'feed',
+    params.limit ?? DONATION_PAGE_SIZE,
+    params.twitch ? [...params.twitch].sort().join(',') : '',
+    params.minCents ?? 0,
+    params.withComment ?? false,
+  ] as const;
+}
+
+export function useDonationFeed(params: RecentDonationsParams = {}) {
+  const limit = params.limit ?? DONATION_PAGE_SIZE;
+  return useInfiniteQuery({
+    queryKey: donationFeedKey(params),
+    queryFn: ({ pageParam }) => getRecentDonations({ ...params, limit, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    refetchInterval: (query) =>
+      (query.state.data?.pages.length ?? 1) > 1 ? false : LIVE_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
 export function useTopDonors(window: DonationWindow, limit = 20) {
   return useQuery({
     queryKey: [...queryKeys.donations, 'top', window, limit] as const,
@@ -185,22 +221,30 @@ export function useTopDonors(window: DonationWindow, limit = 20) {
   });
 }
 
-export function useLargestDonations(window: DonationWindow, limit = 10) {
+/** `twitch` restreint le classement à quelques streamers (filtre « mes favoris »). */
+export function useLargestDonations(window: DonationWindow, limit = 10, twitch?: readonly string[]) {
+  const logins = normalizeLogins(twitch);
   return useQuery({
-    queryKey: [...queryKeys.donations, 'largest', window, limit] as const,
-    queryFn: () => getLargestDonations(window, limit),
+    queryKey: [...queryKeys.donations, 'largest', window, limit, logins.join(',')] as const,
+    queryFn: () => getLargestDonations(window, limit, logins.length ? logins : undefined),
     refetchInterval: DONATIONS_REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   });
 }
 
-export function useDonationStats(window: DonationWindow) {
+export function useDonationStats(window: DonationWindow, twitch?: readonly string[]) {
+  const logins = normalizeLogins(twitch);
   return useQuery({
-    queryKey: [...queryKeys.donations, 'stats', window] as const,
-    queryFn: () => getDonationStats(window),
+    queryKey: [...queryKeys.donations, 'stats', window, logins.join(',')] as const,
+    queryFn: () => getDonationStats(window, logins.length ? logins : undefined),
     refetchInterval: DONATIONS_REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   });
+}
+
+/** Même liste de logins dans un autre ordre : même requête, donc même clé de cache. */
+function normalizeLogins(logins: readonly string[] | undefined): string[] {
+  return [...new Set((logins ?? []).map((login) => login.toLowerCase()))].sort();
 }
 
 /** Dons reçus par un streamer (stats, plus gros dons, derniers messages). */
@@ -245,50 +289,4 @@ export function useStreamerSeries(logins: string[], resolution: '1m' | '5m' | '1
     refetchInterval: SERIES_REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: false,
   });
-}
-
-export type StreamerSort = 'donation' | 'viewers' | 'live' | 'momentum';
-
-/** Tri + filtre de la liste des streamers pour l'onglet dédié. */
-export function sortStreamers(
-  streamers: Streamer[],
-  sort: StreamerSort,
-  search: string,
-  /** Progression récente par login (centimes), pour le tri « momentum ». */
-  momentum?: ReadonlyMap<string, number>,
-): Streamer[] {
-  const needle = search.trim().toLowerCase();
-  const filtered = needle
-    ? streamers.filter(
-        (s) =>
-          s.display.toLowerCase().includes(needle) ||
-          s.twitch.toLowerCase().includes(needle),
-      )
-    : streamers;
-
-  const sorted = [...filtered];
-  switch (sort) {
-    case 'momentum': {
-      const delta = (s: Streamer) => momentum?.get(s.twitch.toLowerCase()) ?? 0;
-      sorted.sort(
-        (a, b) => delta(b) - delta(a) || b.donationAmount.number - a.donationAmount.number,
-      );
-      break;
-    }
-    case 'viewers':
-      sorted.sort((a, b) => b.viewersAmount.number - a.viewersAmount.number);
-      break;
-    case 'live':
-      sorted.sort(
-        (a, b) =>
-          Number(b.online) - Number(a.online) ||
-          b.viewersAmount.number - a.viewersAmount.number,
-      );
-      break;
-    case 'donation':
-    default:
-      sorted.sort((a, b) => b.donationAmount.number - a.donationAmount.number);
-      break;
-  }
-  return sorted;
 }

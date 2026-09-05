@@ -32,7 +32,17 @@ export interface Observed {
 
 export interface RecentDonationsResponse {
   donations: Donation[];
-  observed: Observed;
+  /**
+   * Curseur de la page suivante, `null` quand le feed est épuisé. Le backend pagine sur
+   * le couple (date, identifiant) plutôt que sur un décalage : la tête du feed s'enrichit
+   * en continu, un `OFFSET` renverrait des dons déjà lus.
+   */
+  nextCursor: string | null;
+  /**
+   * Absent sur les pages suivantes : ce bloc porte sur toute la table, le recalculer à
+   * chaque pas de défilement coûterait un balayage complet.
+   */
+  observed?: Observed;
 }
 
 export interface TopDonor {
@@ -161,6 +171,8 @@ export interface RecentDonationsParams {
   twitch?: string[];
   minCents?: number;
   withComment?: boolean;
+  /** Page suivante : `nextCursor` de la réponse précédente. */
+  cursor?: string;
 }
 
 export function getRecentDonations(params: RecentDonationsParams = {}): Promise<RecentDonationsResponse> {
@@ -170,6 +182,7 @@ export function getRecentDonations(params: RecentDonationsParams = {}): Promise<
       twitch: params.twitch?.join(','),
       minCents: params.minCents,
       withComment: params.withComment,
+      cursor: params.cursor,
     })}`,
   );
 }
@@ -188,8 +201,13 @@ export function getLargestDonations(
   );
 }
 
-export function getDonationStats(window: DonationWindow): Promise<DonationStatsResponse> {
-  return fetchJson<DonationStatsResponse>(`/v1/donations/stats${query({ window })}`);
+export function getDonationStats(
+  window: DonationWindow,
+  twitch?: string[],
+): Promise<DonationStatsResponse> {
+  return fetchJson<DonationStatsResponse>(
+    `/v1/donations/stats${query({ window, twitch: twitch?.join(',') })}`,
+  );
 }
 
 export function getStreamerDonations(twitch: string): Promise<StreamerDonationsResponse> {
