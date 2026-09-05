@@ -17,6 +17,8 @@ interface AccountSyncState {
   /** Installations rattachées au compte, d'après la dernière fusion serveur. */
   deviceCount: number;
   lastSyncedAt: string | null;
+  /** Dernier compte tenté, réussi ou non : évite une boucle de retry à chaque rendu. */
+  lastAttemptedUserId: string | null;
   /** Dernier compte fusionné : empêche un second écran de relancer la fusion. */
   syncedUserId: string | null;
   run: (userId: string, getToken: TokenGetter) => Promise<void>;
@@ -32,10 +34,11 @@ const useAccountSyncStore = create<AccountSyncState>((set, get) => ({
   error: null,
   deviceCount: 0,
   lastSyncedAt: null,
+  lastAttemptedUserId: null,
   syncedUserId: null,
   run: async (userId, getToken) => {
     if (get().status === 'syncing') return;
-    set({ status: 'syncing', error: null });
+    set({ status: 'syncing', error: null, lastAttemptedUserId: userId });
     try {
       const token = await getToken();
       if (!token) throw new Error('Session Clerk indisponible');
@@ -67,7 +70,14 @@ const useAccountSyncStore = create<AccountSyncState>((set, get) => ({
       });
     }
   },
-  reset: () => set({ status: 'idle', error: null, deviceCount: 0, lastSyncedAt: null, syncedUserId: null }),
+  reset: () => set({
+    status: 'idle',
+    error: null,
+    deviceCount: 0,
+    lastSyncedAt: null,
+    lastAttemptedUserId: null,
+    syncedUserId: null,
+  }),
 }));
 
 export interface AccountSync {
@@ -90,10 +100,13 @@ export function useAccountSync(): AccountSync {
     if (!isLoaded) return;
     const store = useAccountSyncStore.getState();
     if (!isSignedIn || !userId) {
-      if (store.syncedUserId) store.reset();
+      if (store.lastAttemptedUserId) store.reset();
       return;
     }
-    if (store.syncedUserId === userId) return;
+    // Une erreur reste visible jusqu'à une action explicite sur « Actualiser ».
+    // Sans cette garde, une nouvelle identité de `getToken` peut relancer l'effet
+    // après chaque mise à jour Zustand et maintenir artificiellement `syncing`.
+    if (store.lastAttemptedUserId === userId) return;
     void store.run(userId, getToken);
   }, [getToken, isLoaded, isSignedIn, userId]);
 
