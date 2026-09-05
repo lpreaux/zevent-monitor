@@ -186,9 +186,10 @@ L'écran propose cinq dispositions cyclables (bouton, double tap ou balayage) :
 | --- | --- |
 | Vue d'ensemble | cagnotte géante, progression 1 h, prochain palier rond, viewers / live / heure, favoris |
 | Cagnotte XXL | la cagnotte et le prochain palier, rien d'autre, lisible de loin |
-| Focus streamer | un favori en grand : avatar, live, jeu, viewers, cagnotte perso, rang et part du global, prochain donation goal, show en cours |
+| Focus streamer | un favori en grand : avatar, live, jeu, viewers, cagnotte perso et progression sur 1 h, rang et part du global, prochain donation goal, show en cours |
 | Planning | les shows en cours et à venir, avec compte à rebours |
-| Cycle auto | alterne les trois premières toutes les 30 s |
+| Activité | « ça bouge » (top 3 des progressions sur 1 h, avec mouvement au classement) et ticker des derniers dons |
+| Cycle auto | alterne vue d'ensemble, focus, planning et activité toutes les 30 s |
 
 Le Focus se choisit en touchant un favori sur l'écran, en balayant horizontalement, depuis le bouton
 « écran secondaire » d'une fiche streamer, ou par rotation automatique (30 s / 1 min / 3 min). Le
@@ -197,6 +198,10 @@ repli sur le voile noir quand le module est absent), une gradation nocturne auto
 une gradation sous 20 % de batterie hors charge (`expo-battery`) et un verrou tactile façon kiosque
 (appui long pour déverrouiller). Gestes : double tap = disposition suivante, balayage = favori ou
 disposition, appui long = quitter.
+
+La progression horaire du streamer en focus vient de `GET /v1/timeseries/streamers`, « ça bouge » de
+`GET /v1/streamers/momentum` et le ticker de `GET /v1/donations/recent` : comme partout ailleurs dans
+l'app, le ticker rappelle que les chiffres sont établis « d'après les dons observés ».
 
 ✅ Étape 8 (PLAN.md §6) — notifications : enregistrement du token Expo, préférences granulaires
 synchronisées avec le backend et moteur d'alertes dédupliqué (paliers globaux, lives des favoris,

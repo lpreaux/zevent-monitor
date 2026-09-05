@@ -21,6 +21,7 @@ export const PRESET_CYCLE: AlwaysOnPreset[] = [
   'amount',
   'focus',
   'planning',
+  'activity',
   'cycle',
 ];
 

@@ -19,7 +19,7 @@ const SCREENS = [
   { name: 'tablette 4:3 paysage 1024×768', width: 1024, height: 768 },
 ] as const;
 
-const PRESETS: ResolvedPreset[] = ['overview', 'amount', 'focus', 'planning'];
+const PRESETS: ResolvedPreset[] = ['overview', 'amount', 'focus', 'planning', 'activity'];
 
 const NOTCH = { top: 44, bottom: 34, left: 0, right: 0 };
 const NOTCH_LANDSCAPE = { top: 0, bottom: 21, left: 44, right: 44 };
@@ -143,10 +143,14 @@ describe('computeAlwaysOnLayout', () => {
         preset,
         favoriteCount: 5,
         planningCount: 5,
+        donationCount: 5,
+        moverCount: 5,
       });
       expect(layout.mainWidth).toBeGreaterThan(0);
       expect(layout.favoriteSlots).toBe(0);
       expect(layout.planningSlots).toBe(0);
+      expect(layout.donationSlots).toBe(0);
+      expect(layout.moverSlots).toBe(0);
       expect(layout.amountFontSize).toBeGreaterThan(0);
     }
   });
@@ -160,6 +164,8 @@ describe('computeAlwaysOnLayout', () => {
           preset,
           favoriteCount: 8,
           planningCount: 6,
+          donationCount: 8,
+          moverCount: 5,
         });
 
         it(`${preset} — ${screen.name} : le montant tient dans sa colonne`, () => {
@@ -177,13 +183,21 @@ describe('computeAlwaysOnLayout', () => {
           const contentHeight = screen.height - layout.paddingV * 2;
           expect(layout.favoriteSlots * 56).toBeLessThanOrEqual(contentHeight);
           expect(layout.planningSlots * 66).toBeLessThanOrEqual(contentHeight);
+          expect(layout.donationSlots * 58).toBeLessThanOrEqual(contentHeight);
+          expect(layout.moverSlots * 52).toBeLessThanOrEqual(contentHeight);
           expect(layout.favoriteSlots).toBeLessThanOrEqual(5);
           expect(layout.planningSlots).toBeLessThanOrEqual(4);
+          expect(layout.donationSlots).toBeLessThanOrEqual(5);
+          expect(layout.moverSlots).toBeLessThanOrEqual(3);
+        });
+
+        it(`${preset} — ${screen.name} : « ça bouge » n'apparaît qu'en disposition Activité`, () => {
+          if (preset !== 'activity') expect(layout.moverSlots).toBe(0);
         });
       }
     }
 
-    it('n’affiche qu’une seule liste par disposition', () => {
+    it('n’affiche qu’une seule liste latérale par disposition', () => {
       for (const preset of PRESETS) {
         const layout = computeAlwaysOnLayout({
           width: 1024,
@@ -191,9 +205,40 @@ describe('computeAlwaysOnLayout', () => {
           preset,
           favoriteCount: 8,
           planningCount: 6,
+          donationCount: 8,
+          moverCount: 5,
         });
-        expect(Math.min(layout.favoriteSlots, layout.planningSlots)).toBe(0);
+        const used = [layout.favoriteSlots, layout.planningSlots, layout.donationSlots].filter(
+          (slots) => slots > 0,
+        );
+        expect(used.length).toBeLessThanOrEqual(1);
       }
+    });
+
+    it('loge « ça bouge » et le ticker ensemble en disposition Activité', () => {
+      const layout = computeAlwaysOnLayout({
+        width: 1024,
+        height: 768,
+        preset: 'activity',
+        donationCount: 8,
+        moverCount: 5,
+      });
+      expect(layout.moverSlots).toBeGreaterThan(0);
+      expect(layout.donationSlots).toBeGreaterThan(0);
+      expect(layout.twoColumns).toBe(true);
+    });
+
+    it('garde les deux blocs de l’Activité dans la hauteur en une seule colonne', () => {
+      const layout = computeAlwaysOnLayout({
+        width: 412,
+        height: 915,
+        preset: 'activity',
+        donationCount: 8,
+        moverCount: 5,
+      });
+      expect(layout.twoColumns).toBe(false);
+      const contentHeight = 915 - layout.paddingV * 2;
+      expect(layout.moverSlots * 52 + layout.donationSlots * 58).toBeLessThanOrEqual(contentHeight);
     });
 
     it('donne le montant le plus grand en Cagnotte XXL et le plus petit en Planning', () => {
@@ -268,8 +313,8 @@ describe('resolvePreset', () => {
   });
 
   it('saute le Focus dans le cycle quand il n’y a personne à afficher', () => {
-    const seen = [0, 1, 2, 3].map((step) => resolvePreset('cycle', step * CYCLE_STEP_MS));
+    const seen = [0, 1, 2, 3, 4, 5].map((step) => resolvePreset('cycle', step * CYCLE_STEP_MS));
     expect(seen).not.toContain('focus');
-    expect(new Set(seen)).toEqual(new Set(['overview', 'planning']));
+    expect(new Set(seen)).toEqual(new Set(CYCLE_PRESETS.filter((p) => p !== 'focus')));
   });
 });

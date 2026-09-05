@@ -10,13 +10,19 @@
  * Dispositions de l'écran secondaire. `cycle` alterne les autres au fil du temps et
  * n'est donc jamais passée telle quelle au calcul de mise en page : cf. `resolvePreset`.
  */
-export type AlwaysOnPreset = 'overview' | 'amount' | 'focus' | 'planning' | 'cycle';
+export type AlwaysOnPreset =
+  | 'overview'
+  | 'amount'
+  | 'focus'
+  | 'planning'
+  | 'activity'
+  | 'cycle';
 
 /** Disposition réellement affichée à un instant donné. */
 export type ResolvedPreset = Exclude<AlwaysOnPreset, 'cycle'>;
 
 /** Dispositions parcourues par le mode `cycle`, dans l'ordre. */
-export const CYCLE_PRESETS: ResolvedPreset[] = ['overview', 'focus', 'planning'];
+export const CYCLE_PRESETS: ResolvedPreset[] = ['overview', 'focus', 'planning', 'activity'];
 
 /** Durée d'affichage d'une disposition en mode `cycle`. */
 export const CYCLE_STEP_MS = 30_000;
@@ -52,6 +58,10 @@ export interface AlwaysOnLayoutInput {
   favoriteCount?: number;
   /** Nombre d'entrées de planning disponibles à afficher. */
   planningCount?: number;
+  /** Nombre de derniers dons disponibles à afficher. */
+  donationCount?: number;
+  /** Nombre de streamers en progression disponibles à afficher. */
+  moverCount?: number;
   /** Nombre de glyphes du montant le plus large attendu, ex. `16 636 297 €`. */
   amountGlyphs?: number;
 }
@@ -78,6 +88,10 @@ export interface AlwaysOnLayout {
   favoriteSlots: number;
   /** Nombre d'entrées de planning qui tiennent réellement à l'écran. */
   planningSlots: number;
+  /** Nombre de dons du ticker qui tiennent réellement à l'écran. */
+  donationSlots: number;
+  /** Nombre de streamers en progression qui tiennent réellement à l'écran. */
+  moverSlots: number;
   /** Bloc viewers / live / heure. */
   showStats: boolean;
   /** Barre de progression vers le prochain palier rond. */
@@ -103,7 +117,7 @@ interface PresetMetrics {
   sideMax: number;
   showStats: boolean;
   showMilestone: boolean;
-  list: 'favorites' | 'planning' | 'none';
+  list: 'favorites' | 'planning' | 'donations' | 'none';
 }
 
 const PRESET_METRICS: Record<ResolvedPreset, PresetMetrics> = {
@@ -143,6 +157,18 @@ const PRESET_METRICS: Record<ResolvedPreset, PresetMetrics> = {
     showMilestone: false,
     list: 'favorites',
   },
+  activity: {
+    relativeCap: 0.34,
+    amountHeightRatio: { landscape: 0.14, portrait: 0.1 },
+    minAmount: 20,
+    maxAmount: 56,
+    sideRatio: 0.42,
+    sideMin: 240,
+    sideMax: 480,
+    showStats: false,
+    showMilestone: false,
+    list: 'donations',
+  },
   planning: {
     relativeCap: 0.32,
     amountHeightRatio: { landscape: 0.12, portrait: 0.08 },
@@ -166,11 +192,23 @@ const FAVORITE_ROW_HEIGHT = 56;
 /** Hauteur d'une entrée de planning (titre + créneau + participants). */
 const PLANNING_ROW_HEIGHT = 66;
 
+/** Hauteur d'une ligne du ticker de dons (montant + donateur + horodatage). */
+const DONATION_ROW_HEIGHT = 58;
+
+/** Hauteur d'une ligne « ça bouge » (avatar + progression + rang). */
+const MOVER_ROW_HEIGHT = 52;
+
+/** Trois streamers en progression suffisent : au-delà, la liste ne se lit plus de loin. */
+const MAX_MOVER_SLOTS = 3;
+
 /** Le PLAN limite l'écran secondaire au top 5 des favoris. */
 const MAX_FAVORITE_SLOTS = 5;
 
 /** Au-delà, le planning devient une liste à lire de près : hors sujet pour cet écran. */
 const MAX_PLANNING_SLOTS = 4;
+
+/** Le ticker doit rester un aperçu, pas un journal à faire défiler. */
+const MAX_DONATION_SLOTS = 5;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -183,6 +221,8 @@ export function computeAlwaysOnLayout({
   preset = 'overview',
   favoriteCount = 0,
   planningCount = 0,
+  donationCount = 0,
+  moverCount = 0,
   amountGlyphs = 13,
 }: AlwaysOnLayoutInput): AlwaysOnLayout {
   const metrics = PRESET_METRICS[preset];
@@ -200,7 +240,12 @@ export function computeAlwaysOnLayout({
 
   // Deux colonnes seulement si la colonne latérale reste lisible et si la disposition
   // a effectivement quelque chose à y mettre.
-  const listCount = metrics.list === 'planning' ? planningCount : favoriteCount;
+  const listCount =
+    metrics.list === 'planning'
+      ? planningCount
+      : metrics.list === 'donations'
+        ? donationCount
+        : favoriteCount;
   const twoColumns =
     orientation === 'landscape' && contentWidth >= 560 && metrics.sideRatio > 0 && listCount > 0;
   const columnGap = twoColumns ? 24 : 0;
@@ -255,14 +300,43 @@ export function computeAlwaysOnLayout({
     deltaFontSize * 1.6 +
     (metrics.showStats ? statValueFontSize * 2.6 + captionFontSize * 2 : 0) +
     (metrics.showMilestone ? captionFontSize * 2 + 8 : 0) +
-    (preset === 'focus' ? focusAvatarSize + captionFontSize * 6 : 0);
+    (preset === 'focus' ? focusAvatarSize + captionFontSize * 6 : 0) +
+    // La disposition Activité loge le classement « ça bouge » dans la colonne
+    // principale : son titre est réservé ici, ses lignes juste en dessous.
+    (preset === 'activity' ? captionFontSize * 2 : 0);
+
+  // Les streamers en progression passent avant le ticker : ils tiennent dans ce qui
+  // reste de la colonne principale, le ticker se contente du solde.
+  const moverRoom = contentHeight - mainBlockHeight - footerHeight - blockGap;
+  const moverSlots =
+    preset === 'activity'
+      ? clamp(
+          Math.floor(Math.max(moverRoom, 0) / MOVER_ROW_HEIGHT),
+          0,
+          Math.min(MAX_MOVER_SLOTS, Math.max(moverCount, 0)),
+        )
+      : 0;
 
   const listHeight = twoColumns
     ? contentHeight - captionFontSize * 2 - footerHeight
-    : contentHeight - mainBlockHeight - footerHeight - blockGap;
+    : contentHeight -
+      mainBlockHeight -
+      moverSlots * MOVER_ROW_HEIGHT -
+      footerHeight -
+      blockGap * (moverSlots > 0 ? 2 : 1);
 
-  const rowHeight = metrics.list === 'planning' ? PLANNING_ROW_HEIGHT : FAVORITE_ROW_HEIGHT;
-  const maxSlots = metrics.list === 'planning' ? MAX_PLANNING_SLOTS : MAX_FAVORITE_SLOTS;
+  const rowHeight =
+    metrics.list === 'planning'
+      ? PLANNING_ROW_HEIGHT
+      : metrics.list === 'donations'
+        ? DONATION_ROW_HEIGHT
+        : FAVORITE_ROW_HEIGHT;
+  const maxSlots =
+    metrics.list === 'planning'
+      ? MAX_PLANNING_SLOTS
+      : metrics.list === 'donations'
+        ? MAX_DONATION_SLOTS
+        : MAX_FAVORITE_SLOTS;
   const slots =
     metrics.list === 'none'
       ? 0
@@ -287,6 +361,8 @@ export function computeAlwaysOnLayout({
     focusAvatarSize,
     favoriteSlots: metrics.list === 'favorites' ? slots : 0,
     planningSlots: metrics.list === 'planning' ? slots : 0,
+    donationSlots: metrics.list === 'donations' ? slots : 0,
+    moverSlots,
     showStats: metrics.showStats,
     showMilestone: metrics.showMilestone,
     burnInAmplitude,

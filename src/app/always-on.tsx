@@ -21,9 +21,19 @@ import { StatusBar } from 'expo-status-bar';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
-import { usePlanning, useStreamerGoals, useTimeseries2026, useZeventState } from '@/api/queries';
+import {
+  useMomentum,
+  usePlanning,
+  useRecentDonations,
+  useStreamerGoals,
+  useStreamerSeries,
+  useTimeseries2026,
+  useZeventState,
+} from '@/api/queries';
 import type { Streamer } from '@/api/types';
+import { AlwaysOnDonationRow } from '@/components/always-on-donation-row';
 import { AlwaysOnFavoriteRow } from '@/components/always-on-favorite-row';
+import { AlwaysOnMoverRow } from '@/components/always-on-mover-row';
 import { AlwaysOnFocusCard } from '@/components/always-on-focus-card';
 import { AlwaysOnMilestone } from '@/components/always-on-milestone';
 import { AlwaysOnPlanningRow } from '@/components/always-on-planning-row';
@@ -41,6 +51,7 @@ import {
   nextGoalProgress,
   orderFavorites,
   planningFocus,
+  recentStreamerDeltaEur,
   resolveFocus,
   stepFocus,
   streamerStanding,
@@ -53,6 +64,7 @@ import {
 } from '@/lib/always-on-layout';
 import { formatCount, formatEuros, formatPercent, formatRelativeTime } from '@/lib/format';
 import { currentAndUpcoming } from '@/lib/planning';
+import { useNow } from '@/lib/use-now';
 import { recentDeltaEur, toElapsedSeries, type RawPoint } from '@/lib/timeseries';
 import { useAppBrightness, useBatteryStatus } from '@/lib/use-screen-comfort';
 import { useAlwaysOnStore, type AlwaysOnPreset, type OrientationLock } from '@/store/always-on';
@@ -73,6 +85,12 @@ const DOUBLE_TAP_MS = 320;
 /** Un balayage plus court est probablement un appui qui a glissé. */
 const SWIPE_THRESHOLD_PX = 40;
 
+/** Fenêtre du classement « ça bouge », alignée sur celle du delta global. */
+const MOMENTUM_WINDOW_MINUTES = 60;
+
+/** Marge de sécurité : le nombre d'emplacements dépend d'une mise en page pas encore calculée. */
+const MAX_ACTIVITY_ROWS = 5;
+
 const ORIENTATION_CYCLE: OrientationLock[] = ['auto', 'landscape', 'portrait'];
 
 const ORIENTATION_META: Record<
@@ -92,6 +110,7 @@ const PRESET_META: Record<
   amount: { icon: 'cash', label: 'Cagnotte XXL' },
   focus: { icon: 'person', label: 'Focus streamer' },
   planning: { icon: 'calendar', label: 'Planning' },
+  activity: { icon: 'trending-up', label: 'Activité' },
   cycle: { icon: 'shuffle', label: 'Cycle auto' },
 };
 
@@ -143,19 +162,6 @@ function useOrientationLock(lock: OrientationLock) {
   }, [lock]);
 }
 
-/**
- * Instant courant, rafraîchi toutes les 20 s : il pilote à la fois l'horloge, les
- * comptes à rebours du planning et la détection de la plage nocturne.
- */
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 20_000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
 /** Heure locale `HH:MM`. */
 function formatClock(now: number): string {
   const date = new Date(now);
@@ -203,11 +209,15 @@ export default function AlwaysOnScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const now = useNow();
+  // Rafraîchi toutes les 20 s : pilote l'horloge, les comptes à rebours du planning,
+  // l'âge des dons du ticker et la détection de la plage nocturne.
+  const now = useNow(20_000);
 
   const stateQuery = useZeventState();
   const timeseriesQuery = useTimeseries2026('10m');
   const planningResult = usePlanning();
+  const momentumQuery = useMomentum(MOMENTUM_WINDOW_MINUTES, MAX_ACTIVITY_ROWS);
+  const donationsQuery = useRecentDonations({ limit: MAX_ACTIVITY_ROWS });
   const favorites = useFavoritesStore((s) => s.favorites);
 
   const orientationLock = useAlwaysOnStore((s) => s.orientationLock);
@@ -303,6 +313,20 @@ export default function AlwaysOnScreen() {
   }, [rotationSeconds, resolved, setFocusTwitch]);
 
   const goalsResult = useStreamerGoals(focusStreamer?.twitch);
+  const focusSeriesQuery = useStreamerSeries(focusStreamer ? [focusStreamer.twitch] : [], '10m');
+
+  const focusDelta = useMemo(() => {
+    if (!focusStreamer) return null;
+    const points = focusSeriesQuery.data?.streamers[focusStreamer.twitch.toLowerCase()] ?? [];
+    return recentStreamerDeltaEur(
+      points,
+      DELTA_WINDOW_MINUTES,
+      focusStreamer.donationAmount.number,
+    );
+  }, [focusSeriesQuery.data, focusStreamer]);
+
+  const movers = momentumQuery.data?.streamers ?? [];
+  const donations = donationsQuery.data?.donations ?? [];
 
   const planningEntries = useMemo(
     () => currentAndUpcoming(planningResult.entries, now),
@@ -325,8 +349,19 @@ export default function AlwaysOnScreen() {
         preset: resolved,
         favoriteCount: listFavorites.length,
         planningCount: planningEntries.length,
+        donationCount: donations.length,
+        moverCount: movers.length,
       }),
-    [width, height, insets, resolved, listFavorites.length, planningEntries.length],
+    [
+      width,
+      height,
+      insets,
+      resolved,
+      listFavorites.length,
+      planningEntries.length,
+      donations.length,
+      movers.length,
+    ],
   );
 
   const delta = useMemo(() => {
@@ -457,6 +492,10 @@ export default function AlwaysOnScreen() {
   const stale = stateQuery.data?.source.stale ?? false;
   const visibleFavorites = listFavorites.slice(0, layout.favoriteSlots);
   const visiblePlanning = planningEntries.slice(0, layout.planningSlots);
+  const visibleMovers = movers.slice(0, layout.moverSlots);
+  const visibleDonations = donations.slice(0, layout.donationSlots);
+  const favoriteLogins = new Set(favorites);
+  const displayByLogin = new Map(state.live.map((s) => [s.twitch.toLowerCase(), s.display]));
   const deltaLabel =
     delta == null
       ? '— dernière heure'
@@ -574,6 +613,63 @@ export default function AlwaysOnScreen() {
       </View>
     ) : null;
 
+  const donationsBlock =
+    visibleDonations.length > 0 ? (
+      <View
+        className={layout.twoColumns ? 'flex-1' : ''}
+        style={{ width: layout.sideWidth || undefined }}
+      >
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="mb-1 uppercase tracking-widest text-gray-600"
+        >
+          Derniers dons
+        </Text>
+        {visibleDonations.map((donation) => {
+          const login = donation.twitch?.toLowerCase() ?? null;
+          return (
+            <AlwaysOnDonationRow
+              key={donation.id}
+              donation={donation}
+              favorite={login ? favoriteLogins.has(login) : false}
+              streamerLabel={login ? (displayByLogin.get(login) ?? donation.twitch) : null}
+              now={now}
+              valueFontSize={layout.statValueFontSize}
+              captionFontSize={layout.captionFontSize}
+            />
+          );
+        })}
+        {/* Provenance obligatoire : le feed Streamlabs ne montre qu'une fenêtre de dons. */}
+        <Text style={{ fontSize: layout.captionFontSize }} className="mt-1 text-gray-700">
+          D’après les dons observés
+        </Text>
+      </View>
+    ) : null;
+
+  const moversBlock =
+    visibleMovers.length > 0 ? (
+      <View className="mt-3">
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="mb-1 uppercase tracking-widest text-gray-600"
+        >
+          {momentumQuery.data?.complete === false
+            ? 'Ça bouge — fenêtre incomplète'
+            : 'Ça bouge — dernière heure'}
+        </Text>
+        {visibleMovers.map((item, index) => (
+          <AlwaysOnMoverRow
+            key={item.twitch}
+            item={item}
+            position={index + 1}
+            favorite={favoriteLogins.has(item.twitch.toLowerCase())}
+            valueFontSize={layout.statValueFontSize}
+            captionFontSize={layout.captionFontSize}
+          />
+        ))}
+      </View>
+    ) : null;
+
   const globalBlock = (
     <>
       <Text
@@ -618,6 +714,7 @@ export default function AlwaysOnScreen() {
           entriesForStreamer(planningResult.entries, focusStreamer.twitch),
           now,
         )}
+        deltaEurPerHour={focusDelta}
         now={now}
         amountFontSize={layout.amountFontSize}
         deltaFontSize={layout.deltaFontSize}
@@ -653,10 +750,16 @@ export default function AlwaysOnScreen() {
       className="justify-center"
     >
       {resolved === 'focus' && focusBlock ? focusBlock : globalBlock}
+      {resolved === 'activity' ? moversBlock : null}
     </View>
   );
 
-  const sideBlock = resolved === 'planning' ? planningBlock : favoritesBlock;
+  const sideBlock =
+    resolved === 'planning'
+      ? planningBlock
+      : resolved === 'activity'
+        ? donationsBlock
+        : favoritesBlock;
 
   return (
     <View

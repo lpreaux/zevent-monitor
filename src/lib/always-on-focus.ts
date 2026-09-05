@@ -5,8 +5,10 @@
  * d'appeler ces fonctions avec l'état courant.
  */
 
+import type { StreamerSeriesPoint } from '@/api/donations';
 import type { Goal, PlanningEntry, Streamer } from '@/api/types';
 import { entryStatus } from './planning';
+import { recentDeltaEur, toElapsedSeries, type RawPoint } from './timeseries';
 
 /**
  * Favoris présents dans l'état officiel, en live d'abord puis par cagnotte
@@ -145,4 +147,25 @@ export function planningFocus(entries: PlanningEntry[], now: number): PlanningFo
   const current = sorted.find((entry) => entryStatus(entry, now) === 'live') ?? null;
   const next = sorted.find((entry) => entryStatus(entry, now) === 'upcoming') ?? null;
   return { current, next };
+}
+
+/**
+ * Progression d'un streamer sur les `windowMinutes` dernières minutes, à partir de sa
+ * courbe (`GET /v1/timeseries/streamers`). On aligne sur le premier point disponible et
+ * non sur le seuil d'ouverture de la collecte globale : une cagnotte personnelle peut
+ * rester bien en dessous toute l'édition.
+ *
+ * `currentEur` (la valeur de l'état officiel, plus fraîche que le dernier point agrégé)
+ * sert de borne haute, comme pour la cagnotte globale.
+ */
+export function recentStreamerDeltaEur(
+  points: Pick<StreamerSeriesPoint, 'bucket' | 'eur'>[],
+  windowMinutes: number,
+  currentEur?: number,
+): number | null {
+  const raw: RawPoint[] = points
+    .map((point) => ({ t: Date.parse(point.bucket), eur: point.eur }))
+    .filter((point) => Number.isFinite(point.t));
+  if (raw.length < 2) return null;
+  return recentDeltaEur(toElapsedSeries(raw, 0).points, windowMinutes, currentEur);
 }

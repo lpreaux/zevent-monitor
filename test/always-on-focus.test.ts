@@ -6,6 +6,7 @@ import {
   nextGoalProgress,
   orderFavorites,
   planningFocus,
+  recentStreamerDeltaEur,
   resolveFocus,
   stepFocus,
   streamerStanding,
@@ -182,5 +183,42 @@ describe('entriesForStreamer / planningFocus', () => {
     const focus = planningFocus(entries, now);
     expect(focus.current).toBeNull();
     expect(focus.next?.id).toBe('b');
+  });
+});
+
+describe('recentStreamerDeltaEur', () => {
+  /** Points espacés de 10 min, du plus ancien au plus récent. */
+  function series(values: number[]) {
+    const start = Date.parse('2026-09-05T12:00:00Z');
+    return values.map((eur, index) => ({
+      bucket: new Date(start + index * 600_000).toISOString(),
+      eur,
+    }));
+  }
+
+  it('mesure la progression sur la fenêtre demandée', () => {
+    // 7 points = une heure pile entre le premier et le dernier.
+    const points = series([1_000, 1_100, 1_200, 1_300, 1_400, 1_500, 1_600]);
+    expect(recentStreamerDeltaEur(points, 60)).toBe(600);
+  });
+
+  it('préfère la cagnotte officielle, plus fraîche que le dernier point agrégé', () => {
+    const points = series([1_000, 1_100, 1_200, 1_300, 1_400, 1_500, 1_600]);
+    expect(recentStreamerDeltaEur(points, 60, 1_650)).toBe(650);
+  });
+
+  it('ne dépend pas du seuil d’ouverture de la collecte globale', () => {
+    // Une cagnotte perso peut rester très en dessous des 1 000 € du seuil global.
+    const points = series([10, 20, 30, 40, 50, 60, 70]);
+    expect(recentStreamerDeltaEur(points, 60)).toBe(60);
+  });
+
+  it('ne renvoie rien tant que la courbe ne couvre pas la fenêtre', () => {
+    expect(recentStreamerDeltaEur(series([1_000, 1_100]), 60)).toBeNull();
+    expect(recentStreamerDeltaEur([], 60)).toBeNull();
+  });
+
+  it('ignore les horodatages illisibles', () => {
+    expect(recentStreamerDeltaEur([{ bucket: 'pas-une-date', eur: 10 }], 60)).toBeNull();
   });
 });

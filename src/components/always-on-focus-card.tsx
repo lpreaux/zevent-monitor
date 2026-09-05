@@ -12,6 +12,8 @@ interface AlwaysOnFocusCardProps {
   /** Prochain palier InGDoc, `null` si aucun n'est connu pour ce streamer. */
   goal: GoalProgressSummary | null;
   planning: PlanningFocus;
+  /** Progression de la cagnotte perso sur la dernière heure, `null` si la courbe manque. */
+  deltaEurPerHour: number | null;
   now: number;
   amountFontSize: number;
   deltaFontSize: number;
@@ -22,17 +24,14 @@ interface AlwaysOnFocusCardProps {
 
 /**
  * Streamer mis en avant sur l'écran secondaire : identité, activité, cagnotte
- * personnelle, prochain palier et show en cours.
- *
- * Le rythme personnel (€/h) n'est volontairement pas affiché : il demande un historique
- * par streamer que l'API n'expose pas encore. Il viendra se loger sous la ligne de
- * classement quand le feed de dons sera disponible côté serveur.
+ * personnelle, rythme sur la dernière heure, prochain palier et show en cours.
  */
 export function AlwaysOnFocusCard({
   streamer,
   standing,
   goal,
   planning,
+  deltaEurPerHour,
   now,
   amountFontSize,
   deltaFontSize,
@@ -100,6 +99,17 @@ export function AlwaysOnFocusCard({
           </Text>
         ) : null}
       </Text>
+
+      {deltaEurPerHour != null ? (
+        <Text
+          style={{ fontSize: deltaFontSize * 0.9 }}
+          className={`font-semibold ${
+            deltaEurPerHour >= 0 ? 'text-emerald-400' : 'text-red-400'
+          }`}
+        >
+          {`${deltaEurPerHour >= 0 ? '+' : '−'}${formatEuros(Math.abs(deltaEurPerHour))} en 1 h`}
+        </Text>
+      ) : null}
 
       {goal ? (
         <View className="mt-3">
