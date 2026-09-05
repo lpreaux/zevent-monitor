@@ -8,6 +8,7 @@ import { useMomentum, useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { ErrorState, LoadingState } from '@/components/screen-state';
+import { FavoriteOfflineRow } from '@/components/favorite-offline-row';
 import { FavoriteStreamerCard } from '@/components/favorite-streamer-card';
 import { MomentumRow } from '@/components/momentum-row';
 import { Segmented } from '@/components/segmented';
@@ -77,11 +78,19 @@ export default function DashboardScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useZeventState();
   const favorites = useFavoritesStore((s) => s.favorites);
 
-  const favoriteStreamers = useMemo<Streamer[]>(() => {
-    if (!data) return [];
+  /** Favoris scindés : les lives passent en cartes, les hors ligne en lignes discrètes. */
+  const { liveFavorites, offlineFavorites } = useMemo(() => {
+    if (!data) return { liveFavorites: [] as Streamer[], offlineFavorites: [] as Streamer[] };
     const set = new Set(favorites);
-    return data.data.live.filter((s) => set.has(s.twitch.toLowerCase()));
+    const mine = data.data.live
+      .filter((s) => set.has(s.twitch.toLowerCase()))
+      .sort((a, b) => b.donationAmount.number - a.donationAmount.number);
+    return {
+      liveFavorites: mine.filter((s) => s.online),
+      offlineFavorites: mine.filter((s) => !s.online),
+    };
   }, [data, favorites]);
+  const favoriteCount = liveFavorites.length + offlineFavorites.length;
 
   const onRefresh = useCallback(() => void refetch(), [refetch]);
 
@@ -178,25 +187,46 @@ export default function DashboardScreen() {
         </View>
 
         <View className="mt-2 gap-3">
-          <Text className="text-base font-bold text-white">Mes favoris</Text>
+          <View className="flex-row items-baseline justify-between">
+            <Text className="text-base font-bold text-white">Mes favoris</Text>
+            {favoriteCount > 0 ? (
+              <Text className="text-xs text-gray-500">
+                {formatCount(liveFavorites.length)} en live sur {formatCount(favoriteCount)}
+              </Text>
+            ) : null}
+          </View>
           {favorites.length === 0 ? (
             <Text className="text-sm text-gray-500">
               Ajoutez des streamers en favori depuis l’onglet Streamers pour les suivre ici.
             </Text>
-          ) : favoriteStreamers.length === 0 ? (
+          ) : favoriteCount === 0 ? (
             <Text className="text-sm text-gray-500">
               Vos favoris ne figurent pas dans la liste officielle actuelle.
             </Text>
           ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerClassName="gap-3 pr-5"
-            >
-              {favoriteStreamers.map((streamer) => (
-                <FavoriteStreamerCard key={streamer.twitch_id} streamer={streamer} />
-              ))}
-            </ScrollView>
+            <>
+              {liveFavorites.length === 0 ? (
+                <Text className="text-sm text-gray-500">Aucun favori en live pour le moment.</Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerClassName="gap-3 pr-5"
+                >
+                  {liveFavorites.map((streamer) => (
+                    <FavoriteStreamerCard key={streamer.twitch_id} streamer={streamer} />
+                  ))}
+                </ScrollView>
+              )}
+
+              {offlineFavorites.length > 0 ? (
+                <View className="gap-1 rounded-2xl border border-gray-800/70 bg-gray-900/30 px-2 py-1.5">
+                  {offlineFavorites.map((streamer) => (
+                    <FavoriteOfflineRow key={streamer.twitch_id} streamer={streamer} />
+                  ))}
+                </View>
+              ) : null}
+            </>
           )}
         </View>
 

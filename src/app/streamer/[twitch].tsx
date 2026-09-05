@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,20 +18,12 @@ import { ObservedNotice } from '@/components/observed-notice';
 import { OverlayChart } from '@/components/overlay-chart';
 import { EmptyState, LoadingState } from '@/components/screen-state';
 import { FavoriteButton } from '@/components/favorite-button';
+import { openDonationPage, openTwitchStream } from '@/lib/links';
 import { useNow } from '@/lib/use-now';
 import { StatTile } from '@/components/stat-tile';
 import { niceCeil } from '@/lib/donations';
-import { formatCount, formatEuros, formatEurosCompact, formatRelativeTime, twitchLinks } from '@/lib/format';
+import { formatCount, formatEuros, formatEurosCompact, formatRelativeTime } from '@/lib/format';
 import { toElapsedSeries, type RawPoint } from '@/lib/timeseries';
-
-async function openTwitch(login: string) {
-  const { app, web } = twitchLinks(login);
-  try {
-    await Linking.openURL(app);
-  } catch {
-    await Linking.openURL(web);
-  }
-}
 
 /** Courbe de la cagnotte perso, alignée sur le T+0 de la collecte globale. */
 function StreamerCurve({ twitch, currentEur }: { twitch: string; currentEur: number }) {
@@ -185,13 +177,13 @@ export default function StreamerDetailScreen() {
 
             <View className="flex-row gap-3">
               <Pressable
-                onPress={() => void openTwitch(streamer.twitch)}
+                onPress={() => void openTwitchStream(streamer.twitch)}
                 className="flex-1 items-center rounded-2xl bg-zevent-500 py-3.5 active:opacity-80"
               >
                 <Text className="text-sm font-bold text-white">Regarder sur Twitch</Text>
               </Pressable>
               <Pressable
-                onPress={() => void Linking.openURL(streamer.donationUrl)}
+                onPress={() => void openDonationPage(streamer.donationUrl)}
                 className="flex-1 items-center rounded-2xl border border-zevent-500 py-3.5 active:opacity-80"
               >
                 <Text className="text-sm font-bold text-zevent-200">Faire un don</Text>
