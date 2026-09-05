@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeAlwaysOnLayout } from '../src/lib/always-on-layout';
+import {
+  computeAlwaysOnLayout,
+  CYCLE_PRESETS,
+  CYCLE_STEP_MS,
+  resolvePreset,
+  type ResolvedPreset,
+} from '../src/lib/always-on-layout';
 
 /** Ratios couverts : 16:9, 9:20, 4:3, petit écran, tablette, avec et sans encoche. */
 const SCREENS = [
@@ -12,6 +18,8 @@ const SCREENS = [
   { name: 'tablette 4:3 portrait 768×1024', width: 768, height: 1024 },
   { name: 'tablette 4:3 paysage 1024×768', width: 1024, height: 768 },
 ] as const;
+
+const PRESETS: ResolvedPreset[] = ['overview', 'amount', 'focus', 'planning'];
 
 const NOTCH = { top: 44, bottom: 34, left: 0, right: 0 };
 const NOTCH_LANDSCAPE = { top: 0, bottom: 21, left: 44, right: 44 };
@@ -68,33 +76,57 @@ describe('computeAlwaysOnLayout', () => {
   }
 
   it('passe en deux colonnes en paysage seulement', () => {
-    expect(computeAlwaysOnLayout({ width: 915, height: 412 }).twoColumns).toBe(true);
-    expect(computeAlwaysOnLayout({ width: 1024, height: 768 }).twoColumns).toBe(true);
-    expect(computeAlwaysOnLayout({ width: 412, height: 915 }).twoColumns).toBe(false);
-    expect(computeAlwaysOnLayout({ width: 768, height: 1024 }).twoColumns).toBe(false);
+    expect(computeAlwaysOnLayout({ width: 915, height: 412, favoriteCount: 3 }).twoColumns).toBe(
+      true,
+    );
+    expect(computeAlwaysOnLayout({ width: 1024, height: 768, favoriteCount: 3 }).twoColumns).toBe(
+      true,
+    );
+    expect(computeAlwaysOnLayout({ width: 412, height: 915, favoriteCount: 3 }).twoColumns).toBe(
+      false,
+    );
+    expect(computeAlwaysOnLayout({ width: 768, height: 1024, favoriteCount: 3 }).twoColumns).toBe(
+      false,
+    );
   });
 
   it('reste sur une colonne quand la colonne latérale serait illisible', () => {
     // Paysage étroit (multi-fenêtre Android) : pas la place pour deux colonnes.
-    const layout = computeAlwaysOnLayout({ width: 520, height: 360 });
+    const layout = computeAlwaysOnLayout({ width: 520, height: 360, favoriteCount: 3 });
+    expect(layout.twoColumns).toBe(false);
+    expect(layout.sideWidth).toBe(0);
+  });
+
+  it('ne réserve pas de colonne pour une liste vide', () => {
+    const layout = computeAlwaysOnLayout({ width: 915, height: 412, favoriteCount: 0 });
     expect(layout.twoColumns).toBe(false);
     expect(layout.sideWidth).toBe(0);
   });
 
   it('n’affiche pas plus de favoris qu’il n’en existe', () => {
-    expect(computeAlwaysOnLayout({ width: 412, height: 915, favoriteCount: 0 }).favoriteSlots).toBe(0);
-    expect(computeAlwaysOnLayout({ width: 412, height: 915, favoriteCount: 2 }).favoriteSlots).toBe(2);
+    expect(computeAlwaysOnLayout({ width: 412, height: 915, favoriteCount: 0 }).favoriteSlots).toBe(
+      0,
+    );
+    expect(computeAlwaysOnLayout({ width: 412, height: 915, favoriteCount: 2 }).favoriteSlots).toBe(
+      2,
+    );
   });
 
   it('retire les marges système de la surface utile', () => {
-    const plain = computeAlwaysOnLayout({ width: 412, height: 915 });
-    const notched = computeAlwaysOnLayout({ width: 412, height: 915, insets: NOTCH });
+    const plain = computeAlwaysOnLayout({ width: 412, height: 915, favoriteCount: 5 });
+    const notched = computeAlwaysOnLayout({
+      width: 412,
+      height: 915,
+      insets: NOTCH,
+      favoriteCount: 5,
+    });
     expect(notched.amountFontSize).toBeLessThanOrEqual(plain.amountFontSize);
 
     const landscape = computeAlwaysOnLayout({
       width: 915,
       height: 412,
       insets: NOTCH_LANDSCAPE,
+      favoriteCount: 5,
     });
     expect(landscape.orientation).toBe('landscape');
     expect(amountWidth(landscape.amountFontSize)).toBeLessThanOrEqual(landscape.mainWidth + 1);
@@ -104,9 +136,140 @@ describe('computeAlwaysOnLayout', () => {
   });
 
   it('ne renvoie jamais de dimension négative sur une surface dégénérée', () => {
-    const layout = computeAlwaysOnLayout({ width: 1, height: 1, favoriteCount: 5 });
-    expect(layout.mainWidth).toBeGreaterThan(0);
-    expect(layout.favoriteSlots).toBe(0);
-    expect(layout.amountFontSize).toBeGreaterThan(0);
+    for (const preset of PRESETS) {
+      const layout = computeAlwaysOnLayout({
+        width: 1,
+        height: 1,
+        preset,
+        favoriteCount: 5,
+        planningCount: 5,
+      });
+      expect(layout.mainWidth).toBeGreaterThan(0);
+      expect(layout.favoriteSlots).toBe(0);
+      expect(layout.planningSlots).toBe(0);
+      expect(layout.amountFontSize).toBeGreaterThan(0);
+    }
+  });
+
+  describe('dispositions', () => {
+    for (const preset of PRESETS) {
+      for (const screen of SCREENS) {
+        const layout = computeAlwaysOnLayout({
+          width: screen.width,
+          height: screen.height,
+          preset,
+          favoriteCount: 8,
+          planningCount: 6,
+        });
+
+        it(`${preset} — ${screen.name} : le montant tient dans sa colonne`, () => {
+          expect(layout.preset).toBe(preset);
+          expect(amountWidth(layout.amountFontSize)).toBeLessThanOrEqual(layout.mainWidth + 1);
+        });
+
+        it(`${preset} — ${screen.name} : les légendes restent lisibles`, () => {
+          expect(layout.captionFontSize).toBeGreaterThanOrEqual(10);
+          expect(layout.statValueFontSize).toBeGreaterThanOrEqual(13);
+          expect(layout.amountFontSize).toBeGreaterThanOrEqual(20);
+        });
+
+        it(`${preset} — ${screen.name} : les listes tiennent dans la hauteur utile`, () => {
+          const contentHeight = screen.height - layout.paddingV * 2;
+          expect(layout.favoriteSlots * 56).toBeLessThanOrEqual(contentHeight);
+          expect(layout.planningSlots * 66).toBeLessThanOrEqual(contentHeight);
+          expect(layout.favoriteSlots).toBeLessThanOrEqual(5);
+          expect(layout.planningSlots).toBeLessThanOrEqual(4);
+        });
+      }
+    }
+
+    it('n’affiche qu’une seule liste par disposition', () => {
+      for (const preset of PRESETS) {
+        const layout = computeAlwaysOnLayout({
+          width: 1024,
+          height: 768,
+          preset,
+          favoriteCount: 8,
+          planningCount: 6,
+        });
+        expect(Math.min(layout.favoriteSlots, layout.planningSlots)).toBe(0);
+      }
+    });
+
+    it('donne le montant le plus grand en Cagnotte XXL et le plus petit en Planning', () => {
+      const sizes = Object.fromEntries(
+        PRESETS.map((preset) => [
+          preset,
+          computeAlwaysOnLayout({
+            width: 915,
+            height: 412,
+            preset,
+            favoriteCount: 5,
+            planningCount: 4,
+          }).amountFontSize,
+        ]),
+      );
+      expect(sizes.amount).toBeGreaterThan(sizes.overview);
+      expect(sizes.overview).toBeGreaterThan(sizes.focus);
+      expect(sizes.focus).toBeGreaterThan(sizes.planning);
+    });
+
+    it('garde des légendes de même taille d’une disposition à l’autre', () => {
+      const captions = PRESETS.map(
+        (preset) =>
+          computeAlwaysOnLayout({
+            width: 915,
+            height: 412,
+            preset,
+            favoriteCount: 5,
+            planningCount: 4,
+          }).captionFontSize,
+      );
+      expect(new Set(captions).size).toBe(1);
+    });
+
+    it('n’affiche stats et palier que là où c’est prévu', () => {
+      const amount = computeAlwaysOnLayout({ width: 915, height: 412, preset: 'amount' });
+      expect(amount.showStats).toBe(false);
+      expect(amount.showMilestone).toBe(true);
+      expect(amount.favoriteSlots).toBe(0);
+
+      const focus = computeAlwaysOnLayout({
+        width: 915,
+        height: 412,
+        preset: 'focus',
+        favoriteCount: 4,
+      });
+      expect(focus.showMilestone).toBe(false);
+      expect(focus.focusAvatarSize).toBeGreaterThanOrEqual(40);
+    });
+  });
+});
+
+describe('resolvePreset', () => {
+  it('laisse passer les dispositions fixes', () => {
+    expect(resolvePreset('overview', 0)).toBe('overview');
+    expect(resolvePreset('planning', 999_999)).toBe('planning');
+  });
+
+  it('retombe sur la vue d’ensemble quand aucun streamer n’est disponible', () => {
+    expect(resolvePreset('focus', 0)).toBe('overview');
+    expect(resolvePreset('focus', 0, { hasFocus: true })).toBe('focus');
+  });
+
+  it('alterne les dispositions en mode cycle', () => {
+    const seen = CYCLE_PRESETS.map((_, index) =>
+      resolvePreset('cycle', index * CYCLE_STEP_MS, { hasFocus: true }),
+    );
+    expect(seen).toEqual(CYCLE_PRESETS);
+    expect(resolvePreset('cycle', CYCLE_PRESETS.length * CYCLE_STEP_MS, { hasFocus: true })).toBe(
+      CYCLE_PRESETS[0],
+    );
+  });
+
+  it('saute le Focus dans le cycle quand il n’y a personne à afficher', () => {
+    const seen = [0, 1, 2, 3].map((step) => resolvePreset('cycle', step * CYCLE_STEP_MS));
+    expect(seen).not.toContain('focus');
+    expect(new Set(seen)).toEqual(new Set(['overview', 'planning']));
   });
 });

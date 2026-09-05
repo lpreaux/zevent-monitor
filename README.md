@@ -168,10 +168,28 @@ tableau des éditions précédentes avec la provenance des totaux.
 
 ✅ Étape 7 (PLAN.md §6) — mode AlwaysOn : écran secondaire `/always-on` (fond AMOLED noir, cagnotte
 géante, progression sur 1 h, viewers, streamers en live, heure et top 5 des favoris), écran maintenu
-allumé, verrouillage d'orientation paysage/portrait relâché en quittant l'écran, gradation logicielle
-en quatre paliers et déplacement lent anti burn-in. La mise en page s'adapte au ratio d'écran
-(une ou deux colonnes) via `src/lib/always-on-layout.ts`, couvert par `npm test` sur sept ratios
-(2:3, 16:9, 9:20 et 4:3, portrait et paysage, avec et sans encoche).
+allumé, verrouillage d'orientation paysage/portrait relâché en quittant l'écran, gradation en quatre
+paliers et déplacement lent anti burn-in. La mise en page s'adapte au ratio d'écran (une ou deux
+colonnes) via `src/lib/always-on-layout.ts`, couvert par `npm test` sur sept ratios (2:3, 16:9, 9:20
+et 4:3, portrait et paysage, avec et sans encoche).
+
+L'écran propose cinq dispositions cyclables (bouton, double tap ou balayage) :
+
+| Disposition | Contenu |
+| --- | --- |
+| Vue d'ensemble | cagnotte géante, progression 1 h, prochain palier rond, viewers / live / heure, favoris |
+| Cagnotte XXL | la cagnotte et le prochain palier, rien d'autre, lisible de loin |
+| Focus streamer | un favori en grand : avatar, live, jeu, viewers, cagnotte perso, rang et part du global, prochain donation goal, show en cours |
+| Planning | les shows en cours et à venir, avec compte à rebours |
+| Cycle auto | alterne les trois premières toutes les 30 s |
+
+Le Focus se choisit en touchant un favori sur l'écran, en balayant horizontalement, depuis le bouton
+« écran secondaire » d'une fiche streamer, ou par rotation automatique (30 s / 1 min / 3 min). Le
+confort d'un écran laissé allumé passe par `expo-brightness` (vraie luminosité, restaurée en sortant ;
+repli sur le voile noir quand le module est absent), une gradation nocturne automatique (23 h → 8 h),
+une gradation sous 20 % de batterie hors charge (`expo-battery`) et un verrou tactile façon kiosque
+(appui long pour déverrouiller). Gestes : double tap = disposition suivante, balayage = favori ou
+disposition, appui long = quitter.
 
 ✅ Étape 8 (PLAN.md §6) — notifications : enregistrement du token Expo, préférences granulaires
 synchronisées avec le backend et moteur d'alertes dédupliqué (paliers globaux, lives des favoris,
