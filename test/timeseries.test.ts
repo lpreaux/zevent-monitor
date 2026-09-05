@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { recentDeltaEur, toElapsedSeries } from '../src/lib/timeseries';
+import { interpolateEur, recentDeltaEur, shiftElapsed, toElapsedSeries } from '../src/lib/timeseries';
 
 const START = Date.parse('2026-09-04T18:00:00Z');
 
@@ -33,5 +33,26 @@ describe('recentDeltaEur', () => {
   it('renvoie null sans série exploitable', () => {
     expect(recentDeltaEur([], 60)).toBeNull();
     expect(recentDeltaEur([{ minutes: 0, eur: 10 }], 60)).toBeNull();
+  });
+});
+
+describe('shiftElapsed', () => {
+  it('décale la série sur l’axe du temps écoulé', () => {
+    const { points } = toElapsedSeries(series(3, 1_000));
+    const shifted = shiftElapsed(points, 24 * 60);
+    expect(shifted.map((p) => p.minutes)).toEqual([1_440, 1_450, 1_460]);
+    expect(shifted.map((p) => p.eur)).toEqual(points.map((p) => p.eur));
+  });
+
+  it('laisse la série intacte sans décalage', () => {
+    const { points } = toElapsedSeries(series(3, 1_000));
+    expect(shiftElapsed(points, 0)).toBe(points);
+  });
+
+  it('n’extrapole pas avant le nouveau départ', () => {
+    const { points } = toElapsedSeries(series(3, 1_000));
+    const shifted = shiftElapsed(points, 24 * 60);
+    expect(interpolateEur(shifted, 1_000)).toBeNull();
+    expect(interpolateEur(shifted, 1_445)).toBeCloseTo(2_500);
   });
 });

@@ -109,3 +109,13 @@ export function recentDeltaEur(
   if (past == null) return null;
   return (currentEur ?? last.eur) - past;
 }
+
+/**
+ * Décale une série sur l'axe du temps écoulé. Sert à recaler deux éditions dont
+ * les cagnottes n'ont pas ouvert au même moment du week-end (T+0 = ouverture la
+ * plus précoce, l'autre édition démarrant à `offsetMinutes`).
+ */
+export function shiftElapsed(points: ElapsedPoint[], offsetMinutes: number): ElapsedPoint[] {
+  if (offsetMinutes === 0) return points;
+  return points.map((p) => ({ minutes: p.minutes + offsetMinutes, eur: p.eur }));
+}

@@ -4,6 +4,7 @@ import { toDonationRecords, buildLoginResolver } from '../src/jobs/donations.js'
 import {
   detectGoalEvents,
   detectLiveStarts,
+  detectRecordDonations,
   detectWebsiteModeChange,
   donationEvent,
   milestoneEvent,
@@ -24,7 +25,10 @@ import type { ZeventState } from '../src/sources/index.js';
 
 const amount = (value: number) => ({ number: value, formatted: `${value}` });
 
-function streamer(twitch: string, options: { online?: boolean; donation?: number } = {}) {
+function streamer(
+  twitch: string,
+  options: { online?: boolean; donation?: number; streamlabsId?: string | null } = {},
+) {
   return {
     twitch_id: `id-${twitch}`,
     display: twitch.toUpperCase(),
@@ -33,7 +37,7 @@ function streamer(twitch: string, options: { online?: boolean; donation?: number
     online: options.online ?? false,
     game: 'Just Chatting',
     viewersAmount: amount(10),
-    streamlabsId: null,
+    streamlabsId: options.streamlabsId ?? null,
     donationUrl: `https://zevent.fr/don/${twitch}`,
     ref: 'ref',
     donationAmount: amount(options.donation ?? 0),
@@ -308,6 +312,7 @@ describe('gros dons', () => {
       donor: 'Anonyme',
       amountCents: overrides.amountCents ?? 60_000,
       comment: 'Courage !',
+      country: 'FR',
       twitch: overrides.twitch === undefined ? 'aducine' : overrides.twitch,
       createdAt: now,
     });
@@ -342,32 +347,41 @@ describe('gros dons', () => {
 });
 
 describe('feed Streamlabs', () => {
-  const resolver = buildLoginResolver(state([streamer('aducine')]));
+  const resolver = buildLoginResolver(
+    state([streamer('aducine', { streamlabsId: '983355095670461514' }), streamer('ponce')]),
+  );
 
-  it('associe le nom affiché au login Twitch connu', () => {
+  it('associe le membre Streamlabs au login Twitch connu', () => {
+    const donation = (id: number) => ({
+      id,
+      display_name: 'Donateur',
+      converted_amount: 5_000,
+      comment: { id: 'c', text: 'GG' },
+      created_at: '2026-09-05T14:00:00.000Z',
+      // Pseudo Twitch du donateur, pas le streamer soutenu : ne doit pas servir à l'association.
+      z_event_name: { twitch_display_name: 'PONCE' },
+    });
     const records = toDonationRecords(
       [
-        {
-          id: 1,
-          display_name: 'Donateur',
-          converted_amount: 5_000,
-          comment: null,
-          created_at: '2026-09-05T14:00:00.000Z',
-          z_event_name: { twitch_display_name: 'ADUCINE' },
-        },
-        {
-          id: 2,
-          display_name: 'Donateur',
-          converted_amount: 5_000,
-          created_at: '2026-09-05T14:01:00.000Z',
-          z_event_name: { twitch_display_name: 'Inconnu' },
-        },
+        // Par identifiant Streamlabs, même si le slug diffère du login.
+        { id: 'w1', donation: donation(1), member: { id: '983355095670461514', user: { display_name: 'Autre', slug: 'autre' } } },
+        // Par nom affiché, à défaut d'identifiant connu.
+        { id: 'w2', donation: donation(2), member: { id: '1', user: { display_name: 'PONCE', slug: 'p0nce' } } },
+        // Membre inconnu de l'API ZEvent : on garde son slug.
+        { id: 'w3', donation: donation(3), member: { id: '2', user: { display_name: 'Inconnu', slug: 'Inconnu' } } },
+        // Don à la cagnotte globale.
+        { id: 'w4', donation: donation(4), member: null },
+        // Ancien format à plat.
+        { ...donation(5), comment: 'À plat' },
       ],
       resolver,
     );
 
-    expect(records[0]).toMatchObject({ id: '1', twitch: 'aducine', amountCents: 5_000 });
-    expect(records[1]?.twitch).toBeNull();
+    expect(records[0]).toMatchObject({ id: '1', twitch: 'aducine', amountCents: 5_000, comment: 'GG' });
+    expect(records[1]?.twitch).toBe('ponce');
+    expect(records[2]?.twitch).toBe('inconnu');
+    expect(records[3]?.twitch).toBeNull();
+    expect(records[4]).toMatchObject({ id: '5', twitch: null, comment: 'À plat' });
   });
 
   it('déduplique par identifiant de don via la clé d’événement', () => {
@@ -398,5 +412,49 @@ describe('Expo push', () => {
     expect(isUnrecoverableTokenError('DeviceNotRegistered')).toBe(true);
     expect(isUnrecoverableTokenError('MessageRateExceeded')).toBe(false);
     expect(isUnrecoverableTokenError(undefined)).toBe(false);
+  });
+});
+
+describe('nouveau record de don', () => {
+  const donation = (id: string, amountCents: number, minute: number) => ({
+    id,
+    donor: `donor-${id}`,
+    amountCents,
+    comment: null,
+    country: 'FR',
+    twitch: 'aducine',
+    createdAt: new Date(`2026-09-05T14:${String(minute).padStart(2, '0')}:00Z`),
+  });
+
+  it('ne signale que les dons dépassant successivement le record observé', () => {
+    const events = detectRecordDonations(
+      [donation('c', 300_000, 3), donation('a', 150_000, 1), donation('b', 120_000, 2)],
+      100_000,
+      50_000,
+    );
+
+    expect(events.map((e) => e.payload)).toEqual([
+      expect.objectContaining({ donationId: 'a', amountCents: 150_000, previousCents: 100_000 }),
+      expect.objectContaining({ donationId: 'c', amountCents: 300_000, previousCents: 150_000 }),
+    ]);
+    expect(events[0]?.dedupeKey).toBe('record_donation:a');
+  });
+
+  it('respecte le plancher et ignore l’absence de record précédent', () => {
+    expect(detectRecordDonations([donation('a', 5_000, 1)], 1_000, 100_000)).toEqual([]);
+    expect(detectRecordDonations([donation('a', 500_000, 1)], null, 100_000)).toEqual([]);
+    expect(detectRecordDonations([donation('a', 150_000, 1)], 0, 100_000)).toHaveLength(1);
+  });
+
+  it('se règle par catégorie et pointe vers l’onglet Dons', () => {
+    const [event] = detectRecordDonations([donation('a', 150_000, 1)], 100_000, 50_000);
+    expect(shouldDeliver(event!, device(), now)).toBe(true);
+    expect(
+      shouldDeliver(event!, device({ preferences: parsePreferences({ recordDonations: { enabled: false } }) }), now),
+    ).toBe(false);
+
+    const rendered = renderNotification(event!);
+    expect(rendered.title).toContain('Nouveau record');
+    expect(rendered.data.url).toBe('/(tabs)/donations');
   });
 });

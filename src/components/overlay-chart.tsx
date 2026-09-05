@@ -108,7 +108,7 @@ export function OverlayChart({
             const bottom = clamp((line.value / safeYMax) * height, 0, height);
             return (
               <View
-                key={line.label}
+                key={`${line.value}-${line.label}`}
                 pointerEvents="none"
                 style={{ position: 'absolute', left: 0, right: 0, bottom, zIndex: 1 }}
               >
@@ -159,7 +159,7 @@ export function OverlayChart({
             .filter((tick) => tick.minutes >= 0 && tick.minutes <= maxMinutes)
             .map((tick) => (
               <Text
-                key={tick.label}
+                key={`${tick.minutes}-${tick.label}`}
                 className="absolute text-[10px] text-gray-500"
                 style={{ left: `${(tick.minutes / maxMinutes) * 100}%` }}
               >

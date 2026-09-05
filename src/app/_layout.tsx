@@ -41,6 +41,17 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="share-card"
+            options={{
+              headerShown: true,
+              headerStyle: { backgroundColor: '#111827' },
+              headerTintColor: '#f9fafb',
+              headerTitle: 'Partager la cagnotte',
+              headerBackTitle: 'Retour',
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
             name="streamer/[twitch]"
             options={{
               headerShown: true,

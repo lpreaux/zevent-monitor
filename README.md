@@ -116,6 +116,13 @@ communautaire non officielle, cf. PLAN.md §1.3 et §1.6).
 
 Les récapitulatifs sont disponibles via les routes authentifiées `GET /v1/recaps`,
 `GET /v1/recaps/:id`, `POST /v1/recaps/generate` et `GET`/`PUT /v1/recap-schedules`.
+
+Les dons archivés depuis le feed Streamlabs alimentent des routes publiques de lecture :
+`GET /v1/donations/recent`, `/v1/donations/top?window=1h|6h|24h|all`, `/v1/donations/largest`,
+`/v1/donations/stats`, `/v1/streamers/:twitch/donations`, `/v1/streamers/momentum?window=10`,
+`/v1/timeseries/rate?bucket=60` et `/v1/timeseries/streamers?twitch=a,b`. Le feed ne montrant
+qu'une centaine de dons par relevé, chaque réponse indique le nombre de dons observés (`observed`).
+`RECORD_DONATION_MIN_CENTS` (1 000 € par défaut) fixe le plancher de l'alerte « nouveau record ».
 Le worker `RECAPS_ENABLED` (intervalle `RECAPS_INTERVAL_MS`) produit les récaps programmés dans le
 fuseau de chaque appareil et envoie un push avec deep link vers leur détail.
 

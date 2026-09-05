@@ -1,19 +1,66 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 
-import { useZeventState } from '@/api/queries';
+import { useMomentum, useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { FavoriteStreamerCard } from '@/components/favorite-streamer-card';
+import { MomentumRow } from '@/components/momentum-row';
+import { Segmented } from '@/components/segmented';
 import { SourceFreshness } from '@/components/source-freshness';
 import { StatTile } from '@/components/stat-tile';
 import { WebsiteModeBadge } from '@/components/website-mode-badge';
 import { formatCount } from '@/lib/format';
 import { useFavoritesStore } from '@/store/favorites';
+
+type MomentumWindow = '10' | '60';
+
+const MOMENTUM_OPTIONS: { key: MomentumWindow; label: string }[] = [
+  { key: '10', label: '10 dernières min' },
+  { key: '60', label: 'Dernière heure' },
+];
+
+/** Streamers dont la cagnotte a le plus progressé récemment : les moments forts du direct. */
+function MomentumSection({ favorites }: { favorites: readonly string[] }) {
+  const [window, setWindow] = useState<MomentumWindow>('10');
+  const query = useMomentum(Number(window), 5);
+  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+  const items = query.data?.streamers ?? [];
+
+  return (
+    <View className="mt-2 gap-3">
+      <Text className="text-base font-bold text-white">Top du moment</Text>
+      <Segmented options={MOMENTUM_OPTIONS} value={window} onChange={setWindow} />
+      {query.isError && !query.data ? (
+        <Text className="text-xs text-amber-200">Classement indisponible : backend injoignable.</Text>
+      ) : items.length === 0 ? (
+        <Text className="text-sm text-gray-500">
+          {query.data && !query.data.complete
+            ? 'La collecte ne couvre pas encore cette fenêtre.'
+            : 'Aucune progression sur la fenêtre choisie.'}
+        </Text>
+      ) : (
+        <View className="gap-2">
+          {items.map((item, index) => (
+            <MomentumRow
+              key={item.twitch}
+              item={item}
+              position={index + 1}
+              favorite={favoriteSet.has(item.twitch)}
+            />
+          ))}
+        </View>
+      )}
+      {query.data && !query.data.complete && items.length > 0 ? (
+        <Text className="text-xs text-gray-600">Fenêtre partiellement couverte par la collecte.</Text>
+      ) : null}
+    </View>
+  );
+}
 
 function readMarquee(marquee: unknown): string | null {
   if (typeof marquee === 'string') return marquee.trim() || null;
@@ -67,6 +114,14 @@ export default function DashboardScreen() {
           </Text>
           <View className="flex-row items-center gap-3">
             <WebsiteModeBadge mode={state.websiteMode} />
+            <Pressable
+              onPress={() => router.push('/share-card')}
+              accessibilityRole="button"
+              accessibilityLabel="Partager la cagnotte"
+              hitSlop={8}
+            >
+              <Ionicons name="share-social-outline" size={20} color="#c4b5fd" />
+            </Pressable>
             <Pressable
               onPress={() => router.push('/settings/notifications')}
               accessibilityRole="button"
@@ -144,6 +199,8 @@ export default function DashboardScreen() {
             </ScrollView>
           )}
         </View>
+
+        <MomentumSection favorites={favorites} />
       </ScrollView>
     </SafeAreaView>
   );

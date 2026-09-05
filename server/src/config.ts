@@ -21,6 +21,11 @@ const configSchema = z.object({
   /** Au-delà, un don du feed est archivé mais plus annoncé en direct. */
   DONATIONS_MAX_AGE_MS: z.coerce.number().int().min(60_000).default(1_800_000),
   STREAMLABS_TEAM_ID: z.string().default('945347664248182491'),
+  /**
+   * Montant minimal (centimes) pour qu'un don dépassant le plus gros don observé soit
+   * annoncé comme « nouveau record » : évite d'alerter sur les premiers dons de l'événement.
+   */
+  RECORD_DONATION_MIN_CENTS: z.coerce.number().int().min(100).default(100_000),
   // Moteur de notifications
   NOTIFICATIONS_ENABLED: z.stringbool().default(true),
   EXPO_ACCESS_TOKEN: z.string().optional(),

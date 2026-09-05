@@ -171,6 +171,13 @@ CREATE TABLE IF NOT EXISTS recap_contents (
 CREATE INDEX IF NOT EXISTS recap_contents_generated_at_idx
   ON recap_contents (generated_at DESC);
 `,
+  // 6 — classements et analyses de dons (top donateurs, gros dons, dons par streamer)
+  `
+CREATE INDEX IF NOT EXISTS donations_amount_idx ON donations (amount_cents DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS donations_twitch_created_idx
+  ON donations (twitch_display_name, created_at DESC) WHERE twitch_display_name IS NOT NULL;
+CREATE INDEX IF NOT EXISTS donations_donor_idx ON donations (lower(btrim(donor)));
+`,
 ];
 
 export async function migrateDatabase(app: FastifyInstance): Promise<void> {

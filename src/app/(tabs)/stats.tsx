@@ -1,19 +1,36 @@
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useTimeseries2026, useZeventState } from '@/api/queries';
+import {
+  useCollectionRate,
+  useStreamerSeries,
+  useTimeseries2026,
+  useZeventState,
+} from '@/api/queries';
+import { BarChart } from '@/components/bar-chart';
 import { EditionsTable, type EditionRow } from '@/components/editions-table';
 import { Expandable } from '@/components/expandable';
 import { OverlayChart, type ChartSeries } from '@/components/overlay-chart';
 import { LoadingState } from '@/components/screen-state';
 import { Segmented } from '@/components/segmented';
 import { StatTile } from '@/components/stat-tile';
+import { niceCeil, parisHourLabel } from '@/lib/donations';
 import { formatCount, formatDate, formatEuros, formatEurosCompact } from '@/lib/format';
 import { loadHistory2025 } from '@/lib/history-2025';
+import { useFavoritesStore } from '@/store/favorites';
 import {
+  COLLECTION_START_THRESHOLD_EUR,
   interpolateEur,
   lastElapsedMinutes,
+  shiftElapsed,
   toElapsedSeries,
   type RawPoint,
 } from '@/lib/timeseries';
@@ -24,6 +41,40 @@ const editionsContent = require('@/content/editions.json') as {
 
 const COLOR_2025 = '#f59e0b';
 const COLOR_2026 = '#8b5cf6';
+
+/** Couleurs des courbes de la comparaison de favoris (au plus trois streamers). */
+const COMPARE_COLORS = ['#8b5cf6', '#f59e0b', '#22d3ee'];
+const MAX_COMPARED = 3;
+
+type RateBucket = '30' | '60' | '180';
+
+const RATE_OPTIONS: { key: RateBucket; label: string }[] = [
+  { key: '30', label: '30 min' },
+  { key: '60', label: '1 h' },
+  { key: '180', label: '3 h' },
+];
+
+/**
+ * Recalage des deux éditions. Sans lui, aligner chaque série sur son propre T+0
+ * comparerait le jeudi soir 2026 au vendredi soir 2025 : la cagnotte 2026 a ouvert
+ * le jeudi à 20 h, celle de 2025 le vendredi à 18 h seulement.
+ */
+const OPENING_GAP_MINUTES = 22 * 60;
+/**
+ * T+0 d'une série est son premier point au-dessus de `COLLECTION_START_THRESHOLD_EUR`,
+ * pas l'horaire d'ouverture : les premiers dons 2026 arrivent ~30 min avant 20 h,
+ * alors que la série 2025 démarre pile à 18 h. On compense pour que les deux
+ * ouvertures tombent bien au même endroit sur l'axe.
+ */
+const PRE_OPENING_2026_MINUTES = 30;
+const OFFSET_2025_MINUTES = OPENING_GAP_MINUTES + PRE_OPENING_2026_MINUTES;
+
+/** `T+22 h 30` — l'unité d'heure reste devant les minutes, comme « 20 h 30 ». */
+const OFFSET_2025_LABEL = (() => {
+  const hours = Math.floor(OFFSET_2025_MINUTES / 60);
+  const minutes = OFFSET_2025_MINUTES % 60;
+  return minutes === 0 ? `T+${hours} h` : `T+${hours} h ${String(minutes).padStart(2, '0')}`;
+})();
 
 type DisplayMode = 'eur' | 'pct';
 
@@ -43,6 +94,183 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <Text className="text-base font-bold text-white">{title}</Text>
       {children}
     </View>
+  );
+}
+
+/** Rythme de collecte : euros levés par tranche horaire, d'après les échantillons du backend. */
+function CollectionRateSection() {
+  const [bucket, setBucket] = useState<RateBucket>('60');
+  const rateQuery = useCollectionRate(Number(bucket));
+
+  const model = useMemo(() => {
+    const points = (rateQuery.data?.points ?? []).filter((p) => p.samples > 0);
+    const bars = points.map((point) => ({
+      key: point.bucket,
+      label: parisHourLabel(point.bucket, bucket === '180' || points.length > 30),
+      value: point.raisedCents / 100,
+      hint: `pic ${formatCount(point.peakViewers)} viewers`,
+    }));
+    const peak = points.reduce<(typeof points)[number] | null>(
+      (best, point) => (best === null || point.raisedCents > best.raisedCents ? point : best),
+      null,
+    );
+    const labelEvery = bars.length > 36 ? 6 : bars.length > 18 ? 3 : bars.length > 9 ? 2 : 1;
+    return { bars, peak, labelEvery };
+  }, [rateQuery.data, bucket]);
+
+  return (
+    <Section title="Rythme de collecte">
+      <Text className="text-xs text-gray-500">
+        Euros levés par tranche, en heure de Paris, d’après la collecte du backend (indépendant du
+        feed Streamlabs).
+      </Text>
+      <Segmented options={RATE_OPTIONS} value={bucket} onChange={setBucket} />
+      {rateQuery.isError && !rateQuery.data ? (
+        <Text className="text-xs text-amber-200">Rythme indisponible : backend injoignable.</Text>
+      ) : (
+        <BarChart
+          bars={model.bars}
+          height={150}
+          formatValue={(value) => formatEurosCompact(value)}
+          labelEvery={model.labelEvery}
+        />
+      )}
+      <View className="flex-row gap-3">
+        <StatTile
+          label="Tranche la plus généreuse"
+          value={model.peak ? formatEurosCompact(model.peak.raisedCents / 100) : '—'}
+          hint={model.peak ? parisHourLabel(model.peak.bucket) : undefined}
+        />
+        <StatTile
+          label="Moyenne par tranche"
+          value={
+            model.bars.length
+              ? formatEurosCompact(model.bars.reduce((acc, bar) => acc + bar.value, 0) / model.bars.length)
+              : '—'
+          }
+          hint={`${model.bars.length} tranches`}
+        />
+      </View>
+    </Section>
+  );
+}
+
+/** Superposition des cagnottes de quelques favoris, alignées sur le T+0 de la collecte. */
+function CompareFavoritesSection({ originAt, maxMinutes }: { originAt: number | null; maxMinutes: number }) {
+  const favorites = useFavoritesStore((s) => s.favorites);
+  const [selected, setSelected] = useState<string[]>([]);
+  const chosen = useMemo(
+    () => (selected.length ? selected : favorites.slice(0, MAX_COMPARED)),
+    [selected, favorites],
+  );
+  const seriesQuery = useStreamerSeries(chosen);
+
+  const toggle = (login: string) => {
+    setSelected((current) => {
+      const base = current.length ? current : favorites.slice(0, MAX_COMPARED);
+      if (base.includes(login)) return base.filter((entry) => entry !== login);
+      if (base.length >= MAX_COMPARED) return [...base.slice(1), login];
+      return [...base, login];
+    });
+  };
+
+  const chart = useMemo(() => {
+    const origin = originAt;
+    const series: ChartSeries[] = [];
+    let yMaxRaw = 0;
+    let xMax = 60;
+    chosen.forEach((login, index) => {
+      const points = seriesQuery.data?.streamers[login] ?? [];
+      const elapsed = points
+        .map((point) => {
+          const t = Date.parse(point.bucket);
+          const minutes = origin === null ? 0 : (t - origin) / 60_000;
+          return { minutes, eur: point.eur };
+        })
+        .filter((point) => point.minutes >= 0);
+      for (const point of elapsed) {
+        yMaxRaw = Math.max(yMaxRaw, point.eur);
+        xMax = Math.max(xMax, point.minutes);
+      }
+      series.push({
+        id: login,
+        label: login,
+        color: COMPARE_COLORS[index % COMPARE_COLORS.length]!,
+        points: elapsed,
+      });
+    });
+    const yMax = niceCeil(yMaxRaw);
+    // Sans données, `yMax` retombe à 1 et les deux repères s'afficheraient « 1 € » :
+    // on ne garde qu'un repère par libellé.
+    const referenceLines = [0.5, 1]
+      .map((ratio) => ({ value: yMax * ratio, label: formatEurosCompact(yMax * ratio) }))
+      .filter((line, index, all) => all.findIndex((other) => other.label === line.label) === index);
+    const span = Math.max(xMax, Math.min(maxMinutes, xMax + 60));
+    const xTicks: { minutes: number; label: string }[] = [];
+    const step = span > 48 * 60 ? 12 : span > 12 * 60 ? 6 : 2;
+    for (let hour = 0; hour * 60 <= span; hour += step) xTicks.push({ minutes: hour * 60, label: `${hour} h` });
+    return { series, yMax, referenceLines, xTicks, span };
+  }, [chosen, seriesQuery.data, originAt, maxMinutes]);
+
+  return (
+    <Section title="Comparer mes favoris">
+      {favorites.length === 0 ? (
+        <Text className="text-sm text-gray-500">
+          Ajoutez des favoris depuis l’onglet Streamers pour superposer leurs cagnottes ici.
+        </Text>
+      ) : (
+        <>
+          <Text className="text-xs text-gray-500">
+            Jusqu’à {MAX_COMPARED} streamers, sur le même axe de temps écoulé que la courbe globale.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {favorites.map((login) => {
+              const active = chosen.includes(login);
+              return (
+                <Pressable
+                  key={login}
+                  onPress={() => toggle(login)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: active }}
+                  className={`rounded-full border px-3 py-1.5 ${
+                    active ? 'border-zevent-500 bg-zevent-500/20' : 'border-gray-800 bg-gray-900'
+                  }`}
+                >
+                  <Text className={`text-xs font-semibold ${active ? 'text-zevent-200' : 'text-gray-400'}`}>
+                    {login}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {seriesQuery.isError && !seriesQuery.data ? (
+            <Text className="text-xs text-amber-200">Courbes indisponibles : backend injoignable.</Text>
+          ) : (
+            <OverlayChart
+              series={chart.series}
+              maxMinutes={chart.span}
+              yMax={chart.yMax}
+              referenceLines={chart.referenceLines}
+              xTicks={chart.xTicks}
+              height={180}
+            />
+          )}
+          <View className="gap-1.5 rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
+            {chart.series.map((entry) => {
+              const last = entry.points.at(-1);
+              return (
+                <LegendRow
+                  key={entry.id}
+                  color={entry.color}
+                  label={entry.label}
+                  value={last ? formatEuros(last.eur) : '—'}
+                />
+              );
+            })}
+          </View>
+        </>
+      )}
+    </Section>
   );
 }
 
@@ -86,6 +314,7 @@ export default function StatsScreen() {
 
     const elapsed2025 = toElapsedSeries(history.points);
     const elapsed2026 = toElapsedSeries(raw2026);
+    const points2025 = shiftElapsed(elapsed2025.points, OFFSET_2025_MINUTES);
 
     const liveState = stateQuery.data?.data;
     const current2026Eur =
@@ -93,18 +322,23 @@ export default function StatsScreen() {
     const current2026Minutes = lastElapsedMinutes(elapsed2026.points);
     const has2026Curve = elapsed2026.points.length >= 2;
 
+    // Avant ce décalage, 2025 n'avait pas encore ouvert sa cagnotte : la comparaison
+    // vaut 0 € plutôt que « indisponible ».
     const eur2025SameElapsed =
       has2026Curve && current2026Minutes > 0
-        ? interpolateEur(elapsed2025.points, current2026Minutes)
+        ? current2026Minutes < OFFSET_2025_MINUTES
+          ? 0
+          : interpolateEur(points2025, current2026Minutes)
         : null;
 
+    // Une base 2025 quasi nulle (tout début de collecte) ferait exploser le ratio.
     const projected2026Eur =
-      eur2025SameElapsed && eur2025SameElapsed > 0
+      eur2025SameElapsed && eur2025SameElapsed >= COLLECTION_START_THRESHOLD_EUR
         ? current2026Eur * (history.finalEur / eur2025SameElapsed)
         : null;
 
     const maxMinutes = Math.max(
-      lastElapsedMinutes(elapsed2025.points),
+      lastElapsedMinutes(points2025),
       lastElapsedMinutes(elapsed2026.points),
       60,
     );
@@ -112,7 +346,8 @@ export default function StatsScreen() {
     const viewersMax2026 = viewers2026.length ? Math.max(...viewers2026) : 0;
 
     return {
-      elapsed2025,
+      originAt2026: elapsed2026.originAt,
+      points2025,
       elapsed2026,
       has2026Curve,
       current2026Eur,
@@ -136,7 +371,7 @@ export default function StatsScreen() {
         id: '2025',
         label: '2025',
         color: COLOR_2025,
-        points: model.elapsed2025.points.map((p) => ({ minutes: p.minutes, eur: toUnit(p.eur) })),
+        points: model.points2025.map((p) => ({ minutes: p.minutes, eur: toUnit(p.eur) })),
       },
     ];
     if (model.has2026Curve) {
@@ -237,7 +472,7 @@ export default function StatsScreen() {
         value={formatEuros(history.finalEur)}
       />
       <LegendRow
-        label="2025 au même temps écoulé"
+        label="2025 au même moment de l’édition"
         value={model.eur2025SameElapsed != null ? formatEuros(model.eur2025SameElapsed) : '—'}
       />
       {delta2026 != null ? (
@@ -288,7 +523,9 @@ export default function StatsScreen() {
 
         <Section title="Comparaison 2025 / 2026">
           <Text className="text-xs text-gray-500">
-            Les deux courbes sont alignées sur le temps écoulé depuis l’ouverture de la collecte.
+            Les deux courbes sont alignées sur le déroulé de l’événement. La cagnotte 2026 ayant
+            ouvert le jeudi à 20 h, T+0 correspond à cette ouverture ; celle de 2025 n’ayant ouvert
+            que le vendredi à 18 h, sa courbe démarre à {OFFSET_2025_LABEL}.
           </Text>
           <Segmented options={MODE_OPTIONS} value={mode} onChange={setMode} />
           <Segmented options={PROJECTION_OPTIONS} value={projection} onChange={setProjection} />
@@ -328,6 +565,10 @@ export default function StatsScreen() {
             {formatDate(history.provenance.fetchedAt)}. Créditer InGDoc / EvenMoreStats.
           </Text>
         </Section>
+
+        <CollectionRateSection />
+
+        <CompareFavoritesSection originAt={model.originAt2026} maxMinutes={model.maxMinutes} />
 
         <Section title="Repères 2026">
           <View className="flex-row gap-3">
