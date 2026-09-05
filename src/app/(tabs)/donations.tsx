@@ -1,6 +1,5 @@
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DonationWindow } from '@/api/donations';
 import {
@@ -9,6 +8,8 @@ import {
   useRecentDonations,
   useTopDonors,
 } from '@/api/queries';
+import { AppHeader } from '@/components/app-header';
+import { ScreenShell } from '@/components/screen-shell';
 import { DonationRow } from '@/components/donation-row';
 import { BarChart } from '@/components/bar-chart';
 import { HorizontalBars, type HorizontalBar } from '@/components/horizontal-bars';
@@ -330,8 +331,10 @@ export default function DonationsScreen() {
   const [section, setSection] = useState<Section>('feed');
   const favorites = useFavoritesStore((s) => s.favorites);
 
+  const subtitle = SECTIONS.find((entry) => entry.key === section)?.label;
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
+    <ScreenShell header={<AppHeader title="Dons" subtitle={subtitle} />}>
       <View className="px-5 pb-3 pt-4">
         <Segmented options={SECTIONS} value={section} onChange={setSection} />
       </View>
@@ -342,6 +345,6 @@ export default function DonationsScreen() {
       ) : (
         <AnalysisSection />
       )}
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

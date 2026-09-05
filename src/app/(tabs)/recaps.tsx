@@ -22,6 +22,7 @@ import {
   putRecapSchedules,
   type Recap,
 } from '@/api/recaps';
+import { AppHeader } from '@/components/app-header';
 import { SwitchRow } from '@/components/settings-row';
 import { TimePicker } from '@/components/time-picker';
 import { personalizeRecap } from '@/lib/recap-personalization';
@@ -207,6 +208,7 @@ export default function RecapsScreen() {
       className="flex-1 bg-gray-950"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <AppHeader title="Récaps" subtitle="Les temps forts, période par période" />
       <ScrollView
         ref={scrollRef}
         className="flex-1"
@@ -222,13 +224,9 @@ export default function RecapsScreen() {
           />
         }
       >
-        <View className="gap-1">
-          <Text className="text-2xl font-black text-white">Récapitulatifs</Text>
-          <Text className="text-sm text-gray-400">
-            Les moments importants d’une période, calculés sans IA et mis en avant selon vos
-            favoris.
-          </Text>
-        </View>
+        <Text className="text-sm text-gray-400">
+          Les moments importants d’une période, calculés sans IA et mis en avant selon vos favoris.
+        </Text>
 
         <View
           onLayout={(event) => {

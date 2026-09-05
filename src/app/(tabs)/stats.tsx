@@ -7,7 +7,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   useCollectionRate,
@@ -15,6 +14,8 @@ import {
   useTimeseries2026,
   useZeventState,
 } from '@/api/queries';
+import { AppHeader } from '@/components/app-header';
+import { ScreenShell } from '@/components/screen-shell';
 import { BarChart } from '@/components/bar-chart';
 import { EditionsTable, type EditionRow } from '@/components/editions-table';
 import { Expandable } from '@/components/expandable';
@@ -443,7 +444,15 @@ export default function StatsScreen() {
     (stateQuery.isLoading || timeseriesQuery.isLoading) &&
     !noBackend;
 
-  if (stillLoading) return <LoadingState label="Chargement des statistiques…" />;
+  const header = <AppHeader title="Statistiques" subtitle="2026 face aux éditions passées" />;
+
+  if (stillLoading) {
+    return (
+      <ScreenShell header={header}>
+        <LoadingState label="Chargement des statistiques…" />
+      </ScreenShell>
+    );
+  }
 
   const delta2026 =
     model.eur2025SameElapsed != null ? model.current2026Eur - model.eur2025SameElapsed : null;
@@ -495,7 +504,7 @@ export default function StatsScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
+    <ScreenShell header={header}>
       <ScrollView
         contentContainerClassName="gap-6 px-5 pb-10 pt-4"
         refreshControl={
@@ -621,6 +630,6 @@ export default function StatsScreen() {
           </Text>
         </Section>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenShell>
   );
 }

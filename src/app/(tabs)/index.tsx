@@ -1,12 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 
 import { useMomentum, useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
 import { AnimatedEuros } from '@/components/animated-euros';
+import { AppHeader, type HeaderAction } from '@/components/app-header';
+import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { FavoriteOfflineRow } from '@/components/favorite-offline-row';
 import { FavoriteStreamerCard } from '@/components/favorite-streamer-card';
@@ -75,8 +76,24 @@ function readMarquee(marquee: unknown): string | null {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { data, isLoading, isError, error, refetch, isRefetching } = useZeventState();
+  const { data, isError, error, refetch, isRefetching } = useZeventState();
   const favorites = useFavoritesStore((s) => s.favorites);
+
+  const headerActions = useMemo<HeaderAction[]>(
+    () => [
+      {
+        icon: 'share-social-outline',
+        label: 'Partager la cagnotte',
+        onPress: () => router.push('/share-card'),
+      },
+      {
+        icon: 'notifications-outline',
+        label: 'Réglages des notifications',
+        onPress: () => router.push('/settings/notifications'),
+      },
+    ],
+    [router],
+  );
 
   /** Favoris scindés : les lives passent en cartes, les hors ligne en lignes discrètes. */
   const { liveFavorites, offlineFavorites } = useMemo(() => {
@@ -94,54 +111,50 @@ export default function DashboardScreen() {
 
   const onRefresh = useCallback(() => void refetch(), [refetch]);
 
-  if (isLoading && !data) return <LoadingState label="Connexion au backend…" />;
-  if (isError && !data) {
+  if (!data) {
     return (
-      <ErrorState
-        message={error instanceof Error ? error.message : 'Backend injoignable'}
-        onRetry={onRefresh}
-      />
+      <ScreenShell
+        header={
+          <AppHeader
+            title="ZEvent Monitor"
+            subtitle="Édition 2026"
+            actions={headerActions}
+          />
+        }
+      >
+        {isError ? (
+          <ErrorState
+            message={error instanceof Error ? error.message : 'Backend injoignable'}
+            onRetry={onRefresh}
+          />
+        ) : (
+          <LoadingState label="Connexion au backend…" />
+        )}
+      </ScreenShell>
     );
   }
-  if (!data) return <LoadingState />;
 
   const state = data.data;
   const marquee = readMarquee(state.marquee);
   const liveCount = state.live.filter((s) => s.online).length;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
+    <ScreenShell
+      header={
+        <AppHeader
+          title="ZEvent Monitor"
+          subtitle={`Édition 2026 · ${formatCount(liveCount)} en live`}
+          badge={<WebsiteModeBadge mode={state.websiteMode} />}
+          actions={headerActions}
+        />
+      }
+    >
       <ScrollView
         contentContainerClassName="gap-4 px-5 pb-10 pt-4"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor="#a78bfa" />
         }
       >
-        <View className="flex-row items-center justify-between">
-          <Text className="text-xs font-semibold uppercase tracking-widest text-zevent-400">
-            ZEvent Monitor 2026
-          </Text>
-          <View className="flex-row items-center gap-3">
-            <WebsiteModeBadge mode={state.websiteMode} />
-            <Pressable
-              onPress={() => router.push('/share-card')}
-              accessibilityRole="button"
-              accessibilityLabel="Partager la cagnotte"
-              hitSlop={8}
-            >
-              <Ionicons name="share-social-outline" size={20} color="#c4b5fd" />
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/settings/notifications')}
-              accessibilityRole="button"
-              accessibilityLabel="Réglages des notifications"
-              hitSlop={8}
-            >
-              <Ionicons name="notifications-outline" size={20} color="#c4b5fd" />
-            </Pressable>
-          </View>
-        </View>
-
         {marquee ? (
           <View className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
             <Text className="text-sm text-amber-200">{marquee}</Text>
@@ -232,6 +245,6 @@ export default function DashboardScreen() {
 
         <MomentumSection favorites={favorites} />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenShell>
   );
 }
