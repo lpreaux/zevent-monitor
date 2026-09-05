@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -24,6 +25,7 @@ import { StatTile } from '@/components/stat-tile';
 import { niceCeil } from '@/lib/donations';
 import { formatCount, formatEuros, formatEurosCompact, formatRelativeTime } from '@/lib/format';
 import { toElapsedSeries, type RawPoint } from '@/lib/timeseries';
+import { useAlwaysOnStore } from '@/store/always-on';
 
 /** Courbe de la cagnotte perso, alignée sur le T+0 de la collecte globale. */
 function StreamerCurve({ twitch, currentEur }: { twitch: string; currentEur: number }) {
@@ -116,10 +118,13 @@ function StreamerDonations({ twitch }: { twitch: string }) {
 }
 
 export default function StreamerDetailScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ twitch: string }>();
   const twitch = typeof params.twitch === 'string' ? params.twitch : '';
   const { data, isLoading } = useZeventState();
   const goalsResult = useStreamerGoals(twitch);
+  const setFocusTwitch = useAlwaysOnStore((s) => s.setFocusTwitch);
+  const setPreset = useAlwaysOnStore((s) => s.setPreset);
 
   const streamer = useMemo(() => {
     if (!data) return undefined;
@@ -159,7 +164,21 @@ export default function StreamerDetailScreen() {
               ) : null}
             </View>
           </View>
-          <FavoriteButton twitch={twitch} size={26} />
+          <View className="flex-row items-center gap-4">
+            <Pressable
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Afficher sur l’écran secondaire"
+              onPress={() => {
+                setFocusTwitch(twitch);
+                setPreset('focus');
+                router.push('/always-on');
+              }}
+            >
+              <Ionicons name="tv-outline" size={24} color="#c4b5fd" />
+            </Pressable>
+            <FavoriteButton twitch={twitch} size={26} />
+          </View>
         </View>
 
         {streamer ? (

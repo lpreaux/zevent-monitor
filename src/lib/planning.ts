@@ -138,6 +138,22 @@ export function focusIndex(entries: PlanningEntry[], now: number): number {
   return Math.max(entries.length - 1, 0);
 }
 
+/**
+ * Entrées à mettre en avant sur l'écran secondaire : celles en cours d'abord, puis les
+ * suivantes à venir. Les entrées passées sont écartées — un écran qu'on regarde de loin
+ * n'a que faire de ce qui est terminé.
+ */
+export function currentAndUpcoming(
+  entries: PlanningEntry[],
+  now: number,
+  limit = 4,
+): PlanningEntry[] {
+  const sorted = [...entries].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const live = sorted.filter((entry) => entryStatus(entry, now) === 'live');
+  const upcoming = sorted.filter((entry) => entryStatus(entry, now) === 'upcoming');
+  return [...live, ...upcoming].slice(0, Math.max(limit, 0));
+}
+
 /** Compte à rebours court avant le début, ex. `dans 25 min`, `dans 3 h`. */
 export function formatCountdown(iso: string, now: number): string | null {
   const start = Date.parse(iso);

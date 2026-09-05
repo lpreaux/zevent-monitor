@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+  type GestureResponderEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -14,15 +21,53 @@ import { StatusBar } from 'expo-status-bar';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
-import { useTimeseries2026, useZeventState } from '@/api/queries';
+import {
+  useMomentum,
+  usePlanning,
+  useRecentDonations,
+  useStreamerGoals,
+  useStreamerSeries,
+  useTimeseries2026,
+  useZeventState,
+} from '@/api/queries';
 import type { Streamer } from '@/api/types';
+import { AlwaysOnDonationRow } from '@/components/always-on-donation-row';
 import { AlwaysOnFavoriteRow } from '@/components/always-on-favorite-row';
+import { AlwaysOnMoverRow } from '@/components/always-on-mover-row';
+import { AlwaysOnFocusCard } from '@/components/always-on-focus-card';
+import { AlwaysOnMilestone } from '@/components/always-on-milestone';
+import { AlwaysOnPlanningRow } from '@/components/always-on-planning-row';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { LoadingState } from '@/components/screen-state';
-import { computeAlwaysOnLayout } from '@/lib/always-on-layout';
-import { formatCount, formatEuros, formatRelativeTime } from '@/lib/format';
+import {
+  dimBrightness,
+  dimOpacity,
+  effectiveDimLevel,
+  isNightDimActive,
+  shouldBatterySave,
+} from '@/lib/always-on-comfort';
+import {
+  entriesForStreamer,
+  nextGoalProgress,
+  orderFavorites,
+  planningFocus,
+  recentStreamerDeltaEur,
+  resolveFocus,
+  stepFocus,
+  streamerStanding,
+} from '@/lib/always-on-focus';
+import {
+  computeAlwaysOnLayout,
+  CYCLE_STEP_MS,
+  resolvePreset,
+  type ResolvedPreset,
+} from '@/lib/always-on-layout';
+import { formatCount, formatEuros, formatPercent, formatRelativeTime } from '@/lib/format';
+import { currentAndUpcoming } from '@/lib/planning';
+import { useNow } from '@/lib/use-now';
 import { recentDeltaEur, toElapsedSeries, type RawPoint } from '@/lib/timeseries';
-import { dimOpacity, useAlwaysOnStore, type OrientationLock } from '@/store/always-on';
+import { useAppBrightness, useBatteryStatus } from '@/lib/use-screen-comfort';
+import { useAlwaysOnStore, type AlwaysOnPreset, type OrientationLock } from '@/store/always-on';
 import { useFavoritesStore } from '@/store/favorites';
 
 /** Fenêtre de progression affichée sous la cagnotte. */
@@ -34,12 +79,39 @@ const BURN_IN_CYCLE_MS = 90_000;
 /** Délai avant masquage automatique des contrôles. */
 const CONTROLS_TIMEOUT_MS = 6_000;
 
+/** Deux appuis rapprochés changent de disposition. */
+const DOUBLE_TAP_MS = 320;
+
+/** Un balayage plus court est probablement un appui qui a glissé. */
+const SWIPE_THRESHOLD_PX = 40;
+
+/** Fenêtre du classement « ça bouge », alignée sur celle du delta global. */
+const MOMENTUM_WINDOW_MINUTES = 60;
+
+/** Marge de sécurité : le nombre d'emplacements dépend d'une mise en page pas encore calculée. */
+const MAX_ACTIVITY_ROWS = 5;
+
 const ORIENTATION_CYCLE: OrientationLock[] = ['auto', 'landscape', 'portrait'];
 
-const ORIENTATION_META: Record<OrientationLock, { icon: 'sync' | 'tablet-landscape' | 'tablet-portrait'; label: string }> = {
+const ORIENTATION_META: Record<
+  OrientationLock,
+  { icon: 'sync' | 'tablet-landscape' | 'tablet-portrait'; label: string }
+> = {
   auto: { icon: 'sync', label: 'Rotation libre' },
   landscape: { icon: 'tablet-landscape', label: 'Paysage verrouillé' },
   portrait: { icon: 'tablet-portrait', label: 'Portrait verrouillé' },
+};
+
+const PRESET_META: Record<
+  AlwaysOnPreset,
+  { icon: React.ComponentProps<typeof Ionicons>['name']; label: string }
+> = {
+  overview: { icon: 'apps', label: 'Vue d’ensemble' },
+  amount: { icon: 'cash', label: 'Cagnotte XXL' },
+  focus: { icon: 'person', label: 'Focus streamer' },
+  planning: { icon: 'calendar', label: 'Planning' },
+  activity: { icon: 'trending-up', label: 'Activité' },
+  cycle: { icon: 'shuffle', label: 'Cycle auto' },
 };
 
 /** Tag du verrou d'écran, pour ne relâcher que celui posé par cet écran. */
@@ -90,15 +162,11 @@ function useOrientationLock(lock: OrientationLock) {
   }, [lock]);
 }
 
-/** Heure locale `HH:MM`, rafraîchie toutes les 20 s. */
-function useClock(): string {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 20_000);
-    return () => clearInterval(id);
-  }, []);
+/** Heure locale `HH:MM`. */
+function formatClock(now: number): string {
+  const date = new Date(now);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function ControlButton({
@@ -141,10 +209,15 @@ export default function AlwaysOnScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const clock = useClock();
+  // Rafraîchi toutes les 20 s : pilote l'horloge, les comptes à rebours du planning,
+  // l'âge des dons du ticker et la détection de la plage nocturne.
+  const now = useNow(20_000);
 
   const stateQuery = useZeventState();
   const timeseriesQuery = useTimeseries2026('10m');
+  const planningResult = usePlanning();
+  const momentumQuery = useMomentum(MOMENTUM_WINDOW_MINUTES, MAX_ACTIVITY_ROWS);
+  const donationsQuery = useRecentDonations({ limit: MAX_ACTIVITY_ROWS });
   const favorites = useFavoritesStore((s) => s.favorites);
 
   const orientationLock = useAlwaysOnStore((s) => s.orientationLock);
@@ -153,11 +226,26 @@ export default function AlwaysOnScreen() {
   const cycleDim = useAlwaysOnStore((s) => s.cycleDim);
   const antiBurnIn = useAlwaysOnStore((s) => s.antiBurnIn);
   const toggleAntiBurnIn = useAlwaysOnStore((s) => s.toggleAntiBurnIn);
+  const preset = useAlwaysOnStore((s) => s.preset);
+  const setPreset = useAlwaysOnStore((s) => s.setPreset);
+  const stepPreset = useAlwaysOnStore((s) => s.stepPreset);
+  const focusTwitch = useAlwaysOnStore((s) => s.focusTwitch);
+  const setFocusTwitch = useAlwaysOnStore((s) => s.setFocusTwitch);
+  const rotationSeconds = useAlwaysOnStore((s) => s.rotationSeconds);
+  const cycleRotation = useAlwaysOnStore((s) => s.cycleRotation);
+  const nightDim = useAlwaysOnStore((s) => s.nightDim);
+  const toggleNightDim = useAlwaysOnStore((s) => s.toggleNightDim);
+  const batterySaver = useAlwaysOnStore((s) => s.batterySaver);
+  const toggleBatterySaver = useAlwaysOnStore((s) => s.toggleBatterySaver);
+  const touchLocked = useAlwaysOnStore((s) => s.touchLocked);
+  const setTouchLocked = useAlwaysOnStore((s) => s.setTouchLocked);
 
   useOrientationLock(orientationLock);
 
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [lockHintVisible, setLockHintVisible] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapAt = useRef(0);
 
   const scheduleHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -176,15 +264,81 @@ export default function AlwaysOnScreen() {
     scheduleHide();
   }, [scheduleHide]);
 
+  const exit = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  }, [router]);
+
   const state = stateQuery.data?.data;
 
-  const favoriteStreamers = useMemo<Streamer[]>(() => {
-    if (!state) return [];
-    const set = new Set(favorites);
-    return state.live
-      .filter((s) => set.has(s.twitch.toLowerCase()))
-      .sort((a, b) => b.donationAmount.number - a.donationAmount.number);
-  }, [state, favorites]);
+  // Ordre commun à la liste des favoris et à la rotation du mode Focus : les lives
+  // d'abord, puis par cagnotte décroissante.
+  const order = useMemo<Streamer[]>(
+    () => orderFavorites(state?.live ?? [], favorites),
+    [state, favorites],
+  );
+  const focusStreamer = useMemo(() => resolveFocus(order, focusTwitch), [order, focusTwitch]);
+
+  // Le mode `cycle` change de disposition toutes les 30 s : on ne garde qu'un compteur,
+  // la disposition elle-même est dérivée par `resolvePreset`. Le compteur n'est jamais
+  // remis à zéro — hors mode cycle il est ignoré, et y revenir reprend simplement la
+  // rotation là où elle s'était arrêtée.
+  const [cycleElapsed, setCycleElapsed] = useState(0);
+  useEffect(() => {
+    if (preset !== 'cycle') return;
+    const id = setInterval(() => setCycleElapsed((ms) => ms + CYCLE_STEP_MS), CYCLE_STEP_MS);
+    return () => clearInterval(id);
+  }, [preset]);
+
+  const resolved: ResolvedPreset = resolvePreset(preset, cycleElapsed, {
+    hasFocus: Boolean(focusStreamer),
+  });
+
+  // `order` est reconstruit à chaque rafraîchissement de l'état (15 s) : le lire dans une
+  // référence évite de relancer l'intervalle de rotation avant qu'il ait pu se déclencher.
+  const orderRef = useRef(order);
+  useEffect(() => {
+    orderRef.current = order;
+  }, [order]);
+
+  // Rotation automatique entre favoris, uniquement quand le Focus est à l'écran.
+  useEffect(() => {
+    if (rotationSeconds <= 0 || resolved !== 'focus') return;
+    const id = setInterval(() => {
+      const rotation = orderRef.current;
+      if (rotation.length < 2) return;
+      setFocusTwitch(stepFocus(rotation, useAlwaysOnStore.getState().focusTwitch, 1));
+    }, rotationSeconds * 1000);
+    return () => clearInterval(id);
+  }, [rotationSeconds, resolved, setFocusTwitch]);
+
+  const goalsResult = useStreamerGoals(focusStreamer?.twitch);
+  const focusSeriesQuery = useStreamerSeries(focusStreamer ? [focusStreamer.twitch] : [], '10m');
+
+  const focusDelta = useMemo(() => {
+    if (!focusStreamer) return null;
+    const points = focusSeriesQuery.data?.streamers[focusStreamer.twitch.toLowerCase()] ?? [];
+    return recentStreamerDeltaEur(
+      points,
+      DELTA_WINDOW_MINUTES,
+      focusStreamer.donationAmount.number,
+    );
+  }, [focusSeriesQuery.data, focusStreamer]);
+
+  const movers = momentumQuery.data?.streamers ?? [];
+  const donations = donationsQuery.data?.donations ?? [];
+
+  const planningEntries = useMemo(
+    () => currentAndUpcoming(planningResult.entries, now),
+    [planningResult.entries, now],
+  );
+
+  // En mode Focus la colonne latérale montre les autres favoris : répéter celui déjà
+  // affiché en grand ne servirait à rien.
+  const listFavorites = useMemo(() => {
+    if (resolved !== 'focus' || !focusStreamer) return order;
+    return order.filter((s) => s.twitch_id !== focusStreamer.twitch_id);
+  }, [order, resolved, focusStreamer]);
 
   const layout = useMemo(
     () =>
@@ -192,9 +346,22 @@ export default function AlwaysOnScreen() {
         width,
         height,
         insets,
-        favoriteCount: favoriteStreamers.length,
+        preset: resolved,
+        favoriteCount: listFavorites.length,
+        planningCount: planningEntries.length,
+        donationCount: donations.length,
+        moverCount: movers.length,
       }),
-    [width, height, insets, favoriteStreamers.length],
+    [
+      width,
+      height,
+      insets,
+      resolved,
+      listFavorites.length,
+      planningEntries.length,
+      donations.length,
+      movers.length,
+    ],
   );
 
   const delta = useMemo(() => {
@@ -205,6 +372,21 @@ export default function AlwaysOnScreen() {
     const elapsed = toElapsedSeries(raw);
     return recentDeltaEur(elapsed.points, DELTA_WINDOW_MINUTES, state?.donationAmount.number);
   }, [timeseriesQuery.data, state]);
+
+  // Gradation : le réglage manuel, relevé au minimum par la nuit automatique et par
+  // l'économie de batterie. La luminosité réelle est pilotée en priorité, le voile noir
+  // ne prend le relais qu'en dessous du plancher matériel (ou faute de module natif).
+  const battery = useBatteryStatus();
+  const batterySaving = batterySaver && shouldBatterySave(battery.level, battery.charging);
+  const nightActive = nightDim && isNightDimActive(new Date(now));
+  const activeDimLevel = effectiveDimLevel(dimLevel, {
+    night: nightActive,
+    battery: batterySaving,
+  });
+  const brightnessSupported = useAppBrightness(
+    activeDimLevel > 0 ? dimBrightness(activeDimLevel) : null,
+  );
+  const veilOpacity = dimOpacity(activeDimLevel, brightnessSupported);
 
   // Déplacement lent en figure de Lissajous : aucun pixel ne reste fixe longtemps.
   const phase = useSharedValue(0);
@@ -229,6 +411,72 @@ export default function AlwaysOnScreen() {
     ],
   }));
 
+  const handlePress = useCallback(() => {
+    const at = Date.now();
+    const isDoubleTap = at - lastTapAt.current < DOUBLE_TAP_MS;
+    lastTapAt.current = at;
+
+    if (touchLocked) {
+      setLockHintVisible(true);
+      setTimeout(() => setLockHintVisible(false), 2_000);
+      return;
+    }
+    if (isDoubleTap) stepPreset(1);
+    revealControls();
+  }, [touchLocked, stepPreset, revealControls]);
+
+  const handleLongPress = useCallback(() => {
+    if (touchLocked) {
+      setTouchLocked(false);
+      setLockHintVisible(false);
+      revealControls();
+      return;
+    }
+    exit();
+  }, [touchLocked, setTouchLocked, revealControls, exit]);
+
+  // Balayage horizontal : favori suivant en mode Focus, disposition suivante ailleurs.
+  const handleSwipe = useCallback(
+    (direction: 1 | -1) => {
+      if (touchLocked) return;
+      if (resolved === 'focus' && order.length > 1) {
+        setFocusTwitch(stepFocus(order, focusStreamer?.twitch ?? null, direction));
+      } else {
+        stepPreset(direction);
+      }
+      revealControls();
+    },
+    [touchLocked, resolved, order, focusStreamer, setFocusTwitch, stepPreset, revealControls],
+  );
+
+  // Négociation du responder à la main plutôt qu'avec `PanResponder` : il faut capturer
+  // le geste *avant* le `Pressable` enfant, ce que seule la phase de capture permet.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  const recordTouchStart = useCallback((event: GestureResponderEvent) => {
+    touchStart.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
+    return false;
+  }, []);
+
+  const shouldCaptureSwipe = useCallback((event: GestureResponderEvent) => {
+    const start = touchStart.current;
+    if (!start) return false;
+    const dx = event.nativeEvent.pageX - start.x;
+    const dy = event.nativeEvent.pageY - start.y;
+    return Math.abs(dx) > SWIPE_THRESHOLD_PX && Math.abs(dx) > Math.abs(dy) * 1.5;
+  }, []);
+
+  const releaseSwipe = useCallback(
+    (event: GestureResponderEvent) => {
+      const start = touchStart.current;
+      touchStart.current = null;
+      if (!start) return;
+      const dx = event.nativeEvent.pageX - start.x;
+      if (Math.abs(dx) > SWIPE_THRESHOLD_PX) handleSwipe(dx < 0 ? 1 : -1);
+    },
+    [handleSwipe],
+  );
+
   if (!state) {
     return (
       <View className="flex-1 bg-black">
@@ -238,39 +486,69 @@ export default function AlwaysOnScreen() {
     );
   }
 
-  // Sous 480 px de large, les quatre libellés passeraient à la ligne sur le contenu.
+  // Sous 480 px de large, les libellés des contrôles passeraient à la ligne sur le contenu.
   const compactControls = width < 480;
   const liveCount = state.live.filter((s) => s.online).length;
   const stale = stateQuery.data?.source.stale ?? false;
-  const visibleFavorites = favoriteStreamers.slice(0, layout.favoriteSlots);
+  const visibleFavorites = listFavorites.slice(0, layout.favoriteSlots);
+  const visiblePlanning = planningEntries.slice(0, layout.planningSlots);
+  const visibleMovers = movers.slice(0, layout.moverSlots);
+  const visibleDonations = donations.slice(0, layout.donationSlots);
+  const favoriteLogins = new Set(favorites);
+  const displayByLogin = new Map(state.live.map((s) => [s.twitch.toLowerCase(), s.display]));
+  const deltaLabel =
+    delta == null
+      ? '— dernière heure'
+      : `${delta >= 0 ? '+' : '−'}${formatEuros(Math.abs(delta))} en 1 h`;
 
   const statsBlock = (
     <View className="flex-row flex-wrap gap-x-6 gap-y-1">
       <View>
-        <Text style={{ fontSize: layout.captionFontSize }} className="uppercase tracking-widest text-gray-600">
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="uppercase tracking-widest text-gray-600"
+        >
           Viewers
         </Text>
-        <Text style={{ fontSize: layout.statValueFontSize }} className="font-bold text-gray-200">
+        <Text
+          style={{ fontSize: layout.statValueFontSize }}
+          className="font-bold text-gray-200"
+        >
           {formatCount(state.viewersCount.number)}
         </Text>
       </View>
       <View>
-        <Text style={{ fontSize: layout.captionFontSize }} className="uppercase tracking-widest text-gray-600">
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="uppercase tracking-widest text-gray-600"
+        >
           En live
         </Text>
-        <Text style={{ fontSize: layout.statValueFontSize }} className="font-bold text-gray-200">
+        <Text
+          style={{ fontSize: layout.statValueFontSize }}
+          className="font-bold text-gray-200"
+        >
           {formatCount(liveCount)}
-          <Text style={{ fontSize: layout.captionFontSize }} className="font-normal text-gray-600">
+          <Text
+            style={{ fontSize: layout.captionFontSize }}
+            className="font-normal text-gray-600"
+          >
             {` / ${state.live.length}`}
           </Text>
         </Text>
       </View>
       <View>
-        <Text style={{ fontSize: layout.captionFontSize }} className="uppercase tracking-widest text-gray-600">
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="uppercase tracking-widest text-gray-600"
+        >
           Heure
         </Text>
-        <Text style={{ fontSize: layout.statValueFontSize }} className="font-bold text-gray-200">
-          {clock}
+        <Text
+          style={{ fontSize: layout.statValueFontSize }}
+          className="font-bold text-gray-200"
+        >
+          {formatClock(now)}
         </Text>
       </View>
     </View>
@@ -278,17 +556,113 @@ export default function AlwaysOnScreen() {
 
   const favoritesBlock =
     visibleFavorites.length > 0 ? (
-      <View className={layout.twoColumns ? 'flex-1' : ''} style={{ width: layout.sideWidth || undefined }}>
+      <View
+        className={layout.twoColumns ? 'flex-1' : ''}
+        style={{ width: layout.sideWidth || undefined }}
+      >
         <Text
           style={{ fontSize: layout.captionFontSize }}
           className="mb-1 uppercase tracking-widest text-gray-600"
         >
-          Favoris
+          {resolved === 'focus' ? 'Autres favoris' : 'Favoris'}
         </Text>
         {visibleFavorites.map((streamer) => (
-          <AlwaysOnFavoriteRow
+          <Pressable
             key={streamer.twitch_id}
-            streamer={streamer}
+            accessibilityRole="button"
+            accessibilityLabel={`Mettre ${streamer.display} en focus`}
+            onPress={() => {
+              if (touchLocked) return;
+              setFocusTwitch(streamer.twitch);
+              // Depuis une autre disposition, épingler sans basculer ne montrerait rien.
+              if (preset !== 'focus' && preset !== 'cycle') setPreset('focus');
+              revealControls();
+            }}
+          >
+            <AlwaysOnFavoriteRow
+              streamer={streamer}
+              valueFontSize={layout.statValueFontSize}
+              captionFontSize={layout.captionFontSize}
+            />
+          </Pressable>
+        ))}
+      </View>
+    ) : null;
+
+  const planningBlock =
+    visiblePlanning.length > 0 ? (
+      <View
+        className={layout.twoColumns ? 'flex-1' : ''}
+        style={{ width: layout.sideWidth || undefined }}
+      >
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="mb-1 uppercase tracking-widest text-gray-600"
+        >
+          Au programme
+        </Text>
+        {visiblePlanning.map((entry) => (
+          <AlwaysOnPlanningRow
+            key={entry.id}
+            entry={entry}
+            now={now}
+            captionFontSize={layout.captionFontSize}
+            valueFontSize={layout.statValueFontSize}
+          />
+        ))}
+      </View>
+    ) : null;
+
+  const donationsBlock =
+    visibleDonations.length > 0 ? (
+      <View
+        className={layout.twoColumns ? 'flex-1' : ''}
+        style={{ width: layout.sideWidth || undefined }}
+      >
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="mb-1 uppercase tracking-widest text-gray-600"
+        >
+          Derniers dons
+        </Text>
+        {visibleDonations.map((donation) => {
+          const login = donation.twitch?.toLowerCase() ?? null;
+          return (
+            <AlwaysOnDonationRow
+              key={donation.id}
+              donation={donation}
+              favorite={login ? favoriteLogins.has(login) : false}
+              streamerLabel={login ? (displayByLogin.get(login) ?? donation.twitch) : null}
+              now={now}
+              valueFontSize={layout.statValueFontSize}
+              captionFontSize={layout.captionFontSize}
+            />
+          );
+        })}
+        {/* Provenance obligatoire : le feed Streamlabs ne montre qu'une fenêtre de dons. */}
+        <Text style={{ fontSize: layout.captionFontSize }} className="mt-1 text-gray-700">
+          D’après les dons observés
+        </Text>
+      </View>
+    ) : null;
+
+  const moversBlock =
+    visibleMovers.length > 0 ? (
+      <View className="mt-3">
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className="mb-1 uppercase tracking-widest text-gray-600"
+        >
+          {momentumQuery.data?.complete === false
+            ? 'Ça bouge — fenêtre incomplète'
+            : 'Ça bouge — dernière heure'}
+        </Text>
+        {visibleMovers.map((item, index) => (
+          <AlwaysOnMoverRow
+            key={item.twitch}
+            item={item}
+            position={index + 1}
+            favorite={favoriteLogins.has(item.twitch.toLowerCase())}
             valueFontSize={layout.statValueFontSize}
             captionFontSize={layout.captionFontSize}
           />
@@ -296,8 +670,8 @@ export default function AlwaysOnScreen() {
       </View>
     ) : null;
 
-  const mainBlock = (
-    <View style={{ width: layout.twoColumns ? layout.mainWidth : undefined }} className="justify-center">
+  const globalBlock = (
+    <>
       <Text
         style={{ fontSize: layout.captionFontSize }}
         className="uppercase tracking-widest text-zevent-400"
@@ -310,21 +684,101 @@ export default function AlwaysOnScreen() {
       />
       <Text
         style={{ fontSize: layout.deltaFontSize }}
-        className={`font-semibold ${delta == null ? 'text-gray-600' : delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+        className={`font-semibold ${
+          delta == null ? 'text-gray-600' : delta >= 0 ? 'text-emerald-400' : 'text-red-400'
+        }`}
       >
-        {delta == null
-          ? '— dernière heure'
-          : `${delta >= 0 ? '+' : '−'}${formatEuros(Math.abs(delta))} en 1 h`}
+        {deltaLabel}
       </Text>
-      <View className="mt-3">{statsBlock}</View>
+      {layout.showMilestone ? (
+        <View className="mt-3">
+          <AlwaysOnMilestone
+            amountEuros={state.donationAmount.number}
+            eurPerHour={delta}
+            captionFontSize={layout.captionFontSize}
+            valueFontSize={layout.statValueFontSize}
+          />
+        </View>
+      ) : null}
+      {layout.showStats ? <View className="mt-3">{statsBlock}</View> : null}
+    </>
+  );
+
+  const focusBlock = focusStreamer ? (
+    <>
+      <AlwaysOnFocusCard
+        streamer={focusStreamer}
+        standing={streamerStanding(state.live, focusStreamer, state.donationAmount.number)}
+        goal={nextGoalProgress(goalsResult.goals, focusStreamer.donationAmount.number)}
+        planning={planningFocus(
+          entriesForStreamer(planningResult.entries, focusStreamer.twitch),
+          now,
+        )}
+        deltaEurPerHour={focusDelta}
+        now={now}
+        amountFontSize={layout.amountFontSize}
+        deltaFontSize={layout.deltaFontSize}
+        statValueFontSize={layout.statValueFontSize}
+        captionFontSize={layout.captionFontSize}
+        avatarSize={layout.focusAvatarSize}
+      />
+      {/* La cagnotte globale ne disparaît jamais : c'est l'information de référence. */}
+      <Text
+        style={{ fontSize: layout.captionFontSize }}
+        className="mt-3 uppercase tracking-widest text-gray-600"
+      >
+        Cagnotte globale
+      </Text>
+      <Text
+        style={{ fontSize: layout.statValueFontSize }}
+        className="font-bold text-gray-300"
+      >
+        {formatEuros(state.donationAmount.number)}
+        <Text
+          style={{ fontSize: layout.captionFontSize }}
+          className={`font-normal ${delta == null ? 'text-gray-600' : 'text-emerald-500'}`}
+        >
+          {`  ${deltaLabel}`}
+        </Text>
+      </Text>
+    </>
+  ) : null;
+
+  const mainBlock = (
+    <View
+      style={{ width: layout.twoColumns ? layout.mainWidth : undefined }}
+      className="justify-center"
+    >
+      {resolved === 'focus' && focusBlock ? focusBlock : globalBlock}
+      {resolved === 'activity' ? moversBlock : null}
     </View>
   );
 
+  const sideBlock =
+    resolved === 'planning'
+      ? planningBlock
+      : resolved === 'activity'
+        ? donationsBlock
+        : favoritesBlock;
+
   return (
-    <View className="flex-1 bg-black">
+    <View
+      className="flex-1 bg-black"
+      onStartShouldSetResponderCapture={recordTouchStart}
+      onMoveShouldSetResponderCapture={shouldCaptureSwipe}
+      onResponderRelease={releaseSwipe}
+    >
       <StatusBar hidden />
 
-      <Pressable className="flex-1" onPress={revealControls} accessibilityLabel="Afficher les contrôles">
+      <Pressable
+        className="flex-1"
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        delayLongPress={touchLocked ? 1_200 : 900}
+        accessibilityLabel={
+          touchLocked ? 'Écran verrouillé, appui long pour déverrouiller' : 'Afficher les contrôles'
+        }
+      >
         <Animated.View
           style={[
             driftStyle,
@@ -340,87 +794,155 @@ export default function AlwaysOnScreen() {
           {layout.twoColumns ? (
             <View className="flex-1 flex-row items-center gap-6">
               {mainBlock}
-              {favoritesBlock}
+              {sideBlock}
             </View>
           ) : (
             <View className="flex-1 justify-center gap-4">
               {mainBlock}
-              {favoritesBlock}
+              {sideBlock}
             </View>
           )}
 
           <View className="flex-row items-center gap-2">
-            <View className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-amber-500' : 'bg-emerald-600'}`} />
-            <Text style={{ fontSize: layout.captionFontSize }} className="text-gray-700">
+            <View
+              className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-amber-500' : 'bg-emerald-600'}`}
+            />
+            <Text style={{ fontSize: layout.captionFontSize }} className="flex-1 text-gray-700">
               {stale
                 ? `Dernier état connu ${formatRelativeTime(stateQuery.data?.source.fetchedAt)}`
                 : `À jour ${formatRelativeTime(stateQuery.data?.source.fetchedAt)}`}
             </Text>
+            {battery.supported && battery.level != null ? (
+              <Text style={{ fontSize: layout.captionFontSize }} className="text-gray-700">
+                {`${formatPercent(battery.level)}${battery.charging ? ' ⚡' : ''}`}
+              </Text>
+            ) : null}
           </View>
         </Animated.View>
       </Pressable>
 
       {/* Gradation logicielle : voile noir au-dessus du contenu, sous les contrôles. */}
-      {dimOpacity(dimLevel) > 0 ? (
+      {veilOpacity > 0 ? (
         <View
           pointerEvents="none"
-          style={{ opacity: dimOpacity(dimLevel) }}
+          style={{ opacity: veilOpacity }}
           className="absolute inset-0 bg-black"
         />
       ) : null}
 
-      {controlsVisible ? (
+      {touchLocked ? (
+        lockHintVisible ? (
+          <View
+            pointerEvents="none"
+            className="absolute items-center"
+            style={{ left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12 }}
+          >
+            <Text style={{ fontSize: layout.captionFontSize }} className="text-gray-500">
+              Écran verrouillé — appui long pour déverrouiller
+            </Text>
+          </View>
+        ) : null
+      ) : controlsVisible ? (
         <View
-          className="absolute flex-row flex-wrap items-center justify-center gap-2"
-          style={{
-            left: insets.left + 12,
-            right: insets.right + 12,
-            bottom: insets.bottom + 12,
-          }}
+          className="absolute items-center gap-2"
+          style={{ left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12 }}
         >
-          <ControlButton
-            icon="close"
-            label="Quitter"
-            compact={compactControls}
-            onPress={() => {
-              if (router.canGoBack()) router.back();
-              else router.replace('/');
-            }}
-          />
-          <ControlButton
-            icon={ORIENTATION_META[orientationLock].icon}
-            label={ORIENTATION_META[orientationLock].label}
-            active={orientationLock !== 'auto'}
-            compact={compactControls}
-            onPress={() => {
-              const next =
-                ORIENTATION_CYCLE[
-                  (ORIENTATION_CYCLE.indexOf(orientationLock) + 1) % ORIENTATION_CYCLE.length
-                ];
-              setOrientationLock(next);
-              revealControls();
-            }}
-          />
-          <ControlButton
-            icon="moon"
-            label={dimLevel === 0 ? 'Luminosité' : `Assombri ${dimLevel}/3`}
-            active={dimLevel > 0}
-            compact={compactControls}
-            onPress={() => {
-              cycleDim();
-              revealControls();
-            }}
-          />
-          <ControlButton
-            icon="move"
-            label={antiBurnIn ? 'Anti burn-in' : 'Fixe'}
-            active={antiBurnIn}
-            compact={compactControls}
-            onPress={() => {
-              toggleAntiBurnIn();
-              revealControls();
-            }}
-          />
+          <Text
+            style={{ fontSize: layout.captionFontSize }}
+            className="text-center text-gray-700"
+          >
+            {resolved === 'focus'
+              ? 'Balayer : favori suivant · Double tap : disposition · Appui long : quitter'
+              : 'Balayer : disposition · Double tap : disposition · Appui long : quitter'}
+          </Text>
+          <View className="flex-row flex-wrap items-center justify-center gap-2">
+            <ControlButton icon="close" label="Quitter" compact={compactControls} onPress={exit} />
+            <ControlButton
+              icon={PRESET_META[preset].icon}
+              label={PRESET_META[preset].label}
+              active={preset !== 'overview'}
+              compact={compactControls}
+              onPress={() => {
+                stepPreset(1);
+                revealControls();
+              }}
+            />
+            <ControlButton
+              icon="repeat"
+              label={rotationSeconds > 0 ? `Rotation ${rotationSeconds} s` : 'Rotation'}
+              active={rotationSeconds > 0}
+              compact={compactControls}
+              onPress={() => {
+                cycleRotation();
+                revealControls();
+              }}
+            />
+            <ControlButton
+              icon={ORIENTATION_META[orientationLock].icon}
+              label={ORIENTATION_META[orientationLock].label}
+              active={orientationLock !== 'auto'}
+              compact={compactControls}
+              onPress={() => {
+                const next =
+                  ORIENTATION_CYCLE[
+                    (ORIENTATION_CYCLE.indexOf(orientationLock) + 1) % ORIENTATION_CYCLE.length
+                  ];
+                setOrientationLock(next);
+                revealControls();
+              }}
+            />
+            <ControlButton
+              icon="moon"
+              label={dimLevel === 0 ? 'Luminosité' : `Assombri ${dimLevel}/3`}
+              active={dimLevel > 0}
+              compact={compactControls}
+              onPress={() => {
+                cycleDim();
+                revealControls();
+              }}
+            />
+            <ControlButton
+              icon="moon-outline"
+              label={nightActive ? 'Nuit auto (active)' : 'Nuit auto'}
+              active={nightDim}
+              compact={compactControls}
+              onPress={() => {
+                toggleNightDim();
+                revealControls();
+              }}
+            />
+            {battery.supported ? (
+              <ControlButton
+                icon="battery-half"
+                label={batterySaving ? 'Éco batterie (active)' : 'Éco batterie'}
+                active={batterySaver}
+                compact={compactControls}
+                onPress={() => {
+                  toggleBatterySaver();
+                  revealControls();
+                }}
+              />
+            ) : null}
+            <ControlButton
+              icon="move"
+              label={antiBurnIn ? 'Anti burn-in' : 'Fixe'}
+              active={antiBurnIn}
+              compact={compactControls}
+              onPress={() => {
+                toggleAntiBurnIn();
+                revealControls();
+              }}
+            />
+            <ControlButton
+              icon="lock-closed"
+              label="Verrouiller l’écran"
+              compact={compactControls}
+              onPress={() => {
+                setTouchLocked(true);
+                setControlsVisible(false);
+              }}
+            />
+          </View>
         </View>
       ) : null}
     </View>

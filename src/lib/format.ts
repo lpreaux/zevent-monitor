@@ -37,6 +37,21 @@ export function formatEurosCompact(value: number): string {
   return `${Math.round(v)}${NBSP}€`;
 }
 
+/** Rang ordinal français : `1er`, `2e`, `12e`. */
+export function formatRank(value: number): string {
+  if (!Number.isFinite(value) || value < 1) return '—';
+  const rank = Math.round(value);
+  return rank === 1 ? '1er' : `${rank}e`;
+}
+
+/** Pourcentage à une décimale : `1,4 %`, `12 %` au-delà de dix. */
+export function formatPercent(ratio: number): string {
+  if (!Number.isFinite(ratio)) return `—${NBSP}%`;
+  const percent = Math.max(ratio, 0) * 100;
+  const rendered = percent >= 10 ? String(Math.round(percent)) : (Math.round(percent * 10) / 10).toFixed(1);
+  return `${rendered.replace('.', ',')}${NBSP}%`;
+}
+
 /** Date courte `JJ/MM/AAAA`, sans dépendre d'Intl. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return 'date inconnue';
