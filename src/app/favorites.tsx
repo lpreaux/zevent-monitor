@@ -5,12 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useZeventState } from '@/api/queries';
-import {
-  collapseThreshold,
-  DEFAULT_CONTROLS_HEIGHTS,
-  ListControls,
-  type ControlsHeights,
-} from '@/components/list-controls';
+import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { LiveStreamerRow } from '@/components/live-streamer-row';
 import { OfflineStreamerRow } from '@/components/offline-streamer-row';
 import { RowSeparator } from '@/components/row-separator';
@@ -24,7 +19,6 @@ import {
   searchNeedle,
   STREAMER_SORT_HINTS,
 } from '@/lib/streamer-sort';
-import { useCompactOnScroll } from '@/lib/use-compact-on-scroll';
 import { usePullToRefresh } from '@/lib/use-pull-to-refresh';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
 import { useRankedFavorites } from '@/lib/use-ranked-favorites';
@@ -83,8 +77,7 @@ export default function FavoritesScreen() {
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const debounced = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const needle = searchNeedle(debounced);
-  const [heights, setHeights] = useState<ControlsHeights>(DEFAULT_CONTROLS_HEIGHTS);
-  const { compact, onScroll } = useCompactOnScroll(collapseThreshold(heights));
+  const controls = useFloatingControls();
 
   const rows = useMemo(
     () => sortLive(live, sort).filter((item) => matchesStreamer(item.streamer, needle)),
@@ -129,11 +122,11 @@ export default function FavoritesScreen() {
           // réserve ne bouge jamais, même repliée : c'est tout l'intérêt du montage.
           contentContainerStyle={{
             gap: 12,
-            paddingTop: heights.expanded,
+            paddingTop: controls.paddingTop,
             paddingHorizontal: 20,
             paddingBottom: 40,
           }}
-          onScroll={onScroll}
+          onScroll={controls.onScroll}
           scrollEventThrottle={16}
           keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -142,7 +135,7 @@ export default function FavoritesScreen() {
               onRefresh={onRefresh}
               tintColor="#a78bfa"
               // Sans ce décalage, la roue de rafraîchissement tournerait derrière la barre.
-              progressViewOffset={heights.expanded}
+              progressViewOffset={controls.paddingTop}
             />
           }
         >
@@ -203,7 +196,7 @@ export default function FavoritesScreen() {
             sorts={live.length > 1 ? SORTS : []}
             sort={sort}
             onSortChange={setSort}
-            summary={{ live: rows.length, total: rows.length + offlineRows.length }}
+            summary={`${formatCount(rows.length)} en live sur ${formatCount(rows.length + offlineRows.length)}`}
             freshness={
               data ? { fetchedAt: data.source.fetchedAt, stale: data.source.stale } : undefined
             }
@@ -213,13 +206,8 @@ export default function FavoritesScreen() {
                 ? `${formatCount(saved - known)} favori(s) absent(s) de la liste officielle actuelle.`
                 : undefined
             }
-            compact={compact}
-            onHeights={(next) =>
-              setHeights((prev) => ({
-                expanded: next.expanded || prev.expanded,
-                collapsed: next.collapsed || prev.collapsed,
-              }))
-            }
+            compact={controls.compact}
+            onHeights={controls.onHeights}
           />
         </View>
       </View>

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useZeventState } from '@/api/queries';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { PlanningHighlights, PlanningTicker } from '@/components/live-summary-planning';
+import { Metric, MetricDivider } from '@/components/metric';
 import { formatCount, formatEuros, formatRelativeTime } from '@/lib/format';
 import { useLiveBarStore, type LiveBarDensity } from '@/store/live-bar';
 import { colors } from '@/theme';
@@ -16,19 +17,6 @@ const DENSITY_TOGGLE = {
   comfort: { icon: 'contract-outline', label: 'Réduire le résumé du direct' },
   compact: { icon: 'expand-outline', label: 'Agrandir le résumé du direct' },
 } as const satisfies Record<LiveBarDensity, { icon: keyof typeof Ionicons.glyphMap; label: string }>;
-
-/** Chiffre clé posé à plat, sans encadré : la lecture repose sur la hiérarchie typographique. */
-function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <View className="flex-1">
-      <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-gray-500">
-        {label}
-      </Text>
-      <Text className="mt-0.5 text-lg font-bold text-white">{value}</Text>
-      {hint ? <Text className="text-[11px] text-gray-600">{hint}</Text> : null}
-    </View>
-  );
-}
 
 /** Pastille de fraîcheur : verte quand la source répond, ambre sur dernier état connu. */
 function FreshnessDot({ stale }: { stale: boolean }) {
@@ -135,7 +123,7 @@ export function LiveSummaryBar() {
               label="Viewers cumulés"
               value={state ? formatCount(state.viewersCount.number) : EM_DASH}
             />
-            <View className="mx-4 h-8 w-px bg-white/10" />
+            <MetricDivider />
             <Metric
               label="Streamers en live"
               value={state ? formatCount(liveCount) : EM_DASH}

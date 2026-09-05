@@ -5,6 +5,8 @@ import { buildApp } from '../src/app.js';
 import { commentText, normalizeCountry, toDonationRecords } from '../src/jobs/donations.js';
 import {
   computeMomentum,
+  decodeCursor,
+  encodeCursor,
   isAnonymousDonor,
   parseLogins,
   registerDonationRoutes,
@@ -61,6 +63,23 @@ describe('outils des routes de dons', () => {
     expect(windowStart('1h', now)?.toISOString()).toBe('2026-09-05T13:00:00.000Z');
     expect(windowStart('24h', now)?.toISOString()).toBe('2026-09-04T14:00:00.000Z');
     expect(windowStart('all', now)).toBeNull();
+  });
+
+  it('encode et relit un curseur de feed', () => {
+    const cursor = encodeCursor({ createdAt: '2026-09-05T14:00:00.000Z', id: 'abc_42' });
+    expect(cursor).toBe('2026-09-05T14:00:00.000Z_abc_42');
+    // L'identifiant peut contenir le séparateur : seule la première occurrence coupe.
+    expect(decodeCursor(cursor)).toEqual({
+      createdAt: new Date('2026-09-05T14:00:00.000Z'),
+      id: 'abc_42',
+    });
+  });
+
+  it('refuse un curseur illisible', () => {
+    expect(decodeCursor('')).toBeNull();
+    expect(decodeCursor('_42')).toBeNull();
+    expect(decodeCursor('pas-une-date_42')).toBeNull();
+    expect(decodeCursor('2026-09-05T14:00:00.000Z_')).toBeNull();
   });
 
   it('reconnaît les donateurs anonymes', () => {
@@ -207,7 +226,7 @@ describe('routes de dons (HTTP)', () => {
 
   it('renvoie le feed avec le bloc « observé »', async () => {
     const { app, calls } = build([
-      { match: 'ORDER BY created_at DESC LIMIT', rows: [row] },
+      { match: 'ORDER BY created_at DESC, id DESC LIMIT', rows: [row] },
       { match: 'count(*)::int AS count, sum(amount_cents)::text AS total_cents', rows: [{ count: 1, total_cents: '50000', first_at: row.created_at, last_at: row.created_at }] },
     ]);
 
@@ -217,8 +236,66 @@ describe('routes de dons (HTTP)', () => {
     const body = response.json();
     expect(body.donations[0]).toMatchObject({ donor: 'Lucas', amountCents: 50_000, twitch: 'aducine' });
     expect(body.observed.count).toBe(1);
-    const feed = calls.find((c) => c.sql.includes('ORDER BY created_at DESC LIMIT'));
+    const feed = calls.find((c) => c.sql.includes('ORDER BY created_at DESC, id DESC LIMIT'));
     expect(feed?.params).toEqual([['aducine'], 100, 10]);
+  });
+
+  it('pagine le feed sur le curseur et rend celui de la page suivante', async () => {
+    const { app, calls } = build([
+      { match: 'ORDER BY created_at DESC, id DESC LIMIT', rows: [row] },
+    ]);
+
+    const cursor = encodeCursor({ createdAt: '2026-09-05T15:00:00.000Z', id: '9' });
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/donations/recent?limit=1&cursor=${encodeURIComponent(cursor)}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    // Page pleine : la suite existe, et repart du dernier don rendu.
+    expect(body.nextCursor).toBe('2026-09-05T14:00:00.000Z_1');
+    // Pas de balayage complet de la table pour une page qui n'est plus la tête du feed.
+    expect(body.observed).toBeUndefined();
+    expect(calls.some((c) => c.sql.includes('count(*)::int AS count'))).toBe(false);
+    const feed = calls.find((c) => c.sql.includes('ORDER BY created_at DESC, id DESC LIMIT'));
+    expect(feed?.sql).toContain('(created_at, id) < ($1::timestamptz, $2::text)');
+    expect(feed?.params).toEqual([new Date('2026-09-05T15:00:00.000Z'), '9', 1]);
+  });
+
+  it('arrête la pagination sur une page incomplète', async () => {
+    const { app } = build([
+      { match: 'ORDER BY created_at DESC, id DESC LIMIT', rows: [row] },
+      { match: 'count(*)::int AS count, sum(amount_cents)::text AS total_cents', rows: [{ count: 1, total_cents: '50000', first_at: row.created_at, last_at: row.created_at }] },
+    ]);
+
+    const response = await app.inject({ method: 'GET', url: '/v1/donations/recent?limit=10' });
+
+    expect(response.json().nextCursor).toBeNull();
+    expect(response.json().observed.count).toBe(1);
+  });
+
+  it('rejette un curseur illisible', async () => {
+    const { app } = build([]);
+    const response = await app.inject({ method: 'GET', url: '/v1/donations/recent?cursor=nawak' });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toBe('invalid_cursor');
+  });
+
+  it('classe les plus gros dons sur le montant, pas sur son écriture', async () => {
+    const { app, calls } = build([
+      { match: 'ORDER BY donations.amount_cents DESC', rows: [row] },
+      { match: 'count(*)::int AS count, sum(amount_cents)::text AS total_cents', rows: [{ count: 1, total_cents: '50000', first_at: row.created_at, last_at: row.created_at }] },
+    ]);
+
+    const response = await app.inject({ method: 'GET', url: '/v1/donations/largest?window=all&limit=3' });
+
+    expect(response.statusCode).toBe(200);
+    // `amount_cents::text` porte le même nom que la colonne : sans qualification, le tri
+    // se ferait sur la colonne de sortie, donc en texte — 9 999 devant 99 900.
+    const largest = calls.find((c) => c.sql.includes('ORDER BY donations.amount_cents DESC'));
+    expect(largest).toBeDefined();
+    expect(largest?.sql).not.toMatch(/ORDER BY amount_cents/);
   });
 
   it('rejette une fenêtre inconnue', async () => {

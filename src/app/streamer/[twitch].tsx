@@ -12,12 +12,14 @@ import {
   useZeventState,
 } from '@/api/queries';
 import { AnimatedEuros } from '@/components/animated-euros';
-import { DonationRow } from '@/components/donation-row';
+import { DonationLine } from '@/components/donation-line';
 import { GoalProgress } from '@/components/goal-progress';
 import { LiveDot } from '@/components/live-dot';
-import { ObservedNotice } from '@/components/observed-notice';
+import { ObservedChip } from '@/components/observed-chip';
 import { OverlayChart } from '@/components/overlay-chart';
+import { RowSeparator } from '@/components/row-separator';
 import { EmptyState, LoadingState } from '@/components/screen-state';
+import { SectionLink } from '@/components/section-link';
 import { FavoriteButton } from '@/components/favorite-button';
 import { openDonationPage, openTwitchStream } from '@/lib/links';
 import { useNow } from '@/lib/use-now';
@@ -76,6 +78,7 @@ function StreamerCurve({ twitch, currentEur }: { twitch: string; currentEur: num
 
 /** Dons observés pour ce streamer : synthèse, plus gros dons et derniers messages. */
 function StreamerDonations({ twitch }: { twitch: string }) {
+  const router = useRouter();
   const query = useStreamerDonations(twitch);
   const now = useNow();
   const data = query.data;
@@ -106,13 +109,37 @@ function StreamerDonations({ twitch }: { twitch: string }) {
       {highlighted.length === 0 ? (
         <EmptyState message="Aucun don observé pour ce streamer." />
       ) : (
-        highlighted.slice(0, 12).map((donation) => (
-          <DonationRow key={donation.id} donation={donation} hideStreamer highlightCents={10_000} now={now} />
-        ))
+        <View>
+          {highlighted.slice(0, 12).map((donation, index) => (
+            <View key={donation.id}>
+              {index > 0 ? <RowSeparator inset={104} /> : null}
+              <DonationLine donation={donation} hideStreamer highlightCents={10_000} now={now} />
+            </View>
+          ))}
+        </View>
       )}
-      <ObservedNotice
-        observed={{ count: summary.count, totalCents: summary.totalCents, firstAt: summary.firstAt, lastAt: summary.lastAt }}
-        prefix="Synthèse établie"
+
+      {/* Le feed complet vit dans l'onglet Dons : on l'y ouvre déjà filtré sur ce streamer
+          plutôt que de recopier ici une seconde liste paginée. */}
+      <SectionLink
+        label="Tous ses dons, en direct"
+        accessibilityLabel={`Ouvrir le feed des dons filtré sur ${twitch}`}
+        onPress={() =>
+          router.push({
+            pathname: '/(tabs)/donations',
+            params: { section: 'feed', twitch: twitch.toLowerCase() },
+          })
+        }
+      />
+
+      <ObservedChip
+        observed={{
+          count: summary.count,
+          totalCents: summary.totalCents,
+          firstAt: summary.firstAt,
+          lastAt: summary.lastAt,
+        }}
+        subject="Cette synthèse"
       />
     </View>
   );

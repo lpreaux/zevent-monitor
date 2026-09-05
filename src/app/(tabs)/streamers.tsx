@@ -6,12 +6,7 @@ import { useMomentum, useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
 import { AppHeader } from '@/components/app-header';
 import { FavoriteButton } from '@/components/favorite-button';
-import {
-  collapseThreshold,
-  DEFAULT_CONTROLS_HEIGHTS,
-  ListControls,
-  type ControlsHeights,
-} from '@/components/list-controls';
+import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { LiveStreamerRow } from '@/components/live-streamer-row';
 import { OfflineStreamerRow } from '@/components/offline-streamer-row';
 import { RowSeparator } from '@/components/row-separator';
@@ -27,7 +22,6 @@ import {
   type StreamerGroupKey,
   type StreamerSort,
 } from '@/lib/streamer-sort';
-import { useCompactOnScroll } from '@/lib/use-compact-on-scroll';
 import { usePullToRefresh } from '@/lib/use-pull-to-refresh';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
 import { useLiveShows } from '@/lib/use-live-shows';
@@ -141,8 +135,7 @@ export default function StreamersScreen() {
 
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const needle = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-  const [heights, setHeights] = useState<ControlsHeights>(DEFAULT_CONTROLS_HEIGHTS);
-  const { compact, onScroll } = useCompactOnScroll(collapseThreshold(heights));
+  const controls = useFloatingControls();
 
   const favorites = useFavoritesStore((s) => s.favorites);
   const shows = useLiveShows();
@@ -226,14 +219,14 @@ export default function StreamersScreen() {
           // La barre flottant par-dessus, c'est au contenu de commencer sous elle. Cette
           // réserve ne bouge jamais, même repliée : c'est tout l'intérêt du montage.
           contentContainerStyle={{
-            paddingTop: heights.expanded,
+            paddingTop: controls.paddingTop,
             paddingHorizontal: 20,
             paddingBottom: 40,
           }}
           keyboardShouldPersistTaps="handled"
           // Les intitulés de groupe iraient se coller sous la barre, donc hors de vue.
           stickySectionHeadersEnabled={false}
-          onScroll={onScroll}
+          onScroll={controls.onScroll}
           scrollEventThrottle={16}
           getItemLayout={(_, index) => ({
             ...(slots[index] ?? { length: 0, offset: 0 }),
@@ -248,7 +241,7 @@ export default function StreamersScreen() {
               onRefresh={onRefresh}
               tintColor="#a78bfa"
               // Sans ce décalage, la roue de rafraîchissement tournerait derrière la barre.
-              progressViewOffset={heights.expanded}
+              progressViewOffset={controls.paddingTop}
             />
           }
           renderSectionHeader={({ section }) => (
@@ -308,7 +301,7 @@ export default function StreamersScreen() {
               activeIcon: 'star',
               label: 'N’afficher que mes favoris',
             }}
-            summary={{ live: shownLive, total: shown }}
+            summary={`${formatCount(shownLive)} en live sur ${formatCount(shown)}`}
             freshness={{
               fetchedAt: data.source.fetchedAt,
               stale: data.source.stale,
@@ -319,13 +312,8 @@ export default function StreamersScreen() {
                 ? `Le classement s’arrête aux ${formatCount(MOMENTUM_LIMIT)} premiers de la dernière heure : au-delà, la progression n’est pas connue.`
                 : undefined
             }
-            compact={compact}
-            onHeights={(next) =>
-              setHeights((prev) => ({
-                expanded: next.expanded || prev.expanded,
-                collapsed: next.collapsed || prev.collapsed,
-              }))
-            }
+            compact={controls.compact}
+            onHeights={controls.onHeights}
           />
         </View>
       </View>

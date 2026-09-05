@@ -184,3 +184,123 @@ export function buildShareText(model: ShareCardModel): string {
   lines.push('https://zevent.fr/don');
   return lines.join('\n');
 }
+
+/**
+ * Accents repliés sur leur lettre nue. Table explicite plutôt que `normalize('NFD')` :
+ * la normalisation Unicode dépend d'Intl, absent de certaines constructions Hermes.
+ */
+const FOLDED: Record<string, string> = {
+  à: 'a', á: 'a', â: 'a', ä: 'a', ã: 'a', å: 'a',
+  ç: 'c',
+  è: 'e', é: 'e', ê: 'e', ë: 'e',
+  ì: 'i', í: 'i', î: 'i', ï: 'i',
+  ñ: 'n',
+  ò: 'o', ó: 'o', ô: 'o', ö: 'o', õ: 'o', ø: 'o',
+  ù: 'u', ú: 'u', û: 'u', ü: 'u',
+  ý: 'y', ÿ: 'y',
+  æ: 'ae', œ: 'oe', ß: 'ss',
+};
+
+/**
+ * Texte comparable : minuscules, accents repliés, espaces resserrés. Les donateurs se
+ * nomment eux-mêmes, à la main, une fois par don : « Jérôme » et « jerome » doivent se
+ * retrouver l'un l'autre.
+ */
+export function foldText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[À-ſ]/g, (char) => FOLDED[char] ?? char)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Le don répond-il à la recherche ? Sur le nom du donateur comme sur son message. */
+export function matchesDonation(donation: Pick<Donation, 'donor' | 'comment'>, needle: string): boolean {
+  if (!needle) return true;
+  return (
+    foldText(donation.donor).includes(needle) ||
+    (donation.comment !== null && foldText(donation.comment).includes(needle))
+  );
+}
+
+/** Deux graphies d'un même pseudo donnent la même clé : sert à se reconnaître dans un classement. */
+export function donorKey(name: string): string {
+  return foldText(name);
+}
+
+export interface DonationPulse {
+  /** Dons par minute sur la durée réellement observée. */
+  perMinute: number;
+  /** Centimes par minute sur la même durée. */
+  centsPerMinute: number;
+  /** Durée mesurée : la fenêtre demandée, ou la portée du lot s'il est plus court. */
+  spanMs: number;
+  count: number;
+}
+
+/**
+ * Plancher de mesure. Il ne sert qu'à ne pas diviser par une durée nulle : le placer haut
+ * écraserait le rythme précisément aux heures de pointe, où un lot entier de dons tient
+ * dans quelques secondes.
+ */
+const PULSE_FLOOR_MS = 10_000;
+
+/**
+ * Rythme du feed, calculé sur les dons déjà reçus — aucun appel de plus.
+ *
+ * Le lot rendu par le backend est borné : en pic d'affluence il ne couvre parfois que
+ * deux minutes. Mesurer quand même sur la fenêtre demandée diviserait le compte par une
+ * durée que le lot ne documente pas, et le rythme s'effondrerait précisément au moment
+ * où il s'emballe. On mesure donc sur ce que le lot couvre vraiment quand il est plus
+ * court que la fenêtre.
+ */
+export function donationPulse(
+  donations: readonly Pick<Donation, 'amountCents' | 'createdAt'>[],
+  now = Date.now(),
+  windowMs = 10 * 60_000,
+): DonationPulse | null {
+  const cutoff = now - windowMs;
+  let count = 0;
+  let cents = 0;
+  let oldest = Number.POSITIVE_INFINITY;
+  for (const donation of donations) {
+    const at = Date.parse(donation.createdAt);
+    if (!Number.isFinite(at) || at < cutoff) continue;
+    count += 1;
+    cents += donation.amountCents;
+    if (at < oldest) oldest = at;
+  }
+  if (count === 0) return null;
+
+  // Lot entièrement contenu dans la fenêtre : rien ne dit ce qu'il y avait avant lui.
+  const saturated = count === donations.length;
+  const spanMs = Math.max(now - (saturated ? oldest : cutoff), PULSE_FLOOR_MS);
+  const minutes = spanMs / 60_000;
+  return { perMinute: count / minutes, centsPerMinute: cents / minutes, spanMs, count };
+}
+
+/**
+ * Durée d'observation en toutes lettres. Un lot de dons couvre parfois quelques secondes
+ * en pic d'affluence et une demi-heure la nuit : la phrase doit suivre les deux.
+ */
+export function spanLabel(spanMs: number): string {
+  const seconds = Math.max(1, Math.round(spanMs / 1000));
+  if (seconds < 90) {
+    return seconds === 1 ? 'la dernière seconde' : `les ${seconds} dernières secondes`;
+  }
+  const minutes = Math.round(seconds / 60);
+  return minutes === 1 ? 'la dernière minute' : `les ${minutes} dernières minutes`;
+}
+
+/** Texte de partage d'un don marquant : montant, auteur, destinataire et message. */
+export function buildDonationShareText(donation: Donation, streamerLabel?: string | null): string {
+  const lines = [
+    `${formatEuros(donation.amountCents / 100)} de ${donorLabel(donation)}${
+      streamerLabel ? ` pour ${streamerLabel}` : ''
+    }`,
+  ];
+  if (donation.comment) lines.push(`« ${donation.comment.trim()} »`);
+  lines.push(`ZEvent 2026 — ${parisClock(donation.createdAt)} (Paris)`);
+  lines.push('https://zevent.fr/don');
+  return lines.join('\n');
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   FadeIn,
@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { formatCount } from '@/lib/format';
+import { useCompactOnScroll, type CompactOnScroll } from '@/lib/use-compact-on-scroll';
 import { colors } from '@/theme';
 import { Segmented } from './segmented';
 import { SourceFreshness } from './source-freshness';
@@ -27,16 +27,22 @@ export interface ListToggle {
 }
 
 interface ListControlsProps<T extends string> {
-  search: string;
-  onSearchChange: (value: string) => void;
-  searchPlaceholder: string;
+  /** Champ de recherche : rendu seulement si `onSearchChange` est fourni. */
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  searchPlaceholder?: string;
   /** Tris proposés. Un seul (ou aucun) : le rail disparaît, seule la recherche reste. */
-  sorts: readonly { key: T; label: string }[];
-  sort: T;
-  onSortChange: (key: T) => void;
+  sorts?: readonly { key: T; label: string }[];
+  sort?: T;
+  onSortChange?: (key: T) => void;
   toggle?: ListToggle;
+  /**
+   * Rangée de filtres propre à l'écran, posée sous les commandes. Comme l'explication,
+   * elle s'efface au repli : filtrer se décide en tête de liste, pas en cours de lecture.
+   */
+  extra?: ReactNode;
   /** Ce que la liste montre à cet instant, après recherche et filtres. */
-  summary: { live: number; total: number };
+  summary: string;
   freshness?: { fetchedAt: string | null | undefined; stale: boolean };
   /** Sur quoi le tri courant classe. */
   hint?: string;
@@ -80,6 +86,35 @@ export function collapseThreshold({ expanded, collapsed }: ControlsHeights): num
   return Math.max(0, expanded - collapsed);
 }
 
+/**
+ * Câblage complet d'une barre flottante : hauteurs mesurées, seuil de repli et réserve à
+ * laisser en tête de liste. Les trois vont toujours ensemble — la réserve vaut la hauteur
+ * déployée, le seuil vaut ce que le repli fait perdre — et les recopier écran par écran
+ * finissait par en désaccorder un.
+ */
+export function useFloatingControls(): {
+  compact: boolean;
+  onScroll: CompactOnScroll['onScroll'];
+  onHeights: (next: ControlsHeights) => void;
+  /** Réserve à poser en tête de contenu, la barre ne participant pas au flux. */
+  paddingTop: number;
+} {
+  const [heights, setHeights] = useState<ControlsHeights>(DEFAULT_CONTROLS_HEIGHTS);
+  const { compact, onScroll } = useCompactOnScroll(collapseThreshold(heights));
+
+  // Une hauteur nulle est un relevé qui n'a pas encore eu lieu : on garde la précédente.
+  const onHeights = useCallback(
+    (next: ControlsHeights) =>
+      setHeights((prev) => ({
+        expanded: next.expanded || prev.expanded,
+        collapsed: next.collapsed || prev.collapsed,
+      })),
+    [],
+  );
+
+  return { compact, onScroll, onHeights, paddingTop: heights.expanded };
+}
+
 /** Durée du repli. */
 const CONTROLS_TRANSITION_MS = 220;
 
@@ -92,9 +127,11 @@ const COMPACT_OPACITY = 0.72;
 const transition = LinearTransition.duration(CONTROLS_TRANSITION_MS);
 
 /**
- * En-tête commun aux listes de streamers : recherche, tri, filtre, puis ce que la liste
- * montre et la fraîcheur des données. Un seul composant pour les deux pages — deux
- * en-têtes voisins dessinés séparément finissent toujours par diverger d'un padding.
+ * En-tête commun aux listes de l'application — streamers, favoris, dons : recherche, tri,
+ * filtres, puis ce que la liste montre et la fraîcheur des données. Un seul composant pour
+ * toutes — des en-têtes voisins dessinés séparément finissent toujours par diverger d'un
+ * padding. Chaque partie est facultative : sans recherche, le rail de tri prend la rangée ;
+ * sans tri, la recherche l'occupe seule.
  *
  * Il se replie au défilement plutôt que de disparaître : la recherche perd son cadre, le
  * rail de tri se resserre, le résumé rétrécit, et ce qui n'est que de l'explication — le
@@ -115,13 +152,14 @@ const transition = LinearTransition.duration(CONTROLS_TRANSITION_MS);
  * réserver la place correspondante en tête de contenu.
  */
 export function ListControls<T extends string>({
-  search,
+  search = '',
   onSearchChange,
   searchPlaceholder,
-  sorts,
+  sorts = [],
   sort,
   onSortChange,
   toggle,
+  extra,
   summary,
   freshness,
   hint,
@@ -168,7 +206,9 @@ export function ListControls<T extends string>({
     opacity: withTiming(collapsed ? COMPACT_OPACITY : 1, { duration: CONTROLS_TRANSITION_MS }),
   }));
 
-  const showSorts = sorts.length > 1;
+  const showSorts = sorts.length > 1 && sort !== undefined && onSortChange !== undefined;
+  // Sans champ de recherche, le rail de tri prend seul la première rangée.
+  const showSearch = Boolean(onSearchChange);
 
   return (
     <Animated.View
@@ -185,45 +225,47 @@ export function ListControls<T extends string>({
           par le retour à la ligne plutôt que par deux dispositions distinctes garde le
           champ de saisie au même endroit de l'arbre — donc le focus et le clavier avec. */}
       <View className={`flex-row flex-wrap items-center ${collapsed ? 'gap-1.5' : 'gap-2'}`}>
-        <Animated.View
-          layout={transition}
-          style={collapsed ? { flexGrow: 1, flexShrink: 1, flexBasis: 72 } : { width: '100%' }}
-          className={
-            collapsed
-              ? 'flex-row items-center gap-1.5'
-              : 'flex-row items-center gap-2 rounded-2xl border border-white/10 bg-surface-raised px-3.5'
-          }
-        >
-          <Ionicons name="search" size={collapsed ? 13 : 16} color="#6b7280" />
-          <TextInput
-            value={search}
-            onChangeText={onSearchChange}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder={searchPlaceholder}
-            placeholderTextColor="#6b7280"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
+        {showSearch ? (
+          <Animated.View
+            layout={transition}
+            style={collapsed ? { flexGrow: 1, flexShrink: 1, flexBasis: 72 } : { width: '100%' }}
             className={
-              // Assez haut pour rester une cible confortable, pas plus : le champ est en
-              // tête d'écran, chaque pixel qu'il prend est pris à la liste.
               collapsed
-                ? 'flex-1 py-1 text-[13px] text-white'
-                : 'flex-1 py-2.5 text-[15px] text-white'
+                ? 'flex-row items-center gap-1.5'
+                : 'flex-row items-center gap-2 rounded-2xl border border-white/10 bg-surface-raised px-3.5'
             }
-          />
-          {search ? (
-            <Pressable
-              onPress={() => onSearchChange('')}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Effacer la recherche"
-            >
-              <Ionicons name="close-circle" size={collapsed ? 13 : 16} color="#6b7280" />
-            </Pressable>
-          ) : null}
-        </Animated.View>
+          >
+            <Ionicons name="search" size={collapsed ? 13 : 16} color="#6b7280" />
+            <TextInput
+              value={search}
+              onChangeText={onSearchChange}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder={searchPlaceholder}
+              placeholderTextColor="#6b7280"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              className={
+                // Assez haut pour rester une cible confortable, pas plus : le champ est en
+                // tête d'écran, chaque pixel qu'il prend est pris à la liste.
+                collapsed
+                  ? 'flex-1 py-1 text-[13px] text-white'
+                  : 'flex-1 py-2.5 text-[15px] text-white'
+              }
+            />
+            {search ? (
+              <Pressable
+                onPress={() => onSearchChange?.('')}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Effacer la recherche"
+              >
+                <Ionicons name="close-circle" size={collapsed ? 13 : 16} color="#6b7280" />
+              </Pressable>
+            ) : null}
+          </Animated.View>
+        ) : null}
 
         {showSorts ? (
           <Animated.View
@@ -258,14 +300,30 @@ export function ListControls<T extends string>({
         ) : null}
       </View>
 
+      {!collapsed && extra ? (
+        <Animated.View
+          layout={transition}
+          entering={FadeIn.duration(CONTROLS_TRANSITION_MS)}
+          exiting={FadeOut.duration(CONTROLS_TRANSITION_MS / 2)}
+          className="pt-2.5"
+        >
+          {extra}
+        </Animated.View>
+      ) : null}
+
       <Animated.View
         layout={transition}
         style={fade}
         className={collapsed ? 'pt-1.5' : 'gap-1.5 pt-2.5'}
       >
         <View className="flex-row items-baseline justify-between gap-3">
-          <Text className={collapsed ? 'text-[11px] text-gray-500' : 'text-sm text-gray-400'}>
-            {formatCount(summary.live)} en live sur {formatCount(summary.total)}
+          <Text
+            numberOfLines={1}
+            className={
+              collapsed ? 'shrink text-[11px] text-gray-500' : 'shrink text-sm text-gray-400'
+            }
+          >
+            {summary}
           </Text>
           {freshness ? <SourceFreshness {...freshness} compact={collapsed} /> : null}
         </View>
