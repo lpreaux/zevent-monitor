@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, Text, TextInput, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { sortStreamers, useMomentum, useZeventState, type StreamerSort } from '@/api/queries';
 import { AppHeader } from '@/components/app-header';
@@ -20,10 +21,26 @@ const SORTS: { key: StreamerSort; label: string }[] = [
 /** Fenêtre du tri « en forme » : progression de la cagnotte sur la dernière heure. */
 const MOMENTUM_WINDOW_MINUTES = 60;
 
+/** Tri porté par l'URL, ou le tri par défaut si le paramètre est absent ou inconnu. */
+function sortFromParams(value: string | string[] | undefined): StreamerSort {
+  const key = Array.isArray(value) ? value[0] : value;
+  return SORTS.some((option) => option.key === key) ? (key as StreamerSort) : 'donation';
+}
+
 export default function StreamersScreen() {
   const { data, isError, error, refetch, isRefetching } = useZeventState();
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<StreamerSort>('donation');
+  const params = useLocalSearchParams<{ sort?: string }>();
+  const router = useRouter();
+
+  // Le tri vit dans les paramètres de la route, pas dans un état local : l'onglet reste
+  // monté d'une visite à l'autre, et un lien qui demande un tri précis (« Tout le
+  // classement », depuis l'accueil) s'impose alors sans avoir à resynchroniser quoi que ce soit.
+  const sort = sortFromParams(params.sort);
+  const setSort = useCallback(
+    (key: StreamerSort) => router.setParams({ sort: key }),
+    [router],
+  );
 
   const onRefresh = useCallback(() => void refetch(), [refetch]);
 

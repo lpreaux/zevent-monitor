@@ -41,6 +41,9 @@ function stackHeader({ title, subtitle, modal = false }: StackHeaderConfig) {
         subtitle={subtitle}
         backIcon={modal ? 'close' : 'chevron-back'}
         insetTop={insetTop}
+        // Une feuille modale est une tâche ponctuelle : ni résumé du direct ni AlwaysOn.
+        liveSummary={!modal}
+        alwaysOn={!modal}
         onBack={back ? () => navigation.goBack() : undefined}
       />
     );
@@ -82,6 +85,13 @@ function AppLayout({ accountsEnabled = true }: { accountsEnabled?: boolean }) {
           <Stack.Screen
             name="always-on"
             options={{ animation: 'fade', contentStyle: { backgroundColor: '#000000' } }}
+          />
+          <Stack.Screen
+            name="favorites"
+            options={{
+              headerShown: true,
+              header: stackHeader({ title: 'Mes favoris', subtitle: 'Classés par pertinence' }),
+            }}
           />
           <Stack.Screen
             name="settings/notifications"

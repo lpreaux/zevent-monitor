@@ -1,35 +1,33 @@
-import { Image, Pressable, Text, View } from 'react-native';
+import { memo } from 'react';
+import { Pressable, Text } from 'react-native';
 import { Link } from 'expo-router';
 
 import type { Streamer } from '@/api/types';
 import { formatEuros } from '@/lib/format';
-import { LiveDot } from './live-dot';
+import { StreamerAvatar } from './streamer-avatar';
 
 /**
- * Ligne discrète pour un favori hors ligne sur le dashboard : nom, cagnotte et
- * indicateur hors ligne réduit. Seul accès proposé : le détail du streamer.
+ * Favori hors ligne : une seule ligne, en nuances de gris, sans action ni pastille.
+ * Rien n'y bouge tant que le streamer n'est pas revenu — autant que ça se voie.
  */
-export function FavoriteOfflineRow({ streamer }: { streamer: Streamer }) {
+function FavoriteOfflineRowComponent({ streamer }: { streamer: Streamer }) {
   return (
-    <Link
-      href={{ pathname: '/streamer/[twitch]', params: { twitch: streamer.twitch } }}
-      asChild
-    >
-      <Pressable className="flex-row items-center gap-3 rounded-xl px-1 py-2 active:opacity-70">
-        <Image
-          source={{ uri: streamer.profileUrl }}
-          className="h-8 w-8 rounded-full bg-gray-800 opacity-70"
-        />
-        <View className="flex-1">
-          <Text className="text-sm font-medium text-gray-300" numberOfLines={1}>
-            {streamer.display}
-          </Text>
-          <LiveDot online={false} compact />
-        </View>
-        <Text className="text-sm font-semibold text-zevent-300/80">
+    <Link href={{ pathname: '/streamer/[twitch]', params: { twitch: streamer.twitch } }} asChild>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Détails de ${streamer.display}, hors ligne`}
+        className="flex-row items-center gap-2.5 py-2 active:opacity-60"
+      >
+        <StreamerAvatar uri={streamer.profileUrl} size={22} dim />
+        <Text numberOfLines={1} className="flex-1 text-[13px] text-gray-400">
+          {streamer.display}
+        </Text>
+        <Text className="text-[13px] text-gray-500">
           {formatEuros(streamer.donationAmount.number)}
         </Text>
       </Pressable>
     </Link>
   );
 }
+
+export const FavoriteOfflineRow = memo(FavoriteOfflineRowComponent);

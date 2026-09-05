@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -26,6 +26,7 @@ import { niceCeil } from '@/lib/donations';
 import { formatCount, formatEuros, formatEurosCompact, formatRelativeTime } from '@/lib/format';
 import { toElapsedSeries, type RawPoint } from '@/lib/timeseries';
 import { useAlwaysOnStore } from '@/store/always-on';
+import { noteStreamerInteraction } from '@/store/streamer-affinity';
 
 /** Courbe de la cagnotte perso, alignée sur le T+0 de la collecte globale. */
 function StreamerCurve({ twitch, currentEur }: { twitch: string; currentEur: number }) {
@@ -126,6 +127,11 @@ export default function StreamerDetailScreen() {
   const setFocusTwitch = useAlwaysOnStore((s) => s.setFocusTwitch);
   const setPreset = useAlwaysOnStore((s) => s.setPreset);
 
+  // Consulter une fiche est un signal d'intérêt : il remonte le streamer dans les favoris de l'accueil.
+  useEffect(() => {
+    if (twitch) noteStreamerInteraction(twitch, 'detail');
+  }, [twitch]);
+
   const streamer = useMemo(() => {
     if (!data) return undefined;
     const login = twitch.toLowerCase();
@@ -202,7 +208,7 @@ export default function StreamerDetailScreen() {
                 <Text className="text-sm font-bold text-white">Regarder sur Twitch</Text>
               </Pressable>
               <Pressable
-                onPress={() => void openDonationPage(streamer.donationUrl)}
+                onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
                 className="flex-1 items-center rounded-2xl border border-zevent-500 py-3.5 active:opacity-80"
               >
                 <Text className="text-sm font-bold text-zevent-200">Faire un don</Text>
