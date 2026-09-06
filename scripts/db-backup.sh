@@ -42,24 +42,29 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 dump_file="${out_dir}/${pg_db}-${stamp}.dump"
 manifest_file="${out_dir}/${pg_db}-${stamp}.manifest.json"
 
-echo "Sauvegarde de ${pg_db} depuis ${container:0:12} vers ${dump_file}"
-# Format custom : restauration sélective possible et compression intégrée.
-docker exec -i "${container}" pg_dump -U "${pg_user}" -d "${pg_db}" \
-  --format=custom --no-owner --no-privileges > "${dump_file}"
-
-# Empreinte enregistrée avec un chemin relatif : une sauvegarde déplacée ou recopiée reste
-# vérifiable, et c'est bien le fichier voisin qui est contrôlé, pas son chemin d'origine.
-(cd "${out_dir}" && sha256sum "$(basename "${dump_file}")" > "$(basename "${dump_file}").sha256")
-
-# Comptages de référence : toute restauration doit les retrouver à l'identique.
+# Comptages de référence : toute restauration doit les retrouver. Ils sont relevés avant et
+# après le dump, car sur une base vivante la collecte continue d'écrire pendant l'export : le
+# contenu du dump est encadré par ces deux relevés, il n'égale ni l'un ni l'autre.
 counts_sql="SELECT json_object_agg(relname, n) FROM (
   SELECT c.relname, (xpath('/row/c/text()', query_to_xml(
     format('SELECT count(*) AS c FROM %I.%I', n.nspname, c.relname), false, true, '')))[1]::text::bigint AS n
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE c.relkind = 'r' AND n.nspname = 'public'
 ) t;"
-counts="$(docker exec -i "${container}" psql -U "${pg_user}" -d "${pg_db}" -tAc "${counts_sql}")"
-version="$(docker exec -i "${container}" psql -U "${pg_user}" -d "${pg_db}" -tAc 'SHOW server_version')"
+row_counts() { docker exec "${container}" psql -U "${pg_user}" -d "${pg_db}" -tAc "${counts_sql}" < /dev/null; }
+
+echo "Sauvegarde de ${pg_db} depuis ${container:0:12} vers ${dump_file}"
+counts_before="$(row_counts)"
+# Format custom : restauration sélective possible et compression intégrée.
+docker exec -i "${container}" pg_dump -U "${pg_user}" -d "${pg_db}" \
+  --format=custom --no-owner --no-privileges > "${dump_file}"
+counts_after="$(row_counts)"
+
+# Empreinte enregistrée avec un chemin relatif : une sauvegarde déplacée ou recopiée reste
+# vérifiable, et c'est bien le fichier voisin qui est contrôlé, pas son chemin d'origine.
+(cd "${out_dir}" && sha256sum "$(basename "${dump_file}")" > "$(basename "${dump_file}").sha256")
+
+version="$(docker exec "${container}" psql -U "${pg_user}" -d "${pg_db}" -tAc 'SHOW server_version' < /dev/null)"
 size_bytes="$(wc -c < "${dump_file}" | tr -d ' ')"
 
 cat > "${manifest_file}" <<JSON
@@ -70,7 +75,8 @@ cat > "${manifest_file}" <<JSON
   "dumpFile": "$(basename "${dump_file}")",
   "sizeBytes": ${size_bytes},
   "sha256": "$(cut -d' ' -f1 < "${dump_file}.sha256")",
-  "rowCounts": ${counts:-null}
+  "rowCountsBefore": ${counts_before:-null},
+  "rowCountsAfter": ${counts_after:-null}
 }
 JSON
 
