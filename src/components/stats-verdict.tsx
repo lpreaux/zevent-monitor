@@ -7,15 +7,9 @@ import { icons } from '@/lib/icons';
 import { formatEuros, formatEurosCompact } from '@/lib/format';
 import { formatEta, milestoneEtaMinutes, nextMilestone } from '@/lib/milestones';
 import { formatElapsedLabel } from '@/lib/stats-edition';
-import { buildVerdict, type VerdictTone } from '@/lib/stats-verdict';
+import { buildVerdict } from '@/lib/stats-verdict';
 import { useEditionComparison } from '@/lib/use-edition-comparison';
-
-/** Le verdict porte la couleur de ce qu'il annonce : c'est ce qu'on lit avant les mots. */
-const TONE_CLASS: Record<VerdictTone, string> = {
-  ahead: 'text-emerald-400',
-  behind: 'text-red-400',
-  idle: 'text-gray-300',
-};
+import { TONE_TEXT } from '@/theme';
 
 /**
  * Progression vers le prochain palier rond de la cagnotte globale.
@@ -96,7 +90,7 @@ export function StatsVerdict() {
       </View>
 
       <View>
-        <Text className={`text-[30px] font-extrabold leading-9 ${TONE_CLASS[verdict.tone]}`}>
+        <Text className={`text-[30px] font-extrabold leading-9 ${TONE_TEXT[verdict.tone]}`}>
           {verdict.headline}
         </Text>
         <Text className="mt-1 text-[13px] text-gray-400">{verdict.detail}</Text>

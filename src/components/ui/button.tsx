@@ -8,7 +8,7 @@ import { Icon } from './icon';
  * Rang de l'action, jamais son apparence : on choisit `primary` parce que le bouton
  * engage, pas parce qu'on le veut violet.
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'neutral';
+export type ButtonVariant = 'primary' | 'secondary' | 'neutral' | 'overlay';
 
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
@@ -30,6 +30,17 @@ const VARIANT = {
     container: 'border border-white/10 bg-white/5',
     label: 'text-gray-300',
     icon: '#9ca3af',
+  },
+  /**
+   * `neutral` posé par-dessus du contenu qui défile, où le fond translucide ne tient
+   * plus : un blanc à cinq pour cent laisse passer les lignes de la liste, et le libellé
+   * change de contraste à chaque geste. Même intention, fond opaque — comme la variante
+   * du même nom d'`IconButton`.
+   */
+  overlay: {
+    container: 'border border-white/10 bg-gray-900/90',
+    label: 'text-gray-200',
+    icon: '#d1d5db',
   },
 } as const satisfies Record<ButtonVariant, { container: string; label: string; icon: string }>;
 

@@ -15,6 +15,7 @@ import {
 import { parisHourLabel } from '@/lib/donations';
 import { formatCount, formatEurosCompact, formatPercent } from '@/lib/format';
 import { useEditionComparison } from '@/lib/use-edition-comparison';
+import { TONE_TEXT } from '@/theme';
 
 type BucketKey = '30' | '60' | '180';
 
@@ -50,24 +51,24 @@ function sentenceFor(last: RateComparison): { text: string; tone: string } | nul
   if (last.gap !== null) {
     return {
       text: `${amount} — soit ${formatGap(last.gap)} par rapport à 2025 au même moment.`,
-      tone: last.gap >= 0 ? 'text-emerald-400' : 'text-red-400',
+      tone: TONE_TEXT[last.gap >= 0 ? 'ahead' : 'behind'],
     };
   }
   if (last.before2025Opening) {
     return {
       text: `${amount}. À ce stade de l’édition, 2025 n’avait pas encore ouvert sa cagnotte : rien à comparer.`,
-      tone: 'text-gray-300',
+      tone: TONE_TEXT.idle,
     };
   }
   if (last.eur2025 === null) {
     return {
       text: `${amount}. La courbe 2025 ne va pas jusque-là : pas de comparaison à cet instant.`,
-      tone: 'text-gray-300',
+      tone: TONE_TEXT.idle,
     };
   }
   return {
     text: `${amount}. 2025 ouvrait tout juste sa cagnotte : un pourcentage n’y voudrait rien dire.`,
-    tone: 'text-gray-300',
+    tone: TONE_TEXT.idle,
   };
 }
 

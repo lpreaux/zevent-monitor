@@ -3,6 +3,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useFavoritesStore } from '@/store/favorites';
 
+/** Cible tactile minimale, alignée sur celle d'`IconButton`. */
+const TOUCH_TARGET_PX = 44;
+
 interface FavoriteButtonProps {
   twitch: string;
   size?: number;
@@ -21,7 +24,11 @@ export function FavoriteButton({ twitch, size = 22 }: FavoriteButtonProps) {
 
   return (
     <Pressable
-      hitSlop={10}
+      // Complété jusqu'aux 44 px recommandés, comme le fait `IconButton` : l'étoile se
+      // dessine de 16 à 22 px selon l'endroit, et un `hitSlop` figé laissait la plus
+      // petite — celle de la fiche, posée à côté de deux boutons du système — avec une
+      // cible de 36 px.
+      hitSlop={Math.max(0, (TOUCH_TARGET_PX - size) / 2)}
       accessibilityRole="button"
       accessibilityState={{ selected: isFavorite }}
       accessibilityLabel={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}

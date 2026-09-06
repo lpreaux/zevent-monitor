@@ -10,7 +10,7 @@ import { StreamerAvatar } from '@/components/streamer-avatar';
 import { Button, ButtonRow } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { formatCount, formatEuros, formatPercent, formatRank, formatRelativeTime } from '@/lib/format';
-import { icons } from '@/lib/icons';
+import { iconSizes, icons } from '@/lib/icons';
 import { openDonationPage, openTwitchStream } from '@/lib/links';
 import { streamerActivity } from '@/lib/streamer-activity';
 import type { StreamerStanding } from '@/lib/streamer-profile';
@@ -72,7 +72,35 @@ export function StreamerHero({
             <StreamerActivityLine activity={activity} size={12} />
           </View>
         </View>
-        <FavoriteButton twitch={streamer.twitch} size={24} />
+        {/* Suivre, envoyer sur l'écran secondaire et partager sont trois choses que l'on
+            fait *de* ce streamer : elles se rangent ensemble en haut à droite, comme sur
+            la carte de verdict et sur l'écran d'un récap. En bas ne restent que les deux
+            actions qui font quelque chose *avec* lui — le regarder, lui donner —, et
+            elles se partagent la largeur à parts égales. La rangée du bas alignait
+            jusqu'ici deux boutons pleins et deux ronds, ce qui donnait quatre choses de
+            même rang là où il n'y en a que deux. */}
+        <View className="flex-row items-center gap-1">
+          <IconButton
+            size="sm"
+            icon={icons.alwaysOn}
+            label="Afficher sur l’écran secondaire"
+            onPress={focusOnSecondScreen}
+          />
+          {/* Le partage ouvre sa propre page : une carte en image demande d'être vue avant
+              d'être envoyée, et le texte y reste disponible en repli. */}
+          <IconButton
+            size="sm"
+            icon={icons.share}
+            label={`Partager la fiche de ${streamer.display}`}
+            onPress={() =>
+              router.push({
+                pathname: '/streamer/[twitch]/share',
+                params: { twitch: streamer.twitch },
+              })
+            }
+          />
+          <FavoriteButton twitch={streamer.twitch} size={iconSizes.button} />
+        </View>
       </View>
 
       <View>
@@ -146,28 +174,6 @@ export function StreamerHero({
           label="Faire un don"
           accessibilityLabel={`Faire un don à ${streamer.display}`}
           onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
-        />
-
-        <IconButton
-          size="sm"
-          variant="soft"
-          icon={icons.alwaysOn}
-          label="Afficher sur l’écran secondaire"
-          onPress={focusOnSecondScreen}
-        />
-        {/* Le partage ouvre sa propre page : une carte en image demande d'être vue avant
-            d'être envoyée, et le texte y reste disponible en repli. */}
-        <IconButton
-          size="sm"
-          variant="soft"
-          icon={icons.share}
-          label={`Partager la fiche de ${streamer.display}`}
-          onPress={() =>
-            router.push({
-              pathname: '/streamer/[twitch]/share',
-              params: { twitch: streamer.twitch },
-            })
-          }
         />
       </ButtonRow>
     </View>

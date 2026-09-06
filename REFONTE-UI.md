@@ -275,7 +275,7 @@ Volontairement laissé de côté :
 - **Le bouton « Maintenant » du planning** garde son rouge : la question de la
   couleur relève de l'étape 2.
 
-### Étape 2 — Le placement des actions
+### Étape 2 — Le placement des actions  ▸ faite
 
 Règle unique, sur une carte comme sur un écran :
 
@@ -283,18 +283,51 @@ Règle unique, sur une carte comme sur un écran :
 > l'écran secondaire), en `IconButton bare`.
 > **Bas** = ce qu'on fait *avec* l'objet, un ou deux CTA au maximum.
 
-`stats-verdict` et `recap/[id]` sont déjà conformes. `streamer-hero` remonte
-`tv-outline` et `share-outline` en haut à droite à côté de l'étoile ; sa rangée du
-bas devient deux boutons de largeur égale au lieu de « deux pleins + deux ronds ».
+`stats-verdict` et `recap/[id]` étaient déjà conformes — le premier prend son
+partage en haut de sa propre carte, le second dans la barre du haut.
 
-À trancher au passage :
+#### Ce que l'étape a effectivement changé
 
-- Le rouge sert au direct (`live-dot`, pastille « En cours »), aux erreurs, et au
-  bouton « Maintenant » du planning. Le troisième usage relève bien du direct,
-  mais il faut le dire quelque part, sinon il se lit comme une alerte.
-- Les deux boutons flottants (« Nouveau récap », « Maintenant ») partagent l'ancre
-  bas-droite avec des natures différentes. Le second devrait quitter le rouge pour
-  ne pas ressembler à un bouton de création.
+**`streamer-hero` applique la règle.** `tv-outline` et `share-outline` remontent en
+haut à droite à côté de l'étoile ; la rangée du bas passe de « deux boutons pleins +
+deux ronds » à deux boutons de largeur égale. Elle annonçait quatre choses de même
+rang là où il n'y en a que deux : regarder et donner.
+
+Les trois glyphes du groupe du haut se dessinent désormais à la même taille (16), et
+l'étoile complète son `hitSlop` jusqu'aux 44 px comme le fait `IconButton` — figé à
+10, il lui laissait une cible de 36 px à cette taille. Les deux étoiles des listes de
+streamers passent au passage sur l'échelle (20 et 16, contre 20 et 18).
+
+**Le rouge est tranché, et écrit dans `src/theme.ts`.** Il a trois emplois, qui ne se
+confondent pas parce qu'ils ne portent jamais sur le même objet : le direct, l'écart
+négatif face à 2025, et l'erreur. Le diagnostic n'en voyait que deux — l'écart négatif
+manquait à l'appel alors qu'il occupe cinq fichiers.
+
+Ce qui n'entre dans aucun des trois quitte la couleur : **le bouton « Maintenant » du
+planning** perd son rouge. Il partage son ancre bas-droite avec le « Nouveau récap »
+de l'onglet voisin, qui est violet parce qu'il crée quelque chose ; lui ne crée rien,
+il replace le fil où il était. Il devient un `Button` du système, ce qu'il n'était pas
+— c'était le dernier `Pressable` à classes écrites sur place hors des exceptions
+assumées de l'étape 1.
+
+**Nouvelle variante `overlay` sur `Button`**, jumelle de celle d'`IconButton` : le
+rang `neutral` posé par-dessus du contenu qui défile, où un fond à cinq pour cent de
+blanc laisse passer les lignes de la liste et fait changer le libellé de contraste à
+chaque geste.
+
+**`TONE_TEXT`, `TONE_COLOR` et `toneOf` rejoignent `src/theme.ts`.** Les trois classes
+de l'écart chiffré étaient réécrites dans cinq fichiers — verdict, rythme, paliers,
+momentum, carte de partage —, et avaient déjà divergé : le cas neutre en `gray-400`
+d'un côté, `gray-300` de l'autre. `VerdictTone` disparaît au profit de `Tone`, qui
+porte le même vocabulaire pour tout le monde.
+
+Volontairement laissé de côté :
+
+- **Les couleurs d'icône de `Button` et `IconButton`** restent des constantes locales
+  plutôt que des jetons de `theme`. Deux des six y figurent déjà, les autres non :
+  n'en router que la moitié laisserait le fichier moins lisible qu'il ne l'est.
+- **La jauge de `momentum-row`** garde ses trois couleurs en dur, comme son commentaire
+  l'explique : la piste et son remplissage doivent arriver ensemble.
 
 ### Étape 3 — Le socle
 

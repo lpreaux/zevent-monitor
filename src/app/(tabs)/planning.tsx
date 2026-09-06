@@ -22,7 +22,9 @@ import { PlanningRow } from '@/components/planning-row';
 import { ScreenShell } from '@/components/screen-shell';
 import { EmptyState, LoadingState } from '@/components/screen-state';
 import { SectionTitle } from '@/components/section-title';
+import { Button } from '@/components/ui/button';
 import { formatCount } from '@/lib/format';
+import { icons } from '@/lib/icons';
 import { buildPlanningView, type PlanningItem } from '@/lib/planning-view';
 import { REMINDER_LEAD_MS } from '@/lib/planning-reminders';
 import { useNow } from '@/lib/use-now';
@@ -467,15 +469,19 @@ export default function PlanningScreen() {
             // toute la largeur de l'écran. Même raison que le fond de `ListControls`.
             style={{ position: 'absolute', bottom: 20, right: 20, alignItems: 'flex-end' }}
           >
-            <Pressable
-              onPress={goToNow}
-              accessibilityRole="button"
+            {/* Il partage son ancre avec le « Nouveau récap » de l'onglet voisin, qui est
+                violet parce qu'il crée quelque chose. Celui-ci ne crée rien : il replace
+                le fil où il était. Son rouge d'origine le faisait passer pour une alerte
+                autant que pour une action de premier rang — le direct, l'écart négatif et
+                l'erreur sont les seuls emplois de cette teinte (voir `lib/tone`). */}
+            <Button
+              size="sm"
+              variant="overlay"
+              icon={icons.time}
+              label="Maintenant"
               accessibilityLabel="Revenir à maintenant"
-              className="flex-row items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/20 px-3.5 py-2.5 active:opacity-80"
-            >
-              <Ionicons name="time-outline" size={14} color="#fca5a5" />
-              <Text className="text-xs font-bold text-red-200">Maintenant</Text>
-            </Pressable>
+              onPress={goToNow}
+            />
           </Animated.View>
         ) : null}
       </View>
