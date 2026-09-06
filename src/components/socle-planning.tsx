@@ -53,7 +53,7 @@ function useHighlights(limit: number): Highlights {
  * ligne —, mais surtout un bandeau qui roule au bas de l'écran attire l'œil en
  * permanence vers ce qu'on n'a pas demandé à lire.
  */
-export function SocleNowLine({ onOpen }: { onOpen: () => void }) {
+export function SocleNowLine({ onExpand }: { onExpand: () => void }) {
   const { entries, liveCount, now } = useHighlights(1);
   const entry = entries[0];
   if (!entry) return null;
@@ -64,9 +64,13 @@ export function SocleNowLine({ onOpen }: { onOpen: () => void }) {
 
   return (
     <Pressable
-      onPress={onOpen}
+      onPress={onExpand}
       accessibilityRole="button"
-      accessibilityLabel={`${live ? 'À l’antenne' : 'À suivre'} : ${entry.title}. Ouvrir le planning`}
+      accessibilityState={{ expanded: false }}
+      // Il déplie le socle, il ne quitte pas l'écran : le programme complet est juste
+      // au-dessus, et faire changer de page pour lire trois lignes serait un aller-retour
+      // pour rien. Le libellé doit dire ce qui va se passer, pas ce qu'on pourrait croire.
+      accessibilityLabel={`${live ? 'À l’antenne' : 'À suivre'} : ${entry.title}. Déplier le programme`}
       className="flex-1 flex-row items-center gap-1.5 active:opacity-60"
     >
       <StatusDot live={live} />

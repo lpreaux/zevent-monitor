@@ -425,7 +425,20 @@ seulement s'anime.
 
 **Ce qui s'anime s'anime donc en dessous, sur des propriétés que la disposition
 recalcule.** Une seule horloge — un `SharedValue` mené par `withTiming` — commande trois
-choses, qui partent et arrivent ensemble :
+choses, qui partent et arrivent ensemble.
+
+Elle est lancée par l'appui, et non par un effet. Un effet ne s'exécute qu'une fois le
+rendu validé : l'animation attendait donc que React ait recalculé le socle, changé les
+propriétés d'accessibilité du tiroir et reposé la ligne, avant seulement de démarrer.
+Elle partait avec une ou deux images de retard que sa courbe rattrapait ensuite d'un coup
+— le temps s'écoule pour elle depuis le début, pas depuis sa première image rendue. Vu de
+l'écran : une pause, puis une accélération. Écrire dans une valeur partagée ne demande,
+lui, aucun rendu.
+
+Le tiroir lisait par ailleurs sa propre horloge, un `withTiming` posé dans son style : les
+deux animations pouvaient démarrer à une image d'écart, et la moindre re-mesure de son
+contenu relançait la sienne pour une durée pleine, au milieu de l'autre. Il interpole
+désormais la même valeur que le reste.
 
 | Ce qui bouge | Comment |
 |---|---|

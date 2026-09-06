@@ -178,12 +178,12 @@ const NOW_SLIDE_PX = 24;
 function GlobalLine({
   open,
   progress,
-  onOpenPlanning,
+  onExpand,
 }: {
   /** État d'arrivée : ce qui ne s'anime pas s'en déduit — appui, lecteur d'écran. */
   open: boolean;
   progress: SharedValue<number>;
-  onOpenPlanning: () => void;
+  onExpand: () => void;
 }) {
   const router = useRouter();
   const { data } = useZeventState();
@@ -224,7 +224,7 @@ function GlobalLine({
           accessibilityElementsHidden={open}
           importantForAccessibility={open ? 'no-hide-descendants' : 'auto'}
         >
-          <SocleNowLine onOpen={onOpenPlanning} />
+          <SocleNowLine onExpand={onExpand} />
         </Animated.View>
         {/* Le don garde sa teinte pleine : l'action que l'application existe pour rendre
             possible ne peut pas se ranger au même gris que ses voisines. */}
@@ -287,13 +287,22 @@ function useKeyboardShown(): boolean {
  * ensemble. Une transition de disposition posée sur la racine, elle, déplaçait le cadre
  * pendant que son contenu restait là où la disposition l'avait mis.
  */
-function SocleSheet({ open, children }: { open: boolean; children: ReactNode }) {
+function SocleSheet({
+  open,
+  progress,
+  children,
+}: {
+  open: boolean;
+  progress: SharedValue<number>;
+  children: ReactNode;
+}) {
   const [height, setHeight] = useState(0);
 
-  const style = useAnimatedStyle(
-    () => ({ height: withTiming(open ? height : 0, { duration: OPEN_MS }) }),
-    [open, height],
-  );
+  // Il lit l'horloge du socle, il n'en tient pas une seconde. Un `withTiming` posé ici
+  // comptait son propre temps : les deux animations pouvaient démarrer à une image
+  // d'écart, et la moindre re-mesure du contenu relançait celle-ci pour une durée pleine,
+  // au milieu de l'autre.
+  const style = useAnimatedStyle(() => ({ height: progress.value * height }), [height]);
 
   return (
     <Animated.View style={style} className="overflow-hidden">
@@ -341,13 +350,25 @@ export function AppSocle(props: BottomTabBarProps) {
   const [open, setOpen] = useState(false);
   const keyboardShown = useKeyboardShown();
 
-  // Une seule horloge pour tout ce qui s'anime dans la ligne : la hauteur, le corps du
-  // chiffre et l'effacement du programme partent et arrivent ensemble, ce qu'ils ne
-  // feraient pas s'ils comptaient chacun le leur.
+  // Une seule horloge pour tout ce qui s'anime dans le socle : la hauteur du tiroir,
+  // celle de la ligne, le corps du chiffre et l'effacement du programme partent et
+  // arrivent ensemble, ce qu'ils ne feraient pas s'ils comptaient chacun le leur.
   const progress = useSharedValue(0);
-  useEffect(() => {
-    progress.value = withTiming(open ? 1 : 0, { duration: OPEN_MS });
-  }, [open, progress]);
+
+  // Elle est lancée par l'appui, et non par un effet.
+  //
+  // Un effet ne s'exécute qu'une fois le rendu validé : l'animation attendait donc que
+  // React ait recalculé le socle, changé les propriétés d'accessibilité du tiroir et
+  // reposé la ligne, avant seulement de démarrer. Elle partait avec une ou deux images de
+  // retard, que sa courbe rattrapait ensuite d'un coup — le temps s'écoule pour elle
+  // depuis le début, pas depuis sa première image rendue. C'est la pause suivie d'une
+  // accélération constatée à l'usage. Écrire dans une valeur partagée ne demande, lui,
+  // aucun rendu : l'animation part sur l'image de l'appui.
+  const toggle = () => {
+    const next = !open;
+    progress.value = withTiming(next ? 1 : 0, { duration: OPEN_MS });
+    setOpen(next);
+  };
 
   // Le socle se retire avec le menu du bas : la recherche de l'onglet Streamers ouvre le
   // clavier, et un socle poussé par-dessus le contenu masquerait les résultats qu'on tape.
@@ -365,11 +386,11 @@ export function AppSocle(props: BottomTabBarProps) {
       className="border-t border-white/5 bg-surface"
       style={{ paddingBottom: Math.max(props.insets.bottom, 10) }}
     >
-      <Handle open={open} onPress={() => setOpen((value) => !value)} />
-      <SocleSheet open={open}>
+      <Handle open={open} onPress={toggle} />
+      <SocleSheet open={open} progress={progress}>
         <SoclePanel onDismiss={() => setOpen(false)} />
       </SocleSheet>
-      <GlobalLine open={open} progress={progress} onOpenPlanning={() => setOpen(true)} />
+      <GlobalLine open={open} progress={progress} onExpand={toggle} />
       <TabRow {...props} />
     </View>
   );
