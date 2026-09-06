@@ -3,8 +3,8 @@ name: zevent-monitor
 # Fusionné automatiquement par `docker compose up` en local (aucun `-f` fourni).
 # Dockploy est configuré pour utiliser explicitement docker-compose.yml (cf. README),
 # donc ce fichier n'est jamais pris en compte en production : pas de port publié,
-# le service `server` reste joignable uniquement via le domaine HTTPS choisi.
+# le service `api` reste joignable uniquement via le domaine HTTPS choisi.
 services:
-  server:
+  api:
     ports:
-      - "${SERVER_PORT:-3000}:3000"
+      - "${API_PORT:-3000}:3000"

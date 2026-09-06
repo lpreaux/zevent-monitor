@@ -1,8 +1,11 @@
 {
-  "name": "@zevent-monitor/server",
+  "name": "@zevent-monitor/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=24"
   },

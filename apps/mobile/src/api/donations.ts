@@ -1,7 +1,7 @@
 import { fetchJson } from './client';
 
 /**
- * Client des routes de dons du backend (`server/src/routes/donations.ts`).
+ * Client des routes de dons du backend (`apps/api/src/routes/donations.ts`).
  *
  * Toutes ces données proviennent du feed Streamlabs archivé par le backend. Le feed ne montre
  * que les 3000 derniers dons par relevé : en pic d'affluence, des dons peuvent passer entre deux relevés.

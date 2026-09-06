@@ -1,7 +1,7 @@
 /**
  * Mesure le centrage des glyphes Ionicons directement dans la police.
  *
- * `ICON_NUDGE` (src/lib/icons.ts) n'accepte que des valeurs mesurées : une correction
+ * `ICON_NUDGE` (apps/mobile/src/lib/icons.ts) n'accepte que des valeurs mesurées : une correction
  * posée au jugé décale un glyphe déjà juste. La première entrée, le `play`, avait été
  * relevée au canvas dans l'aperçu web ; l'aperçu web ne reproduit toutefois pas la mise
  * en boîte d'Android, qui est précisément ce qui décale les icônes sur téléphone.

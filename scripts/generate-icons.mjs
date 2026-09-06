@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const assets = join(root, 'assets');
+const assets = join(root, 'apps/mobile/assets');
 
 /** Échantillonnage 4×4 par pixel, suffisant pour lisser des arêtes droites. */
 const SAMPLES = 4;

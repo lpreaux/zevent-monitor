@@ -1,4 +1,4 @@
-/** Types des réponses du backend ZEvent Monitor (voir server/src/routes/public.ts). */
+/** Types des réponses du backend ZEvent Monitor (voir apps/api/src/routes/public.ts). */
 
 export interface Amount {
   number: number;

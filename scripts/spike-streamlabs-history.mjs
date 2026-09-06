@@ -11,7 +11,7 @@
 import { createWriteStream } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 
-const DEFAULT_TEAM_ID = '945347664248182491'; // ZEvent 2026, cf. server/src/config.ts
+const DEFAULT_TEAM_ID = '945347664248182491'; // ZEvent 2026, cf. apps/api/src/config.ts
 const API_BASE = 'https://streamlabscharity.com/api/v1/';
 const USER_AGENT = 'zevent-monitor-spike/0.1';
 /** Taille de page constatée du feed, non paramétrable (`limit` et `per_page` sont ignorés). */

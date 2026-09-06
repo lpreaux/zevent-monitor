@@ -182,10 +182,10 @@ méthode de clôture : afficher la provenance du total retenu au lieu de mélang
 
 Mêmes réserves qu'au §1.3 (source communautaire, non documentée, sous-domaine `ppr`) : seul le
 backend l'interroge, toutes les 10 min, avec validation, cache du dernier snapshot valide en base
-(`planning_snapshots`) et snapshot embarqué `src/content/planning-2026.json` pour le hors-ligne.
+(`planning_snapshots`) et snapshot embarqué `apps/mobile/src/content/planning-2026.json` pour le hors-ligne.
 
 Les horaires sont publiés en UTC mais vécus en heure de Paris : l'app convertit explicitement, sans
-dépendre du fuseau de l'appareil (`src/lib/planning.ts`).
+dépendre du fuseau de l'appareil (`apps/mobile/src/lib/planning.ts`).
 
 L'application streamer officielle `app.zevent.fr` (API `api.zevent.fr`, overlays, bidwar, tombola,
 donation goals) est authentifiée et ne contient aucun planning exploitable côté public.
@@ -230,7 +230,7 @@ src/
   store/                  zustand (favoris, prefs)
   db/                     sqlite (cache et récapitulatifs)
   components/ui/          react-native-reusables
-server/
+apps/api/
   src/jobs/               collecte, détection d'événements, récapitulatifs, push
   src/routes/             état courant, timeseries, goals, planning, devices, prefs, recaps
   src/db/                 migrations et accès PostgreSQL

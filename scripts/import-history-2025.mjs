@@ -12,7 +12,7 @@ const SOURCE_URL = `https://cache.evenmorestats.fr/${EVENT_ID}/global.json`;
 const RAISING_STARTS_AT = '2025-09-05T08:00:00Z';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outputPath = join(rootDir, 'src/content/history/zevent-2025.json');
+const outputPath = join(rootDir, 'apps/mobile/src/content/history/zevent-2025.json');
 
 function toSeries(series) {
   if (!series || !Array.isArray(series.labels) || !Array.isArray(series.values)) {
