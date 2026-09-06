@@ -24,6 +24,7 @@ import { RowSeparator } from '@/components/row-separator';
 import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { SectionHeader } from '@/components/section-header';
+import { Segmented } from '@/components/segmented';
 import { formatCount, formatEuros, formatEurosCompact } from '@/lib/format';
 import { buildRecapComparison } from '@/lib/recap-comparison';
 import { coverageNotice, personalizeRecap } from '@/lib/recap-personalization';
@@ -31,6 +32,7 @@ import {
   buildRecapTimeline,
   dayToRecapCard,
   groupFavoriteActivity,
+  normalizeGoalLabel,
   recapSubtitle,
   recapTitle,
   toRhythmBars,
@@ -43,8 +45,24 @@ import { useRecapsReadStore } from '@/store/recaps-read';
 /** Une journée en cours se complète au fil des relevés ; une journée close est figée. */
 const IN_PROGRESS_REFETCH_MS = 60_000;
 
-/** Au-delà, une liste brute devient illisible sur mobile. */
-const MAX_ROWS = 12;
+/**
+ * Ce que chaque section montre à l'arrivée, le reste attendant un appui.
+ *
+ * Une journée de ZEvent produit neuf cents paliers, quatre cents directs et des dizaines
+ * de moments marquants. Tout dérouler donnait une page de vingt écrans que personne ne
+ * parcourt : on y cherche, on n'y lit pas. Les aperçus sont donc calibrés sur ce qu'on
+ * embrasse d'un regard, et chaque section sait s'ouvrir.
+ */
+const PREVIEW = {
+  timeline: 8,
+  goals: 4,
+  lives: 8,
+  donors: 5,
+  progressions: 5,
+} as const;
+
+/** Moments ajoutés à chaque dépliage du fil, plutôt que les quarante d'un coup. */
+const TIMELINE_STEP = 12;
 
 const hourMinute = new Intl.DateTimeFormat('fr-FR', {
   hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
@@ -149,6 +167,9 @@ export default function RecapDetailScreen() {
   const [threadFavoritesOnly, setThreadFavoritesOnly] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [livesOpen, setLivesOpen] = useState(false);
+  const [donorsOpen, setDonorsOpen] = useState(false);
+  /** Moments du fil actuellement dépliés : il s'ouvre par paliers, pas d'un bloc. */
+  const [threadShown, setThreadShown] = useState<number>(PREVIEW.timeline);
   // Les courbes des deux éditions ne servent qu'à situer une journée : la requête est
   // partagée avec l'écran des statistiques, React Query n'ira pas la chercher deux fois.
   const editions = useEditionComparison('10m');
@@ -211,7 +232,14 @@ export default function RecapDetailScreen() {
     : timeline.items;
   const notice = coverageNotice(recap);
   const bars = toRhythmBars(recap.content.series?.points ?? []);
-  const comparison = buildRecapComparison(recap, isDay ? editions.comparison : null);
+  // Seules les journées se comparent à 2025 : une plage manuelle de six heures n'a pas
+  // d'équivalent identifiable dans l'édition précédente.
+  const comparison = buildRecapComparison(
+    recap,
+    isDay
+      ? { points: editions.history.points, originAt2026: editions.comparison.originAt2026 }
+      : null,
+  );
   const observed = recap.content.observedDonations;
   const openStreamer = (twitch: string) => router.push(`/streamer/${twitch}` as never);
   const goTo = (target: Recap) => {
@@ -251,7 +279,10 @@ export default function RecapDetailScreen() {
           </View>
         ) : null}
 
-        <RecapComparisonPanel comparison={comparison} />
+        <RecapComparisonPanel
+          comparison={comparison}
+          {...(recap.title ? { label2025: `${recap.title} 2025` } : {})}
+        />
 
         {bars.length > 1 ? (
           <View className="gap-3">
@@ -288,41 +319,49 @@ export default function RecapDetailScreen() {
                   ? 'Réduit aux moments qui concernent vos favoris.'
                   : 'Les moments marquants, dans l’ordre où ils sont arrivés.'
               }
-              accessory={
-                favoriteMoments > 0 ? (
-                  <Pressable
-                    onPress={() => setThreadFavoritesOnly((current) => !current)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: threadFavoritesOnly }}
-                    accessibilityLabel="N’afficher que les moments de mes favoris"
-                    hitSlop={6}
-                    className={`h-8 w-8 items-center justify-center rounded-full border active:opacity-70 ${
-                      threadFavoritesOnly
-                        ? 'border-amber-400/60 bg-amber-500/20'
-                        : 'border-white/10 bg-white/5'
-                    }`}
-                  >
-                    <Ionicons
-                      name={threadFavoritesOnly ? 'star' : 'star-outline'}
-                      size={14}
-                      color={threadFavoritesOnly ? '#fbbf24' : '#9ca3af'}
-                    />
-                  </Pressable>
-                ) : undefined
-              }
             />
+            {favoriteMoments > 0 ? (
+              <Segmented
+                options={[
+                  { key: 'all', label: `Tout (${timeline.items.length})` },
+                  { key: 'favorites', label: `Mes favoris (${favoriteMoments})` },
+                ]}
+                value={threadFavoritesOnly ? 'favorites' : 'all'}
+                onChange={(key) => setThreadFavoritesOnly(key === 'favorites')}
+              />
+            ) : null}
+
             <RecapTimeline
-              items={threadItems}
-              hidden={threadFavoritesOnly ? 0 : timeline.hidden}
+              items={threadItems.slice(0, threadShown)}
               onOpenStreamer={openStreamer}
             />
+
+            {threadItems.length > threadShown ? (
+              <DisclosureButton
+                expanded={false}
+                onPress={() => setThreadShown((current) => current + TIMELINE_STEP)}
+                label={`${threadItems.length - threadShown} moments de plus`}
+              />
+            ) : threadShown > PREVIEW.timeline ? (
+              <DisclosureButton
+                expanded
+                onPress={() => setThreadShown(PREVIEW.timeline)}
+                label="Réduire le fil"
+              />
+            ) : null}
+
+            {timeline.hidden > 0 && threadItems.length <= threadShown && !threadFavoritesOnly ? (
+              <Text className="text-[11px] text-gray-500">
+                {timeline.hidden} moments plus discrets n’ont pas été retenus sur cette période.
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
         {personal.otherProgressions.length > 0 ? (
           <Panel title={favorites.length > 0 ? 'Ailleurs sur l’événement' : 'Top progressions'}>
             <Rows
-              items={personal.otherProgressions.map((item, index) => (
+              items={personal.otherProgressions.slice(0, PREVIEW.progressions).map((item, index) => (
                 <StreamerRow
                   key={item.twitch}
                   display={`${index + 1}. ${item.display}`}
@@ -345,7 +384,7 @@ export default function RecapDetailScreen() {
             }
           >
             <Rows
-              items={observed.topDonors.slice(0, MAX_ROWS).map((item, index) => (
+              items={(donorsOpen ? observed.topDonors : observed.topDonors.slice(0, PREVIEW.donors)).map((item, index) => (
                 <View key={`${item.donor}-${index}`} className="flex-row items-center gap-3">
                   <Text className="w-4 text-[11px] font-bold text-gray-400">{index + 1}</Text>
                   <Text numberOfLines={1} className="flex-1 text-sm text-gray-200">
@@ -360,13 +399,21 @@ export default function RecapDetailScreen() {
                 </View>
               ))}
             />
+            {observed.topDonors.length > PREVIEW.donors ? (
+              <DisclosureButton
+                expanded={donorsOpen}
+                onPress={() => setDonorsOpen((current) => !current)}
+                label={`${observed.topDonors.length - PREVIEW.donors} donateurs de plus`}
+                expandedLabel="Réduire"
+              />
+            ) : null}
           </Panel>
         ) : null}
 
         {bigDonations.length > 0 && timeline.items.length === 0 ? (
           <Panel title="Gros dons détectés" count={counts.bigDonations}>
             <Rows
-              items={bigDonations.slice(0, MAX_ROWS).map((item, index) => (
+              items={bigDonations.slice(0, PREVIEW.donors).map((item, index) => (
                 <View key={`${item.occurredAt}-${index}`} className="flex-row items-center gap-3">
                   <View className="flex-1">
                     <Text numberOfLines={1} className="text-sm text-gray-200">
@@ -390,7 +437,7 @@ export default function RecapDetailScreen() {
         {goalsReached.length > 0 ? (
           <Panel title="Donation goals" count={goalsReached.length}>
             <Rows
-              items={(goalsOpen ? goalsReached : goalsReached.slice(0, MAX_ROWS)).map((item, index) => (
+              items={(goalsOpen ? goalsReached : goalsReached.slice(0, PREVIEW.goals)).map((item, index) => (
                 <Pressable
                   key={`${item.occurredAt}-${index}`}
                   onPress={() => openStreamer(item.twitch)}
@@ -402,7 +449,7 @@ export default function RecapDetailScreen() {
                       {item.display}
                     </Text>
                     <Text numberOfLines={2} className="text-[12px] leading-4 text-gray-400">
-                      {item.label}
+                      {normalizeGoalLabel(item.label)}
                     </Text>
                   </View>
                   <Text className="text-[11px] text-gray-500">
@@ -411,11 +458,11 @@ export default function RecapDetailScreen() {
                 </Pressable>
               ))}
             />
-            {goalsReached.length > MAX_ROWS ? (
+            {goalsReached.length > PREVIEW.goals ? (
               <DisclosureButton
                 expanded={goalsOpen}
                 onPress={() => setGoalsOpen((current) => !current)}
-                label={`${goalsReached.length - MAX_ROWS} autres paliers`}
+                label={`${goalsReached.length - PREVIEW.goals} autres paliers`}
                 expandedLabel="Réduire"
               />
             ) : null}
@@ -427,7 +474,7 @@ export default function RecapDetailScreen() {
             {/* Des pastilles, pas une phrase : douze pseudos collés par des points se
                 lisent comme un paragraphe, où plus aucun nom ne se détache. */}
             <View className="flex-row flex-wrap gap-2">
-              {(livesOpen ? liveStarts : liveStarts.slice(0, MAX_ROWS)).map((item, index) => (
+              {(livesOpen ? liveStarts : liveStarts.slice(0, PREVIEW.lives)).map((item, index) => (
                 <Pressable
                   key={`${item.twitch}-${index}`}
                   onPress={() => openStreamer(item.twitch)}
@@ -438,11 +485,11 @@ export default function RecapDetailScreen() {
                 </Pressable>
               ))}
             </View>
-            {liveStarts.length > MAX_ROWS ? (
+            {liveStarts.length > PREVIEW.lives ? (
               <DisclosureButton
                 expanded={livesOpen}
                 onPress={() => setLivesOpen((current) => !current)}
-                label={`${liveStarts.length - MAX_ROWS} autres directs`}
+                label={`${liveStarts.length - PREVIEW.lives} autres directs`}
                 expandedLabel="Réduire"
               />
             ) : null}

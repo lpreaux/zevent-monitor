@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { formatEuros } from '@/lib/format';
@@ -38,7 +39,15 @@ function Line({ label, raisedCents, ratio }: { label: string; raisedCents: numbe
  * collecte tient le rythme, pas de combien d'euros deux journées diffèrent. La référence
  * reste écrite en dessous, pour qui veut le chiffre.
  */
-export function RecapComparisonPanel({ comparison }: { comparison: RecapComparison }) {
+export function RecapComparisonPanel({
+  comparison,
+  label2025 = 'La même tranche en 2025',
+}: {
+  comparison: RecapComparison;
+  /** « Samedi 2025 » plutôt qu'une périphrase, quand la période porte un nom. */
+  label2025?: string;
+}) {
+  const [methodOpen, setMethodOpen] = useState(false);
   const { previous, edition2025 } = comparison;
   if (!previous && !edition2025) return null;
 
@@ -54,17 +63,37 @@ export function RecapComparisonPanel({ comparison }: { comparison: RecapComparis
       ) : null}
       {edition2025 ? (
         <Line
-          label="La même tranche en 2025"
+          label={label2025}
           raisedCents={edition2025.raisedCents}
           ratio={edition2025.ratio}
         />
       ) : null}
 
+      {/* La méthode d'alignement mérite d'être disponible, pas d'occuper trois lignes sous
+          chaque comparaison : on la lit une fois, puis on n'y revient plus. */}
       {edition2025 ? (
-        <Text className="text-[11px] leading-4 text-gray-500">
-          2025 est alignée sur le temps écoulé depuis l’ouverture, pas sur la date : les deux
-          éditions n’ont pas commencé le même jour ni à la même heure.
-        </Text>
+        <View className="gap-1.5">
+          <Pressable
+            onPress={() => setMethodOpen((current) => !current)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: methodOpen }}
+            accessibilityLabel="Comment 2025 est comparée"
+            hitSlop={8}
+            className="flex-row items-center gap-1 active:opacity-60"
+          >
+            <Ionicons name="information-circle-outline" size={12} color="#6b7280" />
+            <Text className="shrink text-[11px] text-gray-500">Comment 2025 est comparée</Text>
+            <Ionicons name={methodOpen ? 'chevron-up' : 'chevron-down'} size={11} color="#6b7280" />
+          </Pressable>
+
+          {methodOpen ? (
+            <Text className="text-[11px] leading-4 text-gray-500">
+              Le même jour de la semaine, un an plus tôt : les deux éditions sont décalées de
+              52 semaines exactes, ce qui met vendredi face à vendredi et samedi face à samedi.
+              Un samedi de ZEvent et un dimanche de clôture n’ont pas le même rythme.
+            </Text>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );

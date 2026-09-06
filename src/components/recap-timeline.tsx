@@ -28,7 +28,6 @@ const clock = new Intl.DateTimeFormat('fr-FR', {
 
 interface RecapTimelineProps {
   items: readonly RecapTimelineItem[];
-  hidden: number;
   onOpenStreamer: (twitch: string) => void;
 }
 
@@ -40,7 +39,7 @@ interface RecapTimelineProps {
  * déroulé qu'on lit du début à la fin, où l'on voit qu'un gros don a suivi un palier et
  * non l'inverse.
  */
-export function RecapTimeline({ items, hidden, onOpenStreamer }: RecapTimelineProps) {
+export function RecapTimeline({ items, onOpenStreamer }: RecapTimelineProps) {
   return (
     <View className="gap-0">
       {items.map((item, index) => {
@@ -100,12 +99,6 @@ export function RecapTimeline({ items, hidden, onOpenStreamer }: RecapTimelinePr
           <View key={item.key}>{body}</View>
         );
       })}
-
-      {hidden > 0 ? (
-        <Text className="pl-[56px] pt-1 text-[11px] text-gray-400">
-          + {hidden} autres faits sur la période
-        </Text>
-      ) : null}
     </View>
   );
 }
