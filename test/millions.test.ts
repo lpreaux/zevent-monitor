@@ -7,7 +7,7 @@ import {
   formatGapMinutes,
   milestoneLabel,
 } from '@/lib/millions';
-import { buildEditionComparison } from '@/lib/stats-edition';
+import { buildEditionComparison, OFFSET_2025_MINUTES } from '@/lib/stats-edition';
 
 const MINUTE = 60_000;
 const START_2025 = Date.parse('2025-09-05T16:00:00.000Z');
@@ -101,18 +101,45 @@ describe('buildMillionsTimeline', () => {
     expect(timeline.stepEur).toBe(1_000_000);
     expect(timeline.crossings.map((c) => c.rank)).toEqual([1, 2, 3, 4]);
     expect(timeline.crossings.map((c) => c.minutes2026)).toEqual([40, 90, 140, 190]);
-    // Les deux dates se comptent depuis l'ouverture de chaque cagnotte : le décalage de
-    // 22 h 30 qui recale les courbes sur le week-end est retiré, sans quoi tous les écarts
-    // vaudraient ce décalage plutôt que la différence de rythme.
+    // La date 2025 conserve le décalage qui place les mêmes jours et heures en regard.
     expect(timeline.crossings.map((c) => c.minutes2025)).toEqual([
-      milestone2025(1),
-      milestone2025(2),
-      milestone2025(3),
-      milestone2025(4),
+      OFFSET_2025_MINUTES + milestone2025(1),
+      OFFSET_2025_MINUTES + milestone2025(2),
+      OFFSET_2025_MINUTES + milestone2025(3),
+      OFFSET_2025_MINUTES + milestone2025(4),
     ]);
-    // Écart positif = 2026 y est arrivée plus tôt. Ici elle démarre plus lentement puis
-    // rattrape : le 2e million tombe à égalité, les suivants avec de l'avance.
-    expect(timeline.crossings.map((c) => c.gapMinutes)).toEqual([-10, 0, 10, 20]);
+    // Écart positif = 2026 y est arrivée plus tôt dans le week-end. Les écarts de rythme
+    // s'ajoutent donc au décalage entre les jours d'ouverture des deux éditions.
+    expect(timeline.crossings.map((c) => c.gapMinutes)).toEqual([
+      OFFSET_2025_MINUTES - 10,
+      OFFSET_2025_MINUTES,
+      OFFSET_2025_MINUTES + 10,
+      OFFSET_2025_MINUTES + 20,
+    ]);
+  });
+
+  it('compare le même jour du week-end malgré des jours d’ouverture différents', () => {
+    const fridayHistory: History2025 = {
+      ...history(),
+      finalEur: 1_000_000,
+      points: [
+        { t: Date.parse('2025-09-05T16:00:00.000Z'), eur: 1_000 },
+        // Vendredi 23 h à Paris.
+        { t: Date.parse('2025-09-05T21:00:00.000Z'), eur: 1_000_000 },
+      ],
+    };
+    const thursday2026 = [
+      // Origine de la courbe 2026, jeudi 19 h 30 à Paris.
+      { t: Date.parse('2026-09-03T17:30:00.000Z'), eur: 1_000 },
+      // Vendredi 22 h à Paris.
+      { t: Date.parse('2026-09-04T20:00:00.000Z'), eur: 1_000_000 },
+    ];
+
+    const [firstMillion] = buildMillionsTimeline(
+      buildEditionComparison(thursday2026, fridayHistory),
+    ).crossings;
+
+    expect(firstMillion.gapMinutes).toBe(60);
   });
 
   it('n’apparie pas un palier que 2025 n’a jamais atteint', () => {

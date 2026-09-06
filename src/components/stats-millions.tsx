@@ -139,8 +139,8 @@ export function StatsMillions() {
       title="Chronologie des millions"
       hint={
         crossings.length > 0
-          ? `${formatCount(crossings.length)} palier${plural} franchi${plural}, ${stepLabel} · écart compté depuis l’ouverture de chaque cagnotte`
-          : 'Quand chaque palier tombe, face à 2025 depuis l’ouverture de chaque cagnotte'
+          ? `${formatCount(crossings.length)} palier${plural} franchi${plural}, ${stepLabel} · comparé au même jour et à la même heure en 2025`
+          : 'Quand chaque palier tombe, face au même moment du week-end 2025'
       }
     />
   );

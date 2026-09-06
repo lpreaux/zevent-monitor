@@ -6,14 +6,15 @@
  * montants. « +1,2 M€ sur 2025 » ne dit pas si l'édition court plus vite ou si elle a
  * simplement démarré plus tôt ; « le 8e million est tombé 3 h avant » le dit.
  *
- * Rien ici n'appelle le réseau : les deux courbes arrivent déjà alignées sur le même axe
- * par `buildEditionComparison`, il ne reste qu'à les lire — et à défaire son recalage,
- * qui répond à une autre question que celle-ci (voir `buildMillionsTimeline`).
+ * Rien ici n'appelle le réseau : les deux courbes arrivent déjà alignées par jour et
+ * heure du week-end dans `buildEditionComparison`. La chronologie conserve ce recalage :
+ * un palier atteint le vendredi à 22 h en 2026 précède d'une heure celui atteint le
+ * vendredi à 23 h en 2025, indépendamment du jour d'ouverture de chaque cagnotte.
  */
 
 import { formatEurosCompact, formatRank } from './format';
 import { milestoneEtaMinutes, milestoneStep, nextMilestone } from './milestones';
-import { OFFSET_2025_MINUTES, type EditionComparison } from './stats-edition';
+import type { EditionComparison } from './stats-edition';
 import { COLLECTION_START_THRESHOLD_EUR, type ElapsedPoint } from './timeseries';
 
 export const MILLION_EUR = 1_000_000;
@@ -58,7 +59,7 @@ export interface MilestoneCrossing {
   targetEur: number;
   /** Minutes écoulées entre l'ouverture de la cagnotte 2026 et ce franchissement. */
   minutes2026: number;
-  /** Idem pour 2025, depuis sa propre ouverture. `null` si l'édition n'y est jamais allée. */
+  /** Position de 2025 sur l'axe commun du week-end. `null` si l'édition n'y est jamais allée. */
   minutes2025: number | null;
   /** Minutes gagnées sur 2025 : positif = plus tôt, négatif = plus tard. */
   gapMinutes: number | null;
@@ -128,14 +129,10 @@ export function buildMillionsTimeline(comparison: EditionComparison): MillionsTi
     // Palier franchi selon la cagnotte officielle, mais que la courbe agrégée ne montre
     // pas encore : il sera daté au prochain relevé, il reste « à venir » d'ici là.
     if (minutes2026 === null) continue;
-    // La courbe 2025 arrive décalée de `OFFSET_2025_MINUTES` : le reste de l'écran la lit
-    // ainsi pour répondre à « où en était 2025 au même moment du week-end ? ». Ici la
-    // question est autre — « laquelle des deux éditions y est arrivée le plus vite ? » —
-    // et sur l'axe décalé, chaque écart vaudrait l'offset à quelques minutes près, puisque
-    // la cagnotte 2026 a simplement ouvert vingt-deux heures plus tôt. On retire donc le
-    // décalage pour compter, des deux côtés, depuis l'ouverture de chaque cagnotte.
-    const shifted2025 = crossingMinutes(comparison.points2025, targetEur);
-    const minutes2025 = shifted2025 === null ? null : shifted2025 - OFFSET_2025_MINUTES;
+    // `points2025` est déjà recalée sur les mêmes jours et heures que 2026. Ne pas retirer
+    // ce décalage : sinon un jeudi de 2026 serait comparé au vendredi de démarrage 2025,
+    // alors que leurs rythmes ne représentent pas le même moment du week-end.
+    const minutes2025 = crossingMinutes(comparison.points2025, targetEur);
     crossings.push({
       rank,
       targetEur,
