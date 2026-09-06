@@ -13,7 +13,12 @@ function formatter(timeZone: string): Intl.DateTimeFormat {
   return value;
 }
 
-type DateParts = { year: number; month: number; day: number; hour: number; minute: number };
+export type DateParts = { year: number; month: number; day: number; hour: number; minute: number };
+
+/** Date civile d'un instant dans un fuseau, sans dépendance native. */
+export function zonedDateParts(date: Date, timeZone: string): DateParts {
+  return parts(date, timeZone);
+}
 
 function parts(date: Date, timeZone: string): DateParts {
   const values = Object.fromEntries(

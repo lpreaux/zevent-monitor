@@ -10,11 +10,57 @@ import { authenticateDevice } from './devices.js';
 const scheduleBody = z.object({
   times: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).max(12),
 });
+export const MIN_RECAP_MINUTES = 15;
+export const MAX_RECAP_MINUTES = 7 * 24 * 60;
+
+/**
+ * Deux façons de désigner une période : une durée qui remonte depuis maintenant, ou des
+ * bornes explicites. La durée reste la voie courte pour « ce qui vient de se passer » ;
+ * les bornes servent à revenir sur un moment précis du week-end, une fois passé.
+ */
 const generateBody = z.object({
-  durationMinutes: z.number().int().min(15).max(7 * 24 * 60),
+  durationMinutes: z.number().int().min(MIN_RECAP_MINUTES).max(MAX_RECAP_MINUTES).optional(),
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
   idempotencyKey: z.string().min(8).max(80).regex(/^[A-Za-z0-9_-]+$/).default(() => randomUUID()),
-});
+}).refine(
+  (body) => body.durationMinutes !== undefined || (body.from !== undefined && body.to !== undefined),
+  { message: 'durationMinutes ou (from, to) requis' },
+);
 const idParams = z.object({ id: z.coerce.number().int().positive() });
+
+/**
+ * Bornes effectives d'une demande, alignées sur la minute : deux appareils qui demandent
+ * la même plage réutilisent le contenu déjà calculé.
+ *
+ * Une fin dans le futur est ramenée à maintenant plutôt que refusée — l'horloge de
+ * l'appareil peut avancer de quelques secondes, et une période qui déborde à peine reste
+ * une demande légitime. Ce qui est refusé, c'est une plage vide ou hors limites.
+ */
+export function resolvePeriod(
+  body: {
+    durationMinutes?: number | undefined;
+    from?: string | undefined;
+    to?: string | undefined;
+  },
+  now: Date,
+): { periodStart: Date; periodEnd: Date } | { error: string } {
+  const ceiling = floorToMinute(now);
+  if (body.from !== undefined && body.to !== undefined) {
+    const requestedEnd = floorToMinute(new Date(body.to));
+    const periodEnd = requestedEnd > ceiling ? ceiling : requestedEnd;
+    const periodStart = floorToMinute(new Date(body.from));
+    const minutes = (periodEnd.getTime() - periodStart.getTime()) / 60_000;
+    if (minutes < MIN_RECAP_MINUTES) return { error: 'period_too_short' };
+    if (minutes > MAX_RECAP_MINUTES) return { error: 'period_too_long' };
+    return { periodStart, periodEnd };
+  }
+  const periodEnd = ceiling;
+  return {
+    periodEnd,
+    periodStart: new Date(periodEnd.getTime() - (body.durationMinutes ?? 0) * 60_000),
+  };
+}
 
 const recapSelect = `id, kind, period_start AS "periodStart", period_end AS "periodEnd",
   generated_at AS "generatedAt", content`;
@@ -88,15 +134,29 @@ export function registerRecapRoutes(app: FastifyInstance): void {
     return result.rows[0];
   });
 
+  // Seuls les récaps demandés à la main se suppriment : les programmés reviendraient au
+  // prochain horaire, et l'utilisateur croirait la suppression sans effet.
+  app.delete('/v1/recaps/:id', async (request, reply) => {
+    const installationId = await authenticateDevice(app, request, reply);
+    if (!installationId) return reply;
+    const parsed = idParams.safeParse(request.params);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_id' });
+    const result = await app.pg.query(
+      `DELETE FROM recaps WHERE id = $1 AND installation_id = $2 AND kind = 'manual'`,
+      [parsed.data.id, installationId],
+    );
+    if (!result.rowCount) return reply.code(404).send({ error: 'recap_not_found' });
+    return reply.code(204).send();
+  });
+
   app.post('/v1/recaps/generate', async (request, reply) => {
     const installationId = await authenticateDevice(app, request, reply);
     if (!installationId) return reply;
     const parsed = generateBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_body', details: parsed.error.issues });
-    // Bornes alignées sur la minute : deux appareils qui demandent la même plage
-    // au même moment réutilisent le contenu déjà calculé.
-    const periodEnd = floorToMinute(new Date());
-    const periodStart = new Date(periodEnd.getTime() - parsed.data.durationMinutes * 60_000);
+    const period = resolvePeriod(parsed.data, new Date());
+    if ('error' in period) return reply.code(400).send({ error: period.error });
+    const { periodStart, periodEnd } = period;
     const dedupeKey = `manual:${installationId}:${parsed.data.idempotencyKey}`;
     const existing = await app.pg.query(
       `SELECT ${recapSelect} FROM recaps WHERE dedupe_key = $1 AND installation_id = $2`,
