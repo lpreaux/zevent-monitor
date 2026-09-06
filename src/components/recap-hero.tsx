@@ -1,34 +1,11 @@
 import { Text, View } from 'react-native';
 
+import { Metric, MetricDivider } from '@/components/metric';
 import { formatCount, formatEuros, formatEurosTile, formatPercent } from '@/lib/format';
 
 const hourMinute = new Intl.DateTimeFormat('fr-FR', {
   hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 });
-
-/** Une valeur de la rangée : ce qu'elle mesure, sa forme courte, et sa précision dessous. */
-function Cell({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return (
-    <View className="flex-1 gap-0.5 px-1">
-      <Text numberOfLines={1} className="text-[10px] font-medium text-gray-400">
-        {label}
-      </Text>
-      <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.75}
-        className="text-lg font-bold text-white"
-      >
-        {value}
-      </Text>
-      {detail ? (
-        <Text numberOfLines={1} className="text-[10px] text-gray-500">
-          {detail}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
 
 interface RecapHeroProps {
   raisedCents: number;
@@ -44,8 +21,8 @@ interface RecapHeroProps {
  * Un seul bloc, et une seule chose mise en avant. La grille de quatre tuiles qui occupait
  * cette place donnait quatre chiffres de quatre natures — des euros, des viewers, une
  * heure, un compte — tous du même poids : l'œil s'y arrêtait quatre fois sans savoir
- * lequel comptait. Ici le cumul est le sujet, le reste l'accompagne sur une rangée qui se
- * lit d'un balayage, chaque valeur gardant sa précision en dessous.
+ * lequel comptait. Ici le cumul est le sujet, et la rangée qui le suit emprunte le dessin
+ * des chiffres clés du reste de l'application plutôt que d'en inventer un.
  */
 export function RecapHero({
   raisedCents, endCents, shareOfTotal, peakViewers, bestHour,
@@ -57,7 +34,7 @@ export function RecapHero({
   return (
     <View className="gap-4 rounded-3xl border border-white/10 bg-surface p-5">
       <View className="gap-1">
-        <Text className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
+        <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-gray-500">
           Collecté sur la période
         </Text>
         <Text
@@ -75,19 +52,19 @@ export function RecapHero({
         ) : null}
       </View>
 
-      <View className="flex-row border-t border-white/[0.06] pt-4">
-        <Cell
+      <View className="flex-row items-start border-t border-white/[0.06] pt-4">
+        <Metric
           label="Cagnotte"
           value={total?.value ?? '—'}
-          {...(total?.exact ? { detail: total.exact } : {})}
+          {...(total?.exact ? { exact: total.exact } : {})}
         />
-        <View className="w-px bg-white/[0.06]" />
-        <Cell label="Pic viewers" value={formatCount(peakViewers)} />
-        <View className="w-px bg-white/[0.06]" />
-        <Cell
+        <MetricDivider />
+        <Metric label="Pic viewers" value={formatCount(peakViewers)} />
+        <MetricDivider />
+        <Metric
           label="Meilleure heure"
           value={bestHour ? hourMinute.format(new Date(bestHour.start)) : '—'}
-          {...(bestHour ? { detail: `+${formatEuros(bestHour.raisedCents / 100)}` } : {})}
+          {...(bestHour ? { exact: `+${formatEuros(bestHour.raisedCents / 100)}` } : {})}
         />
       </View>
     </View>
