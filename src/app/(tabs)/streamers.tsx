@@ -71,6 +71,11 @@ function sortFromParams(value: string | string[] | undefined): StreamerSort {
   return STREAMER_SORTS.some((option) => option.key === key) ? (key as StreamerSort) : 'donation';
 }
 
+/** Périmètre porté par l'URL, comme le tri : voir `scope` plus bas. */
+function scopeFromParams(value: string | string[] | undefined): Scope {
+  return (Array.isArray(value) ? value[0] : value) === 'favorites' ? 'favorites' : 'all';
+}
+
 /**
  * Case de hauteur fixe autour d'une ligne. Le filet y est posé en absolu : compté dans
  * le flux, il ferait dériver d'un pixel par ligne les positions calculées plus bas.
@@ -124,8 +129,7 @@ function measure(sections: StreamerSection[]): { length: number; offset: number 
 export default function StreamersScreen() {
   const { data, isError, error, refetch } = useZeventState();
   const [search, setSearch] = useState('');
-  const [scope, setScope] = useState<Scope>('all');
-  const params = useLocalSearchParams<{ sort?: string }>();
+  const params = useLocalSearchParams<{ sort?: string; scope?: string }>();
   const router = useRouter();
 
   // Le tri vit dans les paramètres de la route, pas dans un état local : l'onglet reste
@@ -133,6 +137,15 @@ export default function StreamersScreen() {
   // classement », depuis l'accueil) s'impose alors sans avoir à resynchroniser quoi que ce soit.
   const sort = sortFromParams(params.sort);
   const setSort = useCallback((key: StreamerSort) => router.setParams({ sort: key }), [router]);
+
+  // Le périmètre suit la même règle depuis que l'écran « Mes favoris » a disparu : c'est
+  // lui qui rend `?scope=favorites` adressable, et donc cet onglet capable de recevoir le
+  // lien que l'accueil envoyait à une seconde liste.
+  const scope = scopeFromParams(params.scope);
+  const setScope = useCallback(
+    (next: Scope) => router.setParams({ scope: next === 'favorites' ? 'favorites' : '' }),
+    [router],
+  );
 
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const needle = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
@@ -187,7 +200,7 @@ export default function StreamersScreen() {
   const liveCount = data ? data.data.live.filter((s) => s.online).length : 0;
   const header = (
     <AppHeader
-      title="Streamers"
+      title={scope === 'favorites' ? 'Mes favoris' : 'Streamers'}
       subtitle={
         data
           ? `${formatCount(liveCount)} en live · ${formatCount(data.data.live.length)} inscrits`

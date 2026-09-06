@@ -383,7 +383,7 @@ lequel deviendra une seule entrée « Réglages » quand l'étape 4 aura créé 
   réglages). Le socle est soudé à la barre d'onglets, et une tâche ponctuelle n'a pas
   besoin d'avoir la cagnotte sous les yeux.
 
-### Étape 4 — La navigation
+### Étape 4 — La navigation  ▸ faite
 
 1. Créer `/settings` (hub) : Notifications, Récaps, Écran secondaire, Compte,
    Sources et fraîcheur, À propos. Supprime les renvois croisés actuels entre
@@ -391,3 +391,62 @@ lequel deviendra une seule entrée « Réglages » quand l'étape 4 aura créé 
    au bouton de réglages de chaque page.
 2. Supprimer `/favorites` au profit de `/(tabs)/streamers?scope=favorites`.
 3. Fusionner Stats et Récaps en un onglet « Bilan » à deux volets.
+
+#### Ce que l'étape a effectivement changé
+
+**Le hub** (`src/app/settings/index.tsx`). Chaque en-tête de page y mène, et le socle
+aussi : ce qui y alignait trois entrées — compte, écran secondaire, notifications —
+n'en porte plus qu'une. Les six écrans de l'application pointent donc vers la même
+destination, ce qui est tout l'intérêt de la règle « une action au maximum, toujours
+la même » posée à l'étape 2.
+
+« Sources et fraîcheur » et « À propos » y sont écrits à plat plutôt que derrière deux
+feuilles de plus : ce sont trois paragraphes qu'on lit une fois, et une page qui ne
+contiendrait qu'eux se compterait comme une navigation pour rien. Les cadences y sont
+tirées de `lib/config` plutôt que recopiées — un intervalle qui change dans le code
+doit changer dans le texte qui l'annonce.
+
+Un seul renvoi entre feuilles de réglages a été gardé, celui des récaps vers les
+notifications. Il ne comble pas l'absence d'un dessus, qui existe maintenant : il
+répond à une question posée à cet endroit précis — l'interrupteur au-dessus dit si
+l'on est prévenu, pas comment. Il passe par `NavRow`, comme les autres.
+
+**`/favorites` supprimé.** Le périmètre de l'onglet Streamers vit désormais dans l'URL,
+comme le tri y vivait déjà, ce qui rend `?scope=favorites` adressable : l'accueil y
+envoie son lien, et l'en-tête prend le titre « Mes favoris » quand le périmètre est
+réduit. Deux cent dix-huit lignes en moins.
+
+Ce qui s'y perd est le tri par pertinence, que la liste générale ne connaît pas. Il
+n'était nulle part ailleurs — mais c'est déjà ce que l'accueil fait de ses favoris, et
+la liste complète garde « en forme sur la dernière heure », qui en est l'ingrédient
+principal.
+
+**« Bilan ».** `stats.tsx` et `recaps.tsx` deviennent `StatsPane` et `RecapsPane`, deux
+volets d'un `Segmented` — le montage exact que l'onglet Dons emploie déjà pour ses trois
+sections. Les volets sont montés à tour de rôle et non superposés : celui des récaps
+tient une liste, ses commandes flottantes et une feuille de génération, et le garder
+vivant derrière les statistiques ferait tourner ses requêtes pour un écran que personne
+ne regarde.
+
+Statistiques ouvre, parce que c'est le volet qui a toujours quelque chose à dire : la
+courbe 2025 est embarquée dans l'application et s'affiche même sans réseau, là où le
+premier récap n'existe qu'une fois le week-end commencé.
+
+Restent cinq onglets — `Accueil · Streamers · Dons · Planning · Bilan` —, et les deux
+textes qui parlaient de « l'onglet Récaps » parlent maintenant du volet.
+
+---
+
+## Ce qui reste à regarder
+
+Les quatre étapes sont faites, mais les étapes 3 et 4 déplacent du mobilier et des
+écrans entiers : elles se vérifient à l'œil, sur un appareil, pas au typecheck. Trois
+points en particulier :
+
+- **La hauteur du socle** déplié comme replié, et ce qu'il laisse au contenu sur un
+  petit écran.
+- **Le retrait au clavier**, sur les deux plateformes : c'est le seul endroit où
+  l'application se substitue à un comportement que la navigation offre d'ordinaire.
+- **Le volet Récaps** dans son nouveau châssis : ses commandes flottantes et son bouton
+  de création sont désormais posés sous un `Segmented`, et non plus directement sous
+  l'en-tête.

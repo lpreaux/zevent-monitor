@@ -42,7 +42,7 @@ function NoFavorites() {
  *
  * Rien que des directs : puisque l'extrait ne montre déjà pas tous les favoris en ligne,
  * descendre jusqu'aux hors ligne reviendrait à faire de la place à ceux dont il n'y a
- * précisément rien à dire. Ils attendent sur la page « Mes favoris ».
+ * précisément rien à dire. Ils attendent dans l'onglet Streamers, réduit aux favoris.
  */
 export function FavoritesSection() {
   const router = useRouter();
@@ -51,7 +51,7 @@ export function FavoritesSection() {
   const [highlight, ...rest] = live;
   const liveRows = rest.slice(0, HOME_LIVE_ROWS);
   const shown = (highlight ? 1 : 0) + liveRows.length;
-  // Les hors ligne comptent parmi les « autres » : c'est bien ce que la page complète montre.
+  // Les hors ligne comptent parmi les « autres » : c'est bien ce que la liste complète montre.
   const hidden = known - shown;
 
   return (
@@ -110,7 +110,9 @@ export function FavoritesSection() {
                 : 'Ouvrir mes favoris'
             }
             accessibilityLabel="Ouvrir la liste de mes favoris"
-            onPress={() => router.push('/favorites')}
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/streamers', params: { scope: 'favorites' } } as never)
+            }
           />
         </Animated.View>
       )}

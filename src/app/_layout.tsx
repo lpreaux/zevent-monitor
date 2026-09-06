@@ -84,13 +84,7 @@ function AppLayout({ accountsEnabled = true }: { accountsEnabled?: boolean }) {
             name="always-on"
             options={{ animation: 'fade', contentStyle: { backgroundColor: '#000000' } }}
           />
-          <Stack.Screen
-            name="favorites"
-            options={{
-              headerShown: true,
-              header: stackHeader({ title: 'Mes favoris', subtitle: 'Classés par pertinence' }),
-            }}
-          />
+          <Stack.Screen name="settings/index" />
           <Stack.Screen
             name="settings/notifications"
             options={{

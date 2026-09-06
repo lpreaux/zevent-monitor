@@ -309,7 +309,7 @@ export default function NotificationSettingsScreen() {
 
         <SettingsSection
           title="Récapitulatifs"
-          description="Les horaires se règlent dans l’onglet Récaps ; ici, seule la notification."
+          description="Les horaires se règlent dans le volet Récaps du Bilan ; ici, seule la notification."
         >
           <SwitchRow
             label="Prévenir quand un récap est prêt"
@@ -333,7 +333,7 @@ export default function NotificationSettingsScreen() {
             }
           />
           <Pressable
-            onPress={() => router.push('/(tabs)/recaps' as never)}
+            onPress={() => router.push('/(tabs)/bilan' as never)}
             accessibilityRole="button"
             className="flex-row items-center gap-2 active:opacity-70"
           >

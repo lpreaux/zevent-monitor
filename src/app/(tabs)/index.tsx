@@ -27,13 +27,13 @@ export default function DashboardScreen() {
   const { data, isError, error, refetch, isRefetching } = useZeventState();
 
   // Le compte a quitté la barre du haut pour le socle : il vaut pour toute l'application,
-  // pas pour l'Accueil, et l'en-tête d'une page ne porte plus qu'une action — la sienne.
+  // pas pour l'Accueil. Ne reste qu'une action, la même sur les cinq onglets — le hub.
   const headerActions = useMemo<HeaderAction[]>(
     () => [
       {
         icon: icons.settings,
-        label: 'Réglages des notifications',
-        onPress: () => router.push('/settings/notifications'),
+        label: 'Réglages',
+        onPress: () => router.push('/settings' as never),
       },
     ],
     [router],

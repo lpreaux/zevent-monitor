@@ -7,12 +7,13 @@ import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useZeventState } from '@/api/queries';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { Metric, MetricDivider } from '@/components/metric';
+import { NavRow } from '@/components/nav-row';
 import { SoclePlanning } from '@/components/socle-planning';
 import { TabRow } from '@/components/app-tab-bar';
 import { Icon } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
 import { formatCount, formatRelativeTime } from '@/lib/format';
-import { iconSizes, icons, type IconName } from '@/lib/icons';
+import { iconSizes, icons } from '@/lib/icons';
 import { colors } from '@/theme';
 
 const EM_DASH = '—';
@@ -52,37 +53,6 @@ function Handle({ open, onPress }: { open: boolean; onPress: () => void }) {
         color={colors.inactive}
       />
       <View className="h-px w-8 rounded-full bg-white/15" />
-    </Pressable>
-  );
-}
-
-/** Entrée du menu d'application, logée dans le dépliage. */
-function AppAction({
-  icon,
-  label,
-  hint,
-  onPress,
-}: {
-  icon: IconName;
-  label: string;
-  hint: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      className="flex-row items-center gap-3 py-2 active:opacity-60"
-    >
-      <Icon name={icon} size={iconSizes.button} color={colors.brandSoft} />
-      <View className="flex-1">
-        <Text className="text-[13px] font-semibold text-gray-200">{label}</Text>
-        <Text numberOfLines={1} className="text-[11px] text-gray-500">
-          {hint}
-        </Text>
-      </View>
-      <Icon name={icons.forward} size={iconSizes.row} color={colors.inactive} />
     </Pressable>
   );
 }
@@ -132,27 +102,14 @@ function SoclePanel({ onDismiss }: { onDismiss: () => void }) {
       <SoclePlanning onOpen={() => go('/(tabs)/planning')} />
 
       {/* Les commandes de l'application se prennent ici, pas dans la barre du haut : elles
-          valent pour les six onglets, et la barre du haut ne parle que de sa page. */}
+          valent pour tous les onglets, et la barre du haut ne parle que de sa page. Une
+          seule entrée depuis que le hub existe — c'est lui qui range ce qu'il y a derrière. */}
       <View className="border-t border-white/5 pt-1">
-        {process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
-          <AppAction
-            icon={icons.account}
-            label="Mon compte"
-            hint="Synchronisation multi-appareils"
-            onPress={() => go('/account')}
-          />
-        ) : null}
-        <AppAction
-          icon={icons.alwaysOn}
-          label="Écran secondaire"
-          hint="Affichage de loin, mode kiosque"
-          onPress={() => go('/always-on')}
-        />
-        <AppAction
-          icon={icons.notificationsOff}
-          label="Notifications"
-          hint="Alertes du week-end"
-          onPress={() => go('/settings/notifications')}
+        <NavRow
+          icon={icons.settings}
+          label="Réglages"
+          hint="Notifications, récaps, écran secondaire, compte"
+          onPress={() => go('/settings')}
         />
       </View>
     </View>

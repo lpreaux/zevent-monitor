@@ -65,18 +65,14 @@ export default function TabsLayout() {
           tabBarIcon: (props) => <TabBarIcon name="calendar" {...props} />,
         }}
       />
+      {/* Cinq onglets, pas six : au-delà, le libellé en dix pixels devient la seule
+          chose qui distingue deux icônes. Stats et Récaps répondaient à la même
+          question, ils la partagent maintenant sous « Bilan ». */}
       <Tabs.Screen
-        name="stats"
+        name="bilan"
         options={{
-          title: 'Stats',
+          title: 'Bilan',
           tabBarIcon: (props) => <TabBarIcon name="stats-chart" {...props} />,
-        }}
-      />
-      <Tabs.Screen
-        name="recaps"
-        options={{
-          title: 'Récaps',
-          tabBarIcon: (props) => <TabBarIcon name="newspaper" {...props} />,
         }}
       />
     </Tabs>

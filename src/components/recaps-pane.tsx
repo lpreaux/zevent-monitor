@@ -12,13 +12,11 @@ import {
   type Recap,
   type RecapRequest,
 } from '@/api/recaps';
-import { AppHeader } from '@/components/app-header';
 import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { RecapCard } from '@/components/recap-card';
 import { Button } from '@/components/ui/button';
 import { icons } from '@/lib/icons';
 import { RecapGeneratorSheet } from '@/components/recap-generator-sheet';
-import { ScreenShell } from '@/components/screen-shell';
 import { EmptyState } from '@/components/screen-state';
 import { SectionHeader } from '@/components/section-header';
 import { SkeletonBlock } from '@/components/skeleton';
@@ -69,7 +67,7 @@ function RecapsSkeleton() {
  * appareil. Programmer des horaires est une opération qu'on fait une fois : elle a son
  * écran, atteint depuis la barre du haut.
  */
-export default function RecapsScreen() {
+export function RecapsPane() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { identity, error: identityError } = useRecapIdentity();
@@ -95,12 +93,12 @@ export default function RecapsScreen() {
 
   const generate = useMutation({
     mutationFn: (request: RecapRequest) =>
-      generateRecap(identity!, request, Crypto.randomUUID()),
+    generateRecap(identity!, request, Crypto.randomUUID()),
     onSuccess: async (recap) => {
-      setSheetOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ['recaps', identity?.installationId] });
-      markRead(recap.id);
-      router.push(`/recap/${recap.id}` as never);
+    setSheetOpen(false);
+    await queryClient.invalidateQueries({ queryKey: ['recaps', identity?.installationId] });
+    markRead(recap.id);
+    router.push(`/recap/${recap.id}` as never);
     },
   });
   const remove = useMutation({
@@ -123,20 +121,20 @@ export default function RecapsScreen() {
     const personal = filterRecaps(sortRecaps(recaps.data?.recaps ?? []), filter);
     const list: Section[] = [];
     if (filter === 'all' || filter === 'day') {
-      list.push({
-        key: 'days',
-        title: 'Le week-end',
-        hint: 'Chaque journée court de 9 h à 9 h, heure de Paris. Accessible à tous, depuis le début.',
-        data: [...dayCards].reverse(),
-      });
+    list.push({
+      key: 'days',
+      title: 'Le week-end',
+      hint: 'Chaque journée court de 9 h à 9 h, heure de Paris. Accessible à tous, depuis le début.',
+      data: [...dayCards].reverse(),
+    });
     }
     if (filter !== 'day') {
-      list.push({
-        key: 'personal',
-        title: 'Vos récaps',
-        hint: 'Générés sur cet appareil, aux horaires programmés ou à la demande.',
-        data: personal,
-      });
+    list.push({
+      key: 'personal',
+      title: 'Vos récaps',
+      hint: 'Générés sur cet appareil, aux horaires programmés ou à la demande.',
+      data: personal,
+    });
     }
     return list.filter((section) => section.data.length > 0);
   }, [dayCards, recaps.data, filter]);
@@ -145,8 +143,8 @@ export default function RecapsScreen() {
   const unread = useMemo(() => {
     const known = new Set(readIds);
     return sections.reduce(
-      (count, section) => count + section.data.filter((recap) => !known.has(recap.id)).length,
-      0,
+    (count, section) => count + section.data.filter((recap) => !known.has(recap.id)).length,
+    0,
     );
   }, [sections, readIds]);
 
@@ -179,115 +177,99 @@ export default function RecapsScreen() {
     );
 
   return (
-    <ScreenShell
-      header={
-        <AppHeader
-          title="Récaps"
-          subtitle="Le week-end, période par période"
-          actions={[
-            {
-              icon: icons.settings,
-              label: 'Réglages des récaps',
-              onPress: () => router.push('/settings/recaps' as never),
-            },
-          ]}
-        />
-      }
-    >
-      <View className="flex-1">
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{
-            paddingTop: controls.paddingTop + CONTENT_GAP,
-            paddingHorizontal: 18,
-            paddingBottom: 96,
-          }}
-          onScroll={controls.onScroll}
-          scrollEventThrottle={16}
-          stickySectionHeadersEnabled={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={days.isRefetching || recaps.isRefetching}
-              onRefresh={() => {
-                void days.refetch();
-                void recaps.refetch();
-              }}
-              tintColor="#a78bfa"
-              progressViewOffset={controls.paddingTop}
-            />
-          }
-          renderSectionHeader={({ section }) => (
-            <View className="pb-2 pt-4">
-              <SectionHeader title={section.title} hint={section.hint} />
-            </View>
-          )}
-          ItemSeparatorComponent={() => <View className="h-3" />}
-          renderItem={({ item }) => (
-            <RecapCard
-              recap={item}
-              favorites={favorites}
-              points={
-                dayPoints.get(item.id) ?? item.content.series?.points.map((point) => point.cents)
-              }
-              read={readIds.includes(item.id)}
-              onPress={() => open(item)}
-              {...(item.kind === 'manual' ? { onLongPress: () => confirmDelete(item) } : {})}
-            />
-          )}
-          ListHeaderComponent={
-            loading ? (
-              <RecapsSkeleton />
-            ) : message ? (
-              <Text className="rounded-2xl bg-red-950 p-3 text-sm text-red-300">{message}</Text>
-            ) : null
-          }
-          ListEmptyComponent={
-            loading || message ? null : (
-              <EmptyState
-                message={
-                  filter === 'manual'
-                    ? 'Aucun récap créé à la main. Le bouton « Nouveau récap » couvre la période de votre choix.'
-                    : filter === 'scheduled'
-                      ? 'Aucun récap programmé. Ajoutez un horaire dans les réglages pour en recevoir automatiquement.'
-                      : 'Les récaps arriveront dès que la collecte aura de quoi raconter le week-end.'
-                }
-              />
-            )
-          }
-        />
-
-        {/* Posée par-dessus, hors du flux : son repli ne redimensionne donc pas la liste. */}
-        <View className="absolute left-0 right-0 top-0">
-          {/* Le rail porte ici un filtre et non un tri : les récaps n'ont qu'un ordre, le
-              chronologique. Il occupe la place du tri parce qu'il reste visible une fois la
-              barre repliée — on filtre en cours de lecture, pas seulement en arrivant. */}
-          <ListControls
-            sorts={RECAP_FILTERS}
-            sort={filter}
-            onSortChange={setFilter}
-            summary={
-              total === 0
-                ? 'Aucun récap'
-                : `${total} récap${total > 1 ? 's' : ''}${unread > 0 ? ` · ${unread} non lu${unread > 1 ? 's' : ''}` : ''}`
+    <View className="flex-1">
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{
+          paddingTop: controls.paddingTop + CONTENT_GAP,
+          paddingHorizontal: 18,
+          paddingBottom: 96,
+        }}
+        onScroll={controls.onScroll}
+        scrollEventThrottle={16}
+        stickySectionHeadersEnabled={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={days.isRefetching || recaps.isRefetching}
+            onRefresh={() => {
+              void days.refetch();
+              void recaps.refetch();
+            }}
+            tintColor="#a78bfa"
+            progressViewOffset={controls.paddingTop}
+          />
+        }
+        renderSectionHeader={({ section }) => (
+          <View className="pb-2 pt-4">
+            <SectionHeader title={section.title} hint={section.hint} />
+          </View>
+        )}
+        ItemSeparatorComponent={() => <View className="h-3" />}
+        renderItem={({ item }) => (
+          <RecapCard
+            recap={item}
+            favorites={favorites}
+            points={
+              dayPoints.get(item.id) ?? item.content.series?.points.map((point) => point.cents)
             }
-            hint="Les moments importants d’une période, calculés sans IA et mis en avant selon vos favoris."
-            note={days.data?.cached || recaps.data?.cached ? 'Copie hors ligne' : undefined}
-            compact={controls.compact}
-            onHeights={controls.onHeights}
+            read={readIds.includes(item.id)}
+            onPress={() => open(item)}
+            {...(item.kind === 'manual' ? { onLongPress: () => confirmDelete(item) } : {})}
           />
-        </View>
+        )}
+        ListHeaderComponent={
+          loading ? (
+            <RecapsSkeleton />
+          ) : message ? (
+            <Text className="rounded-2xl bg-red-950 p-3 text-sm text-red-300">{message}</Text>
+          ) : null
+        }
+        ListEmptyComponent={
+          loading || message ? null : (
+            <EmptyState
+              message={
+                filter === 'manual'
+                  ? 'Aucun récap créé à la main. Le bouton « Nouveau récap » couvre la période de votre choix.'
+                  : filter === 'scheduled'
+                    ? 'Aucun récap programmé. Ajoutez un horaire dans les réglages pour en recevoir automatiquement.'
+                    : 'Les récaps arriveront dès que la collecte aura de quoi raconter le week-end.'
+              }
+            />
+          )
+        }
+      />
 
-        <View className="absolute bottom-6 right-5">
-          <Button
-            size="lg"
-            icon={icons.add}
-            label="Nouveau récap"
-            accessibilityLabel="Créer un récap"
-            disabled={!identity}
-            onPress={() => setSheetOpen(true)}
-          />
-        </View>
+      {/* Posée par-dessus, hors du flux : son repli ne redimensionne donc pas la liste. */}
+      <View className="absolute left-0 right-0 top-0">
+        {/* Le rail porte ici un filtre et non un tri : les récaps n'ont qu'un ordre, le
+            chronologique. Il occupe la place du tri parce qu'il reste visible une fois la
+            barre repliée — on filtre en cours de lecture, pas seulement en arrivant. */}
+        <ListControls
+          sorts={RECAP_FILTERS}
+          sort={filter}
+          onSortChange={setFilter}
+          summary={
+            total === 0
+              ? 'Aucun récap'
+              : `${total} récap${total > 1 ? 's' : ''}${unread > 0 ? ` · ${unread} non lu${unread > 1 ? 's' : ''}` : ''}`
+          }
+          hint="Les moments importants d’une période, calculés sans IA et mis en avant selon vos favoris."
+          note={days.data?.cached || recaps.data?.cached ? 'Copie hors ligne' : undefined}
+          compact={controls.compact}
+          onHeights={controls.onHeights}
+        />
+      </View>
+
+      <View className="absolute bottom-6 right-5">
+        <Button
+          size="lg"
+          icon={icons.add}
+          label="Nouveau récap"
+          accessibilityLabel="Créer un récap"
+          disabled={!identity}
+          onPress={() => setSheetOpen(true)}
+        />
       </View>
 
       <RecapGeneratorSheet
@@ -298,6 +280,6 @@ export default function RecapsScreen() {
         onCancel={() => setSheetOpen(false)}
         onSubmit={(request) => generate.mutate(request)}
       />
-    </ScreenShell>
+    </View>
   );
 }

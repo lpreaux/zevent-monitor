@@ -940,8 +940,8 @@ export default function DonationsScreen() {
     () => [
       {
         icon: icons.settings,
-        label: 'Réglages des alertes de dons',
-        onPress: () => router.push('/settings/notifications'),
+        label: 'Réglages',
+        onPress: () => router.push('/settings' as never),
       },
     ],
     [router],
