@@ -1,15 +1,38 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/ui/icon-button';
-import type { IconName } from '@/lib/icons';
+import { icons, type IconName } from '@/lib/icons';
 
 export interface HeaderAction {
   icon: IconName;
   /** Libellé lu par les lecteurs d'écran : le bouton n'affiche qu'une icône. */
   label: string;
   onPress: () => void;
+}
+
+/**
+ * L'action d'en-tête d'un onglet, et la seule.
+ *
+ * La règle veut qu'une page ne porte au plus qu'une action, toujours la même, menant au
+ * hub des réglages. Elle était jusqu'ici recopiée écran par écran, et deux des cinq
+ * onglets l'avaient tout bonnement oubliée. Un hook la rend identique par construction :
+ * il n'y a plus d'endroit où la libeller autrement, ni où omettre de la poser.
+ */
+export function useSettingsAction(): readonly HeaderAction[] {
+  const router = useRouter();
+  return useMemo(
+    () => [
+      {
+        icon: icons.settings,
+        label: 'Réglages',
+        onPress: () => router.push('/settings' as never),
+      },
+    ],
+    [router],
+  );
 }
 
 interface AppHeaderProps {

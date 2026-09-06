@@ -417,9 +417,20 @@ lequel deviendra une seule entrée « Réglages » quand l'étape 4 aura créé 
 
 **Le hub** (`src/app/settings/index.tsx`). Chaque en-tête de page y mène, et le socle
 aussi : ce qui y alignait trois entrées — compte, écran secondaire, notifications —
-n'en porte plus qu'une. Les six écrans de l'application pointent donc vers la même
-destination, ce qui est tout l'intérêt de la règle « une action au maximum, toujours
-la même » posée à l'étape 2.
+n'en porte plus qu'une. Les cinq onglets pointent donc vers la même destination, ce
+qui est tout l'intérêt de la règle « une action au maximum, toujours la même » posée à
+l'étape 2.
+
+L'action est un hook (`useSettingsAction`) et non un bloc recopié écran par écran.
+Elle l'a d'abord été, et deux des cinq onglets — Streamers et Planning — n'avaient
+alors tout bonnement pas de réglages : ils n'en portaient aucune avant la refonte, et
+une règle appliquée à la main ne rattrape que les écrans auxquels on pense. Le hook la
+rend identique par construction ; il ne reste plus d'endroit où la libeller autrement,
+ni où omettre de la poser.
+
+Un renvoi direct subsiste hors des en-têtes : celui de l'onglet Dons vers la page des
+notifications, qui n'apparaît qu'une fois un seuil posé. À cet endroit précis on sait
+ce qu'on vient régler, et passer par le sommaire coûterait un appui pour rien.
 
 « Sources et fraîcheur » et « À propos » y sont écrits à plat plutôt que derrière deux
 feuilles de plus : ce sont trois paragraphes qu'on lit une fois, et une page qui ne

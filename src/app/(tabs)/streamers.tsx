@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useMomentum, useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
-import { AppHeader } from '@/components/app-header';
+import { AppHeader, useSettingsAction } from '@/components/app-header';
 import { FavoriteButton } from '@/components/favorite-button';
 import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { LiveStreamerRow } from '@/components/live-streamer-row';
@@ -152,6 +152,7 @@ export default function StreamersScreen() {
 
   const favorites = useFavoritesStore((s) => s.favorites);
   const shows = useLiveShows();
+  const headerActions = useSettingsAction();
 
   // Toujours demandé, quel que soit le tri : la progression ne sert pas qu'à classer,
   // elle s'affiche sur chaque ligne en direct.
@@ -205,6 +206,7 @@ export default function StreamersScreen() {
           ? `${formatCount(liveCount)} en live · ${formatCount(data.data.live.length)} inscrits`
           : 'Liste officielle du ZEvent'
       }
+      actions={headerActions}
     />
   );
 

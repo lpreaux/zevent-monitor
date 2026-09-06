@@ -1,10 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 
 import { useZeventState } from '@/api/queries';
-import { AppHeader, type HeaderAction } from '@/components/app-header';
-import { icons } from '@/lib/icons';
+import { AppHeader, useSettingsAction } from '@/components/app-header';
 import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { FavoritesSection } from '@/components/favorites-section';
@@ -23,21 +21,11 @@ function readMarquee(marquee: unknown): string | null {
 }
 
 export default function DashboardScreen() {
-  const router = useRouter();
   const { data, isError, error, refetch, isRefetching } = useZeventState();
 
   // Le compte a quitté la barre du haut pour le socle : il vaut pour toute l'application,
   // pas pour l'Accueil. Ne reste qu'une action, la même sur les cinq onglets — le hub.
-  const headerActions = useMemo<HeaderAction[]>(
-    () => [
-      {
-        icon: icons.settings,
-        label: 'Réglages',
-        onPress: () => router.push('/settings' as never),
-      },
-    ],
-    [router],
-  );
+  const headerActions = useSettingsAction();
 
   const onRefresh = useCallback(() => void refetch(), [refetch]);
 

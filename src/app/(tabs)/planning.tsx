@@ -13,7 +13,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { usePlanning, useZeventState } from '@/api/queries';
-import { AppHeader } from '@/components/app-header';
+import { AppHeader, useSettingsAction } from '@/components/app-header';
 import { DisclosureButton } from '@/components/disclosure-button';
 import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { PlanningFocusCard } from '@/components/planning-focus-card';
@@ -72,6 +72,7 @@ export default function PlanningScreen() {
   const state = useZeventState();
   const now = useNow(TICK_MS);
   const controls = useFloatingControls();
+  const headerActions = useSettingsAction();
 
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [day, setDay] = useState<DayFilter>(ALL_DAYS);
@@ -274,7 +275,9 @@ export default function PlanningScreen() {
     return () => clearTimeout(timer);
   }, [day, favoritesOnly, showAllLive, measureMarker]);
 
-  const header = <AppHeader title="Planning" subtitle="Horaires en heure de Paris" />;
+  const header = (
+    <AppHeader title="Planning" subtitle="Horaires en heure de Paris" actions={headerActions} />
+  );
 
   if (planning.isLoading && planning.entries.length === 0) {
     return (

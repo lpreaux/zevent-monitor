@@ -23,8 +23,7 @@ import {
   useLargestDonations,
   useTopDonors,
 } from '@/api/queries';
-import { AppHeader, type HeaderAction } from '@/components/app-header';
-import { icons } from '@/lib/icons';
+import { AppHeader, useSettingsAction } from '@/components/app-header';
 import { BarChart } from '@/components/bar-chart';
 import { DonationLine, DONATION_LINE_INSET } from '@/components/donation-line';
 import { DonorIdentity } from '@/components/donor-identity';
@@ -283,7 +282,9 @@ function FeedSection({ favorites, streamer, onClearStreamer }: FeedSectionProps)
       </View>
 
       {/* Ne s'affiche qu'un seuil posé : hors de ce moment-là, le raccourci ne répond à
-          aucune question, et la cloche de la barre du haut mène déjà aux mêmes réglages. */}
+          aucune question. Il vise la page des notifications directement, là où le bouton
+          de la barre du haut ouvre le hub : à cet endroit précis, on sait ce qu'on vient
+          régler, et faire passer par le sommaire coûterait un appui pour rien. */}
       {bigOnly ? (
         <Pressable
           onPress={() => router.push('/settings/notifications')}
@@ -936,16 +937,7 @@ export default function DonationsScreen() {
   // l'analyse sur le week-end, elle ne coûte donc rien de plus la plupart du temps.
   const overall = useDonationStats('all').data?.summary;
 
-  const headerActions = useMemo<HeaderAction[]>(
-    () => [
-      {
-        icon: icons.settings,
-        label: 'Réglages',
-        onPress: () => router.push('/settings' as never),
-      },
-    ],
-    [router],
-  );
+  const headerActions = useSettingsAction();
 
   return (
     <ScreenShell

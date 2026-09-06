@@ -1,13 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
 
-import { AppHeader, type HeaderAction } from '@/components/app-header';
+import { AppHeader, useSettingsAction } from '@/components/app-header';
 import { RecapsPane } from '@/components/recaps-pane';
 import { ScreenShell } from '@/components/screen-shell';
 import { Segmented } from '@/components/segmented';
 import { StatsPane } from '@/components/stats-pane';
-import { icons } from '@/lib/icons';
 
 type Pane = 'stats' | 'recaps';
 
@@ -34,19 +32,8 @@ const SUBTITLES: Record<Pane, string> = {
  * premier récap n'existe qu'une fois le week-end commencé.
  */
 export default function BilanScreen() {
-  const router = useRouter();
   const [pane, setPane] = useState<Pane>('stats');
-
-  const headerActions = useMemo<HeaderAction[]>(
-    () => [
-      {
-        icon: icons.settings,
-        label: 'Réglages',
-        onPress: () => router.push('/settings' as never),
-      },
-    ],
-    [router],
-  );
+  const headerActions = useSettingsAction();
 
   return (
     <ScreenShell
