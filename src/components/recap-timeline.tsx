@@ -48,7 +48,7 @@ export function RecapTimeline({ items, hidden, onOpenStreamer }: RecapTimelinePr
         const body = (
           <View className="flex-row gap-3">
             <View className="w-11 pt-0.5">
-              <Text className="text-[11px] font-semibold text-gray-500">
+              <Text className="text-[11px] font-semibold text-gray-400">
                 {clock.format(new Date(item.at))}
               </Text>
             </View>
@@ -79,7 +79,7 @@ export function RecapTimeline({ items, hidden, onOpenStreamer }: RecapTimelinePr
                 ) : null}
               </View>
               {item.detail ? (
-                <Text numberOfLines={1} className="text-[11px] text-gray-500">
+                <Text numberOfLines={1} className="text-[11px] text-gray-400">
                   {item.detail}
                 </Text>
               ) : null}
@@ -102,7 +102,7 @@ export function RecapTimeline({ items, hidden, onOpenStreamer }: RecapTimelinePr
       })}
 
       {hidden > 0 ? (
-        <Text className="pl-[56px] pt-1 text-[11px] text-gray-600">
+        <Text className="pl-[56px] pt-1 text-[11px] text-gray-400">
           + {hidden} autres faits sur la période
         </Text>
       ) : null}

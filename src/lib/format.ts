@@ -37,6 +37,20 @@ export function formatEurosCompact(value: number): string {
   return `${Math.round(v)}${NBSP}€`;
 }
 
+/**
+ * Montant destiné à une tuile étroite : la forme courte, et l'exacte à part.
+ *
+ * Une tuile de demi-largeur laisse la place à neuf caractères à la taille d'une valeur
+ * mise en avant. La cagnotte du ZEvent en fait treize : écrite en entier, elle passe à la
+ * ligne et se lit en deux morceaux. Au-delà du million on abrège donc, et l'exact revient
+ * en ligne secondaire — la place y est, et personne n'a besoin de l'unité au premier
+ * coup d'œil.
+ */
+export function formatEurosTile(value: number): { value: string; exact?: string } {
+  if (!Number.isFinite(value) || value < 1_000_000) return { value: formatEuros(value) };
+  return { value: formatEurosCompact(value), exact: formatEuros(value) };
+}
+
 /** Rang ordinal français : `1er`, `2e`, `12e`. */
 export function formatRank(value: number): string {
   if (!Number.isFinite(value) || value < 1) return '—';

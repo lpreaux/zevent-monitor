@@ -13,13 +13,15 @@ import {
 } from '@/api/recaps';
 import { AppHeader } from '@/components/app-header';
 import { BarChart } from '@/components/bar-chart';
+import { ObservedChip } from '@/components/observed-chip';
+import { RecapHero } from '@/components/recap-hero';
 import { RecapTimeline } from '@/components/recap-timeline';
 import { RecapShareSheet } from '@/components/recap-share-sheet';
+import { RowSeparator } from '@/components/row-separator';
 import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { SectionHeader } from '@/components/section-header';
-import { StatTile } from '@/components/stat-tile';
-import { formatCount, formatEuros, formatEurosCompact, formatPercent } from '@/lib/format';
+import { formatCount, formatEuros, formatEurosCompact } from '@/lib/format';
 import { coverageNotice, personalizeRecap } from '@/lib/recap-personalization';
 import {
   buildRecapTimeline,
@@ -42,10 +44,22 @@ const hourMinute = new Intl.DateTimeFormat('fr-FR', {
   hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 });
 
-function Section({ title, hint, accent, children }: {
+/**
+ * Bloc de données : un titre, des lignes, éventuellement une note de provenance.
+ *
+ * L'écran ne connaît que deux formes, et la différence porte un sens. Ce qui s'énumère —
+ * donateurs, goals, lives — vit dans un cadre : le cadre dit où la liste commence et où
+ * elle s'arrête. Ce qui se lit d'un trait — la courbe du rythme, le fil de la période —
+ * reste posé sur le fond sous un simple titre, parce qu'un encadré autour d'un récit ne
+ * fait que le rétrécir. Sept cartes identiques à la suite ne structuraient rien.
+ */
+function Panel({ title, count, hint, accent, footer, children }: {
   title: string;
+  /** Total de la série, affiché à droite du titre plutôt que noyé dans une phrase. */
+  count?: number;
   hint?: string;
   accent?: boolean;
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -55,10 +69,36 @@ function Section({ title, hint, accent, children }: {
       }`}
     >
       <View className="gap-0.5">
-        <Text className="text-base font-bold text-white">{title}</Text>
-        {hint ? <Text className="text-[11px] text-gray-500">{hint}</Text> : null}
+        <View className="flex-row items-baseline justify-between gap-3">
+          <Text className="shrink text-base font-bold text-white">{title}</Text>
+          {count !== undefined ? (
+            <Text className="text-[11px] font-semibold text-gray-400">{formatCount(count)}</Text>
+          ) : null}
+        </View>
+        {hint ? <Text className="text-[11px] text-gray-400">{hint}</Text> : null}
       </View>
       {children}
+      {footer}
+    </View>
+  );
+}
+
+/**
+ * Lignes d'un panneau, séparées par un filet.
+ *
+ * Une liste espacée par du vide oblige à mesurer les intervalles pour savoir où finit une
+ * entrée et où commence la suivante — un pseudo suivi d'un libellé de goal sur deux lignes
+ * devenait un bloc de texte continu. Le filet tranche la question sans ajouter de cadre.
+ */
+function Rows({ items }: { items: readonly ReactNode[] }) {
+  return (
+    <View className="-my-2">
+      {items.map((item, index) => (
+        <View key={index}>
+          {index > 0 ? <RowSeparator /> : null}
+          <View className="py-2.5">{item}</View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -73,7 +113,7 @@ function StreamerRow({ display, detail, value, onPress }: {
     <Pressable onPress={onPress} className="flex-row items-center gap-3 active:opacity-70">
       <View className="flex-1">
         <Text className="text-sm text-gray-200">{display}</Text>
-        {detail ? <Text className="text-[11px] text-gray-500">{detail}</Text> : null}
+        {detail ? <Text className="text-[11px] text-gray-400">{detail}</Text> : null}
       </View>
       {value ? <Text className="text-sm font-bold text-zevent-300">{value}</Text> : null}
       <Ionicons name="chevron-forward" size={14} color="#4b5563" />
@@ -145,7 +185,10 @@ export default function RecapDetailScreen() {
     );
   }
 
-  const { summary, counts, highlights, bigDonations, goalsReached, liveStarts } = recap.content;
+  // `highlights` reste produit par le serveur mais n'est plus affiché ici : il ne faisait
+  // que redire le cumul, la cagnotte, la meilleure heure et les goals, tous déjà à l'écran.
+  // Il sert encore là où le récap sort de son contexte : carte de partage et notification.
+  const { summary, counts, bigDonations, goalsReached, liveStarts } = recap.content;
   const personal = personalizeRecap(recap.content, favorites);
   const timeline = buildRecapTimeline(recap.content, favorites);
   const notice = coverageNotice(recap);
@@ -174,19 +217,13 @@ export default function RecapDetailScreen() {
       }
     >
       <ScrollView className="flex-1" contentContainerClassName="gap-4 p-4 pb-12">
-        <View className="gap-1">
-          <Text className="text-xs uppercase tracking-wider text-gray-500">
-            Collecté sur la période
-          </Text>
-          <Text className="text-4xl font-black text-white">
-            +{formatEuros(summary.raisedCents / 100)}
-          </Text>
-          {summary.shareOfTotal ? (
-            <Text className="text-sm text-gray-400">
-              soit {formatPercent(summary.shareOfTotal)} de la cagnotte atteinte
-            </Text>
-          ) : null}
-        </View>
+        <RecapHero
+          raisedCents={summary.raisedCents}
+          endCents={summary.endCents}
+          shareOfTotal={summary.shareOfTotal}
+          peakViewers={summary.peakViewers}
+          bestHour={recap.content.bestHour}
+        />
 
         {notice ? (
           <View className="flex-row gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3">
@@ -195,67 +232,45 @@ export default function RecapDetailScreen() {
           </View>
         ) : null}
 
-        <View className="flex-row gap-3">
-          <StatTile
-            label="Cagnotte"
-            value={summary.endCents === null ? '—' : formatEuros(summary.endCents / 100)}
-            hint={
-              summary.startCents === null
-                ? 'à la fin de la période'
-                : `depuis ${formatEuros(summary.startCents / 100)}`
-            }
-          />
-          <StatTile label="Pic viewers" value={formatCount(summary.peakViewers)} />
-        </View>
-        <View className="flex-row gap-3">
-          <StatTile
-            label="Meilleure heure"
-            value={
-              recap.content.bestHour
-                ? hourMinute.format(new Date(recap.content.bestHour.start))
-                : '—'
-            }
-            {...(recap.content.bestHour
-              ? { hint: `+${formatEuros(recap.content.bestHour.raisedCents / 100)}` }
-              : {})}
-          />
-          <StatTile label="Goals atteints" value={String(counts.goalsReached)} />
-        </View>
-
         {bars.length > 1 ? (
-          <Section title="Le rythme" hint="Ce que chaque tranche a rapporté.">
+          <View className="gap-3">
+            <SectionHeader title="Le rythme" hint="Ce que chaque tranche de la période a rapporté." />
             <BarChart bars={bars} formatValue={formatEurosCompact} labelEvery={4} height={140} />
-          </Section>
+          </View>
         ) : null}
 
         {personal.hasFavoriteContent ? (
-          <Section title="Vos favoris" hint="Ce que la période contient sur les streamers suivis." accent>
-            {personal.favoriteProgressions.map((item) => (
-              <StreamerRow
-                key={`progress-${item.twitch}`}
-                display={item.display}
-                detail="progression sur la période"
-                value={`+${formatEuros(item.raisedCents / 100)}`}
-                onPress={() => openStreamer(item.twitch)}
-              />
-            ))}
-            {personal.favoriteGoals.map((item, index) => (
-              <StreamerRow
-                key={`goal-${item.twitch}-${index}`}
-                display={item.display}
-                detail={`goal atteint · ${item.label}`}
-                onPress={() => openStreamer(item.twitch)}
-              />
-            ))}
-            {personal.favoriteLiveStarts.map((item) => (
-              <StreamerRow
-                key={`live-${item.twitch}`}
-                display={item.display}
-                detail={`live lancé à ${hourMinute.format(new Date(item.occurredAt))}`}
-                onPress={() => openStreamer(item.twitch)}
-              />
-            ))}
-          </Section>
+          <Panel title="Vos favoris" hint="Ce que la période contient sur les streamers suivis." accent>
+            <Rows
+              items={[
+                ...personal.favoriteProgressions.map((item) => (
+                  <StreamerRow
+                    key={`progress-${item.twitch}`}
+                    display={item.display}
+                    detail="progression sur la période"
+                    value={`+${formatEuros(item.raisedCents / 100)}`}
+                    onPress={() => openStreamer(item.twitch)}
+                  />
+                )),
+                ...personal.favoriteGoals.map((item, index) => (
+                  <StreamerRow
+                    key={`goal-${item.twitch}-${index}`}
+                    display={item.display}
+                    detail={`goal atteint · ${item.label}`}
+                    onPress={() => openStreamer(item.twitch)}
+                  />
+                )),
+                ...personal.favoriteLiveStarts.map((item) => (
+                  <StreamerRow
+                    key={`live-${item.twitch}`}
+                    display={item.display}
+                    detail={`live lancé à ${hourMinute.format(new Date(item.occurredAt))}`}
+                    onPress={() => openStreamer(item.twitch)}
+                  />
+                )),
+              ]}
+            />
+          </Panel>
         ) : favorites.length === 0 ? (
           <View className="flex-row items-center gap-2 rounded-2xl border border-white/10 bg-surface p-4">
             <Ionicons name="star-outline" size={16} color="#9ca3af" />
@@ -280,96 +295,130 @@ export default function RecapDetailScreen() {
           </View>
         ) : null}
 
-        {highlights.length > 0 ? (
-          <Section title="À retenir">
-            {highlights.map((text, index) => (
-              <Text key={index} className="text-sm leading-5 text-gray-300">
-                • {text}
-              </Text>
-            ))}
-          </Section>
-        ) : null}
-
         {personal.otherProgressions.length > 0 ? (
-          <Section title={favorites.length > 0 ? 'Ailleurs sur l’événement' : 'Top progressions'}>
-            {personal.otherProgressions.map((item, index) => (
-              <StreamerRow
-                key={item.twitch}
-                display={`${index + 1}. ${item.display}`}
-                value={`+${formatEuros(item.raisedCents / 100)}`}
-                onPress={() => openStreamer(item.twitch)}
-              />
-            ))}
-          </Section>
+          <Panel title={favorites.length > 0 ? 'Ailleurs sur l’événement' : 'Top progressions'}>
+            <Rows
+              items={personal.otherProgressions.map((item, index) => (
+                <StreamerRow
+                  key={item.twitch}
+                  display={`${index + 1}. ${item.display}`}
+                  value={`+${formatEuros(item.raisedCents / 100)}`}
+                  onPress={() => openStreamer(item.twitch)}
+                />
+              ))}
+            />
+          </Panel>
         ) : null}
 
         {observed && observed.topDonors.length > 0 ? (
-          <Section
+          <Panel
             title="Top donateurs"
-            hint={`D’après ${formatCount(observed.count)} dons vus passer dans le feed — un plancher, pas le compte réel.`}
+            footer={
+              <ObservedChip
+                observed={{ count: observed.count, totalCents: observed.totalCents, firstAt: null, lastAt: null }}
+                subject="Ce classement"
+              />
+            }
           >
-            {observed.topDonors.slice(0, MAX_ROWS).map((item, index) => (
-              <View key={`${item.donor}-${index}`} className="flex-row items-center gap-3">
-                <Text className="w-5 text-[11px] font-bold text-gray-600">{index + 1}</Text>
-                <Text numberOfLines={1} className="flex-1 text-sm text-gray-200">
-                  {item.donor}
-                </Text>
-                {item.count > 1 ? (
-                  <Text className="text-[11px] text-gray-500">{item.count} dons</Text>
-                ) : null}
-                <Text className="text-sm font-bold text-emerald-300">
-                  {formatEuros(item.amountCents / 100)}
-                </Text>
-              </View>
-            ))}
-          </Section>
+            <Rows
+              items={observed.topDonors.slice(0, MAX_ROWS).map((item, index) => (
+                <View key={`${item.donor}-${index}`} className="flex-row items-center gap-3">
+                  <Text className="w-4 text-[11px] font-bold text-gray-400">{index + 1}</Text>
+                  <Text numberOfLines={1} className="flex-1 text-sm text-gray-200">
+                    {item.donor}
+                  </Text>
+                  {item.count > 1 ? (
+                    <Text className="text-[11px] text-gray-400">{item.count} dons</Text>
+                  ) : null}
+                  <Text className="text-sm font-bold text-emerald-300">
+                    {formatEuros(item.amountCents / 100)}
+                  </Text>
+                </View>
+              ))}
+            />
+          </Panel>
         ) : null}
 
         {bigDonations.length > 0 && timeline.items.length === 0 ? (
-          <Section
-            title="Gros dons détectés"
-            hint={counts.bigDonations > bigDonations.length ? `${counts.bigDonations} au total` : undefined}
-          >
-            {bigDonations.slice(0, MAX_ROWS).map((item, index) => (
-              <View key={`${item.occurredAt}-${index}`} className="flex-row justify-between gap-3">
-                <Text className="flex-1 text-sm text-gray-300" numberOfLines={1}>
-                  {item.donor}
-                  {item.twitch ? ` → ${item.twitch}` : ''}
-                </Text>
-                <Text className="text-sm font-bold text-emerald-300">
-                  {formatEuros(item.amountCents / 100)}
-                </Text>
-              </View>
-            ))}
-          </Section>
+          <Panel title="Gros dons détectés" count={counts.bigDonations}>
+            <Rows
+              items={bigDonations.slice(0, MAX_ROWS).map((item, index) => (
+                <View key={`${item.occurredAt}-${index}`} className="flex-row items-center gap-3">
+                  <View className="flex-1">
+                    <Text numberOfLines={1} className="text-sm text-gray-200">
+                      {item.donor}
+                    </Text>
+                    {item.twitch ? (
+                      <Text numberOfLines={1} className="text-[11px] text-gray-400">
+                        pour {item.twitch}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text className="text-sm font-bold text-emerald-300">
+                    {formatEuros(item.amountCents / 100)}
+                  </Text>
+                </View>
+              ))}
+            />
+          </Panel>
         ) : null}
 
         {goalsReached.length > 0 ? (
-          <Section title="Donation goals">
-            {goalsReached.slice(0, MAX_ROWS).map((item, index) => (
-              <Text key={`${item.occurredAt}-${index}`} className="text-sm text-gray-300">
-                <Text className="font-bold text-white">{item.display}</Text> — {item.label}
-              </Text>
-            ))}
+          <Panel title="Donation goals" count={goalsReached.length}>
+            <Rows
+              items={goalsReached.slice(0, MAX_ROWS).map((item, index) => (
+                <Pressable
+                  key={`${item.occurredAt}-${index}`}
+                  onPress={() => openStreamer(item.twitch)}
+                  accessibilityRole="button"
+                  className="flex-row items-start gap-3 active:opacity-70"
+                >
+                  <View className="flex-1 gap-0.5">
+                    <Text numberOfLines={1} className="text-sm font-semibold text-white">
+                      {item.display}
+                    </Text>
+                    <Text numberOfLines={2} className="text-[12px] leading-4 text-gray-400">
+                      {item.label}
+                    </Text>
+                  </View>
+                  <Text className="text-[11px] text-gray-500">
+                    {hourMinute.format(new Date(item.occurredAt))}
+                  </Text>
+                </Pressable>
+              ))}
+            />
             {goalsReached.length > MAX_ROWS ? (
-              <Text className="text-[11px] text-gray-500">
+              <Text className="text-[11px] text-gray-400">
                 + {goalsReached.length - MAX_ROWS} autres
               </Text>
             ) : null}
-          </Section>
+          </Panel>
         ) : null}
 
         {liveStarts.length > 0 ? (
-          <Section title="Nouveaux lives" hint={`${liveStarts.length} sur la période`}>
-            <Text className="text-sm leading-5 text-gray-300">
-              {liveStarts.slice(0, MAX_ROWS).map((item) => item.display).join(' · ')}
-            </Text>
-            {liveStarts.length > MAX_ROWS ? (
-              <Text className="text-[11px] text-gray-500">
-                + {liveStarts.length - MAX_ROWS} autres
-              </Text>
-            ) : null}
-          </Section>
+          <Panel title="Nouveaux lives" count={liveStarts.length}>
+            {/* Des pastilles, pas une phrase : douze pseudos collés par des points se
+                lisent comme un paragraphe, où plus aucun nom ne se détache. */}
+            <View className="flex-row flex-wrap gap-2">
+              {liveStarts.slice(0, MAX_ROWS).map((item, index) => (
+                <Pressable
+                  key={`${item.twitch}-${index}`}
+                  onPress={() => openStreamer(item.twitch)}
+                  accessibilityRole="button"
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 active:opacity-70"
+                >
+                  <Text className="text-[12px] font-medium text-gray-200">{item.display}</Text>
+                </Pressable>
+              ))}
+              {liveStarts.length > MAX_ROWS ? (
+                <View className="justify-center px-1">
+                  <Text className="text-[11px] text-gray-400">
+                    + {liveStarts.length - MAX_ROWS} autres
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </Panel>
         ) : null}
 
         {neighbours.previous || neighbours.next ? (
@@ -380,7 +429,7 @@ export default function RecapDetailScreen() {
                 accessibilityRole="button"
                 className="flex-1 flex-row items-center gap-2 rounded-2xl border border-white/10 bg-surface p-3 active:opacity-70"
               >
-                <Ionicons name="chevron-back" size={16} color="#c4b5fd" />
+                <Ionicons name="chevron-back" size={16} color="#9ca3af" />
                 <Text numberOfLines={1} className="flex-1 text-xs text-gray-300">
                   {recapTitle(neighbours.previous)}
                 </Text>
@@ -395,7 +444,7 @@ export default function RecapDetailScreen() {
                 <Text numberOfLines={1} className="flex-1 text-right text-xs text-gray-300">
                   {recapTitle(neighbours.next)}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#c4b5fd" />
+                <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
               </Pressable>
             ) : null}
           </View>
