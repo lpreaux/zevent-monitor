@@ -4,6 +4,7 @@ import type { AppConfig } from '../config.js';
 import { ExpoPushClient, isUnrecoverableTokenError } from '../notifications/expo-push.js';
 import { isQuietHour, parsePreferences } from '../notifications/preferences.js';
 import { getOrCreateRecapContent } from '../recaps/content-cache.js';
+import { buildRecapDays } from '../recaps/days.js';
 import type { RecapContent } from '../recaps/generator.js';
 import { nextScheduleOccurrence, previousScheduleOccurrence } from '../recaps/schedule.js';
 
@@ -55,11 +56,32 @@ export class RecapScheduler {
          WHERE rs.enabled = true AND rs.next_run_at <= $1 ORDER BY rs.next_run_at LIMIT 100`, [now],
       );
       for (const schedule of due.rows) await this.#generate(schedule, now);
+      await this.#warmDays(now);
       await this.#checkReceipts();
     } catch (error) {
       this.app.log.error({ err: error }, 'Scheduled recap generation failed');
     } finally {
       this.#running = false;
+    }
+  }
+
+  /**
+   * Calcule d'avance le contenu des journées closes.
+   *
+   * Ces récaps sont publics : le premier lecteur d'un dimanche matin paierait sinon le
+   * calcul d'une journée entière au moment où il ouvre la carte. `getOrCreateRecapContent`
+   * ne recalcule rien s'il est déjà en base, l'appel répété ne coûte qu'un SELECT.
+   */
+  async #warmDays(now: Date): Promise<void> {
+    const bounds = await this.app.pg.query<{ first_at: Date | null; last_at: Date | null }>(
+      `SELECT min(sampled_at) AS first_at, max(sampled_at) AS last_at
+       FROM samples WHERE edition = 2026`,
+    );
+    const row = bounds.rows[0];
+    const days = buildRecapDays(row?.first_at ?? null, row?.last_at ?? null, now);
+    for (const day of days) {
+      if (day.inProgress) continue;
+      await getOrCreateRecapContent(this.app, day.periodStart, day.periodEnd, now);
     }
   }
 

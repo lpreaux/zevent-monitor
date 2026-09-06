@@ -5,6 +5,7 @@ import type { AppConfig } from './config.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerDonationRoutes } from './routes/donations.js';
 import { registerPublicRoutes } from './routes/public.js';
+import { registerRecapDayRoutes } from './routes/recap-days.js';
 import { registerRecapRoutes } from './routes/recaps.js';
 import { registerAccountRoutes } from './routes/account.js';
 
@@ -24,6 +25,7 @@ export function buildApp({ config, database = true, logger = true }: BuildAppOpt
     registerPublicRoutes(app);
     registerDeviceRoutes(app);
     registerRecapRoutes(app);
+    registerRecapDayRoutes(app);
     registerDonationRoutes(app);
     registerAccountRoutes(app, config);
   }
