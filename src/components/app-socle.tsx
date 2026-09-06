@@ -298,9 +298,14 @@ function SocleSheet({ open, children }: { open: boolean; children: ReactNode }) 
   return (
     <Animated.View style={style} className="overflow-hidden">
       <View
-        // `flexShrink: 0` : sans lui, le conteneur écrasé à zéro écraserait son contenu
-        // avec lui, et la mesure ne rendrait plus que des zéros.
-        style={{ flexShrink: 0 }}
+        // Mesuré hors du flux, et c'est la condition pour que la mesure existe : dans le
+        // flux, le contenu d'un cadre haut de zéro se fait écraser avec lui et `onLayout`
+        // ne rend plus que des zéros — le dépliage n'ouvrirait alors sur rien.
+        //
+        // Ancré en bas plutôt qu'en haut : le cadre grandit vers le haut, et le contenu
+        // se découvre donc en remontant de derrière la ligne de la cagnotte, dans le sens
+        // du geste qu'on vient de faire.
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}
         onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
         // Replié, le panneau n'est plus qu'un contenu masqué : il ne doit ni recevoir
         // d'appui ni être annoncé par un lecteur d'écran.
