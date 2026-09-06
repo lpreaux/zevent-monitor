@@ -32,7 +32,10 @@ src/content/              snapshots versionnés (goals 2026, planning 2026, cour
 server/                   backend Fastify, jobs et accès PostgreSQL
 docker-compose.yml        déploiement du backend et de PostgreSQL (Dockploy)
 docker-compose.override.yml  port 3000 publié en local uniquement
-scripts/                  imports ponctuels des snapshots src/content/
+scripts/                  imports ponctuels, spikes de source et exploitation PostgreSQL
+docs/plans/               plans de produit et d'architecture
+docs/sources/             capacités mesurées des sources externes et formats d'import
+docs/ops/                 procédures d'exploitation (sauvegarde, restauration)
 ```
 
 ## Sources de données envisagées
@@ -43,6 +46,10 @@ scripts/                  imports ponctuels des snapshots src/content/
 - snapshots versionnés pour l'historique et le fonctionnement hors ligne.
 
 Les API tierces non documentées seront interrogées uniquement par le backend, avec validation, limitation de fréquence, cache persistant et dernier snapshot valide. Leur disponibilité et leurs conditions de réutilisation ne sont pas garanties.
+
+Ce que chaque source sait réellement faire — profondeur historique, pagination, ordre, reprise — est
+mesuré et consigné dans [docs/sources/](docs/sources/README.md). Une capacité qui n'y figure pas
+n'est pas supposée acquise.
 
 ## Feuille de route
 
@@ -125,6 +132,11 @@ synchronisation de compte, `CLERK_SECRET_KEY` doit aussi être fournie au servic
 (`SERVER_PORT` n'a d'effet qu'en local). Le volume nommé `postgres-data` conserve les échantillons
 lors des redéploiements.
 
+Le volume ne remplace pas une sauvegarde : les tables `samples`, `goals_snapshots` et
+`planning_snapshots` n'ont aucune source de rattrapage, contrairement aux dons. La procédure et les
+scripts (`scripts/db-backup.sh`, `scripts/db-restore.sh`) sont décrits dans
+[docs/ops/postgres-backup-restore.md](docs/ops/postgres-backup-restore.md).
+
 Après le premier déploiement, vérifier la santé et l'accumulation pendant au moins une minute :
 
 ```bash
@@ -143,8 +155,10 @@ Les récapitulatifs sont disponibles via les routes authentifiées `GET /v1/reca
 Les dons archivés depuis le feed Streamlabs alimentent des routes publiques de lecture :
 `GET /v1/donations/recent`, `/v1/donations/top?window=1h|6h|24h|all`, `/v1/donations/largest`,
 `/v1/donations/stats`, `/v1/streamers/:twitch/donations`, `/v1/streamers/momentum?window=10`,
-`/v1/timeseries/rate?bucket=60` et `/v1/timeseries/streamers?twitch=a,b`. Le feed ne montrant
-qu'une centaine de dons par relevé, chaque réponse indique le nombre de dons observés (`observed`).
+`/v1/timeseries/rate?bucket=60` et `/v1/timeseries/streamers?twitch=a,b`. Le collecteur ne lisant
+que la première page du feed (3 000 dons les plus récents), chaque réponse indique le nombre de
+dons observés (`observed`) : le rattrapage d'une période complète relève du backfill décrit dans
+[docs/sources/streamlabs-donations.md](docs/sources/streamlabs-donations.md).
 `RECORD_DONATION_MIN_CENTS` (1 000 € par défaut) fixe le plancher de l'alerte « nouveau record ».
 Le worker `RECAPS_ENABLED` (intervalle `RECAPS_INTERVAL_MS`) produit les récaps programmés dans le
 fuseau de chaque appareil et envoie un push avec deep link vers leur détail.

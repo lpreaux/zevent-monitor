@@ -1,6 +1,6 @@
 ---
 title: Application web, back-office et monorepo
-status: accepted
+status: active
 scope: monorepo, web, api, worker
 created: 2026-09-06
 updated: 2026-09-06
@@ -57,7 +57,8 @@ Les principaux points à traiter sont :
 - les migrations sont regroupées dans un tableau TypeScript unique ;
 - plusieurs contrats d'API sont redéclarés côté mobile et côté serveur ;
 - le collecteur de dons actuel ne demande que les 3 000 derniers dons Streamlabs ;
-- Streamlabs est une source publique non documentée dont la pagination historique reste à prouver ;
+- Streamlabs est une source publique non documentée : sa pagination historique, mesurée en phase 0,
+  fonctionne mais avance de 500 éléments par page pour une fenêtre de 3 000 ;
 - le contenu d'un récap clos est mis en cache définitivement puis copié dans chaque récap personnel.
 
 Un import réussi ne suffit donc pas : il doit aussi invalider les contenus dérivés qui chevauchent
@@ -82,8 +83,10 @@ packages/
 
 docs/
   plans/                  plans transverses et décisions d'architecture
+  sources/                capacités mesurées des sources externes et formats d'import
+  ops/                    procédures d'exploitation (sauvegarde, restauration)
 
-scripts/                  opérations ponctuelles et imports versionnés
+scripts/                  opérations ponctuelles, spikes de source et imports versionnés
 docker-compose.yml        déploiement Dockploy et développement local
 pnpm-workspace.yaml
 turbo.json
@@ -211,13 +214,18 @@ Chaque adaptateur déclare ce qu'il sait réellement faire : plage temporelle, p
 ordre stable, reprise et limites de débit. L'API refuse un backfill impossible plutôt que de créer
 un job qui ne pourra pas tenir sa promesse.
 
-La récupération des dons du vendredi n'est pas garantie par le code actuel. Le premier travail est
-un spike sur Streamlabs pour déterminer si l'endpoint accepte pagination, curseur ou filtres de
-dates et si la totalité de la période est encore accessible.
+Le spike de la phase 0 a tranché la question qui bloquait ce chantier : le feed Streamlabs se
+remonte intégralement. `page` décale la fenêtre de 500 éléments pour une page de 3 000, l'ordre
+croissant est stable et déterministe, et le premier don de l'édition reste accessible. Le vendredi
+a été récupéré en entier, sans trou, avec sa preuve de parcours. Aucun filtre de date n'existe :
+viser une période impose une dichotomie puis un balayage. Mesures et stratégie retenue dans
+`docs/sources/streamlabs-donations.md`, matrice complète dans `docs/sources/README.md`.
 
-Si la source ne permet pas de remonter assez loin, le même pipeline accepte un import JSON ou CSV
-provenant d'un export ou d'une archive fiable. Chaque ligne conserve sa provenance et l'identifiant
-du job d'import.
+Le même pipeline accepte un import JSON ou CSV provenant d'un export ou d'une archive fiable, non
+plus comme substitut d'une pagination insuffisante mais comme protection contre la disparition ou
+la mutation d'une source publique non documentée. Chaque ligne conserve sa provenance et
+l'identifiant du job d'import ; le format est décrit dans
+`docs/sources/donation-import-format.md`.
 
 ### Niveaux de couverture
 
@@ -321,15 +329,36 @@ validé avec Dockploy, l'API peut les appliquer au démarrage avant d'accepter d
 
 ## Plan de réalisation
 
-### Phase 0 — Faisabilité et sauvegarde
+### Phase 0 — Faisabilité et sauvegarde `réalisée le 6 septembre 2026, hors exécution serveur`
 
-- tester la remontée historique Streamlabs ;
-- établir la matrice des capacités de chaque source ;
-- prévoir l'import fichier de secours ;
-- sauvegarder et tester la restauration de PostgreSQL avant le premier backfill.
+- ✅ remontée historique Streamlabs testée : `scripts/spike-streamlabs-history.mjs`, mesures dans
+  `docs/sources/streamlabs-donations.md` ;
+- ✅ matrice des capacités de chaque source : `docs/sources/README.md` ;
+- ✅ import fichier de secours spécifié : `docs/sources/donation-import-format.md` ;
+- ⏳ sauvegarde et restauration : `scripts/db-backup.sh` et `scripts/db-restore.sh` livrés, testés
+  de bout en bout sur un PostgreSQL 18 jetable portant le schéma réel (dump, empreinte, manifeste,
+  détection d'un dump corrompu, refus sans `--force`, restauration effective, rotation), procédure
+  dans `docs/ops/postgres-backup-restore.md` ; **exécution sur l'instance Dockploy restante** et
+  obligatoire avant le premier backfill.
 
-Critère de sortie : savoir précisément quelles données du vendredi sont récupérables et avec quel
-niveau de confiance.
+Critère de sortie atteint. Ce qui est su du vendredi :
+
+- le feed Streamlabs remonte à `2026-09-03T18:28:12Z`, soit le premier don de l'édition ;
+- la journée du vendredi 4 septembre (Europe/Paris) a été récupérée en entier : 152 657 dons,
+  2 852 810 €, aucun trou de recouvrement, en 99 requêtes et 4 minutes ;
+- le feed entier a été balayé pour chiffrer le manque exact : la base de production ne contient
+  aucun don antérieur à `2026-09-04T23:38:16Z`, soit **220 807 dons et 3 471 320 € à rattraper**,
+  et un seul trou, en tête ; au-delà de cette date les deux sources concordent ;
+- la couverture est `complete` au sens du vocabulaire ci-dessus, avec preuve de parcours et non
+  déclaration ;
+- le rattrapage se fait en `order=asc` par pas de 5 pages, avec 500 éléments de recouvrement qui
+  servent de preuve d'absence de saut ;
+- aucun filtre de date n'existe côté source : une période se localise par dichotomie ;
+- l'idempotence est assurée par `donation.id`, déjà clé primaire de `donations`.
+
+Ce qui reste non rattrapable, et qui justifie la sauvegarde : `samples`, `goals_snapshots` et
+`planning_snapshots` proviennent de sources instantanées, sans historique interrogeable. Un trou de
+collecte y est définitif.
 
 ### Phase 1 — Monorepo pnpm sans changement métier
 

@@ -1,0 +1,3 @@
+# Les scripts shell sont exécutés sur le serveur Linux : un checkout Windows en CRLF les rendrait
+# inutilisables (`bad interpreter: /usr/bin/env bash^M`).
+*.sh text eol=lf

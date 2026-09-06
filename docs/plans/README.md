@@ -22,4 +22,4 @@ racine dans la future structure afin qu'un plan puisse couvrir plusieurs applica
 | Plan | Statut | Périmètre |
 | --- | --- | --- |
 | [Application mobile ZEvent Monitor 2026](2026-mobile-app.md) | `active` | mobile, api |
-| [Application web, back-office et monorepo](web-backoffice-monorepo.md) | `accepted` | monorepo, web, api, worker |
+| [Application web, back-office et monorepo](web-backoffice-monorepo.md) | `active` | monorepo, web, api, worker |
