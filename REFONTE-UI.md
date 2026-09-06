@@ -392,17 +392,42 @@ lequel deviendra une seule entrée « Réglages » quand l'étape 4 aura créé 
 
 Écarts assumés avec le plan :
 
-- **Pas de grand montant dans le dépliage.** Il était le cœur du mode confort parce que
-  la barre réduite n'affichait plus rien ; ici la cagnotte est écrite en permanence à
-  trente pixels plus bas, et l'écrire deux fois dans le même bloc en ferait deux
-  chiffres à rapprocher plutôt qu'un seul à lire. Le dépliage porte ce que la ligne ne
-  peut pas : fraîcheur, viewers, streamers en live, programme, menu d'application.
+- **Le grand montant n'est pas réécrit dans le dépliage : c'est le même qui grandit.**
+  Le mode confort l'affichait deux fois, en petit dans sa ligne et en grand au-dessus,
+  ce qui donnait deux chiffres à rapprocher là où il n'y en a qu'un à lire. Ici la ligne
+  passe de 16 à 30 px et le socle de 36 à 56 : le chiffre prend la place que le dépliage
+  lui offre, et il n'y en a jamais deux.
 - **`PlanningTicker` disparaît** avec la barre réduite dont il était la seconde ligne.
-  Le socle tient sur une ligne de hauteur fixe, et les faits du planning se lisent dans
-  le dépliage — c'est `PlanningHighlights`, renommé `SoclePlanning`, qui les porte.
+  Le socle tient sur une ligne de hauteur fixe.
 - **Les écrans empilés perdent le résumé** (fiche d'un streamer, favoris, compte,
   réglages). Le socle est soudé à la barre d'onglets, et une tâche ponctuelle n'a pas
   besoin d'avoir la cagnotte sous les yeux.
+
+#### Reprises après essai sur appareil
+
+**La ligne permanente montre ce qui passe, plus des compteurs.** Elle alignait le nombre
+de viewers cumulés et celui des streamers en direct : deux nombres qui bougent sans
+qu'on puisse rien en faire — on ne va pas voir un chiffre —, là où un titre d'émission
+est une raison d'ouvrir un onglet. Ils n'ont pas disparu, le dépliage les porte ; c'est
+là qu'on va les chercher quand on les veut, et non à chaque écran.
+
+**Le dépliage ne s'anime plus, et c'est ce qui règle le clignotement.** Le socle portait
+une transition de disposition sur sa propre racine. Or il est posé par le navigateur, qui
+le mesure et lui réserve sa place : animer son cadre faisait glisser la surface et le
+filet pendant que ses enfants — la ligne de la cagnotte, ses deux boutons, la rangée
+d'onglets — étaient déjà rendus à leur position finale par la disposition, qui, elle, ne
+s'anime pas. Le temps de la transition, ils se retrouvaient hors du fond qui les porte.
+
+Cela ne se réglait pas en accélérant l'animation, ni en rognant le cadre : le cadre et
+son contenu ne peuvent pas être d'accord tant que l'un des deux seulement s'anime. Un
+dépliage qui s'ouvre d'un coup ne coûte rien à un panneau qu'on ouvre d'un appui
+délibéré.
+
+Un second clignotement attendait son tour dans `SoclePlanning` : ses lignes tournaient
+toutes les quatre secondes et demie avec leurs propres animations d'entrée et de sortie,
+lesquelles se déclenchaient toutes ensemble au repli et survivaient une demi-seconde au
+bloc qui les contenait. La rotation est retirée — un mouvement perpétuel sous le doigt,
+dans un bloc qu'on ouvre justement pour le lire, ne se défendait pas non plus.
 
 ### Étape 4 — La navigation  ▸ faite
 

@@ -1,26 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 
 import { usePlanning } from '@/api/queries';
 import type { PlanningEntry } from '@/api/types';
-import {
-  currentAndUpcoming,
-  entryStatus,
-  formatCountdown,
-  formatParisTime,
-} from '@/lib/planning';
+import { currentAndUpcoming, entryStatus, formatCountdown, formatParisTime } from '@/lib/planning';
 import { useNow } from '@/lib/use-now';
 
-/** Cadence de rotation : assez lente pour finir de lire un titre. */
-const ROTATION_MS = 4_500;
-
-/** Durée du roulement d'une ligne à la suivante : assez longue pour se lire comme un mouvement. */
-const ROLL_MS = 480;
-
-/** Deux émissions visibles à la fois, puisées dans les six prochaines. */
-const VISIBLE = 2;
-const POOL = 6;
+/** Émissions montrées dans le dépliage. Trois lignes : au-delà, le socle mange l'écran. */
+const PANEL_ROWS = 3;
 const ROW_HEIGHT = 26;
 
 /** Pastille de statut : rouge à l'antenne, violette pour ce qui arrive. */
@@ -29,9 +16,11 @@ function StatusDot({ live }: { live: boolean }) {
 }
 
 interface Highlights {
-  /** Entrées retenues pour l'affichage, tronquées à `limit`. */
+  /** En cours d'abord, puis à venir, tronqué à `limit`. */
   entries: PlanningEntry[];
-  /** Nombre total d'émissions en cours ou à venir, avant troncature. */
+  /** Combien passent à l'antenne en ce moment, avant troncature. */
+  liveCount: number;
+  /** Combien sont en cours ou à venir en tout. */
   total: number;
   now: number;
 }
@@ -43,34 +32,61 @@ interface Highlights {
 function useHighlights(limit: number): Highlights {
   const { entries } = usePlanning();
   const now = useNow(30_000);
-  const all = useMemo(
-    () => currentAndUpcoming(entries, now, entries.length),
-    [entries, now],
-  );
+  const all = useMemo(() => currentAndUpcoming(entries, now, entries.length), [entries, now]);
   return {
     entries: useMemo(() => all.slice(0, limit), [all, limit]),
+    liveCount: useMemo(() => all.filter((e) => entryStatus(e, now) === 'live').length, [all, now]),
     total: all.length,
     now,
   };
 }
 
 /**
- * Index de tête d'une fenêtre glissante, qui avance d'un cran à cadence fixe. Reste à
- * zéro tant qu'il n'y a pas plus d'entrées que de places : rien à faire tourner.
+ * Ce qui passe, en une ligne, pour la ligne permanente du socle.
+ *
+ * Elle remplace le compte des viewers et celui des streamers en direct. Ces deux nombres
+ * bougeaient sans qu'on puisse rien en faire — on ne va pas voir un chiffre —, alors qu'un
+ * titre d'émission est une raison d'ouvrir un onglet. Ils n'ont pas disparu pour autant :
+ * le dépliage les porte, à un geste, et c'est là qu'on va les chercher quand on les veut.
+ *
+ * Rien n'y tourne. La place est comptée — la cagnotte et deux boutons occupent déjà la
+ * ligne —, mais surtout un bandeau qui roule au bas de l'écran attire l'œil en
+ * permanence vers ce qu'on n'a pas demandé à lire.
  */
-function useRotation(count: number, visible: number): number {
-  const [start, setStart] = useState(0);
+export function SocleNowLine({ onOpen }: { onOpen: () => void }) {
+  const { entries, liveCount, now } = useHighlights(1);
+  const entry = entries[0];
+  if (!entry) return null;
 
-  useEffect(() => {
-    if (count <= visible) return;
-    const timer = setInterval(() => setStart((i) => (i + 1) % count), ROTATION_MS);
-    return () => clearInterval(timer);
-  }, [count, visible]);
+  const live = entryStatus(entry, now) === 'live';
+  const others = live ? liveCount - 1 : 0;
+  const countdown = live ? null : formatCountdown(entry.startsAt, now);
 
-  return count > visible ? start % count : 0;
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`${live ? 'À l’antenne' : 'À suivre'} : ${entry.title}. Ouvrir le planning`}
+      className="flex-1 flex-row items-center gap-1.5 active:opacity-60"
+    >
+      <StatusDot live={live} />
+      <Text numberOfLines={1} className="shrink text-[11px] text-gray-400">
+        {entry.title}
+      </Text>
+      {/* Ce qui situe le titre : le nombre d'émissions parallèles quand on est à
+          l'antenne, l'attente restante quand la suivante n'a pas commencé. */}
+      {others > 0 ? (
+        <Text className="text-[11px] text-gray-600">{`+${others}`}</Text>
+      ) : countdown ? (
+        <Text numberOfLines={1} className="text-[11px] text-gray-600">
+          {countdown}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
 }
 
-/** Une émission du bloc : heure, titre, et statut ou compte à rebours. */
+/** Une émission du bloc : statut, heure, titre, et ce qu'il reste à attendre. */
 function HighlightRow({ entry, now }: { entry: PlanningEntry; now: number }) {
   const live = entryStatus(entry, now) === 'live';
   const countdown = formatCountdown(entry.startsAt, now);
@@ -92,23 +108,28 @@ function HighlightRow({ entry, now }: { entry: PlanningEntry; now: number }) {
 }
 
 /**
- * Ce qui passe et ce qui suit, dans le dépliage du socle : une fenêtre de deux émissions,
- * à plat et alignées en colonnes, qui glisse d'un cran à cadence fixe parmi les
- * prochaines. Le compteur de l'en-tête dit combien il y en a en tout — sans lui, deux
- * lignes figées laisseraient croire que le programme s'arrête là.
+ * Le programme dans le dépliage du socle : trois émissions à plat, alignées en colonnes.
+ *
+ * Elles ne tournent plus. Une fenêtre glissante y roulait d'un cran toutes les quatre
+ * secondes et demie, chaque ligne portant ses propres animations d'entrée et de sortie —
+ * un mouvement perpétuel sous le doigt, dans un bloc qu'on ouvre justement pour le lire.
+ * Au repli du socle, ces sorties se déclenchaient de surcroît toutes ensemble et duraient
+ * une demi-seconde : les lignes survivaient au bloc qui les contenait. Ce n'est pas le
+ * clignotement qui a été signalé — celui-là venait de la racine du socle, voir
+ * `app-socle` — mais c'en était un second, en embuscade.
+ *
+ * Trois lignes plutôt que deux, puisqu'il n'y a plus de rotation pour montrer les
+ * suivantes, et le compteur de l'en-tête dit combien il y en a en tout : elles ne
+ * laissent plus croire que le programme s'arrête là.
  *
  * L'ouverture du planning est passée en paramètre plutôt que prise sur le routeur : le
- * socle doit se replier en même temps qu'il navigue, et ce bloc n'a pas à savoir qu'il
- * vit dans quelque chose de dépliable.
+ * socle doit se replier en même temps qu'il navigue, et ce bloc n'a pas à savoir qu'il vit
+ * dans quelque chose de dépliable.
  */
 export function SoclePlanning({ onOpen }: { onOpen: () => void }) {
-  const { entries, total, now } = useHighlights(POOL);
-  const start = useRotation(entries.length, VISIBLE);
+  const { entries, total, now } = useHighlights(PANEL_ROWS);
 
   if (entries.length === 0) return null;
-
-  const visible = Math.min(VISIBLE, entries.length);
-  const shown = Array.from({ length: visible }, (_, i) => entries[(start + i) % entries.length]);
 
   return (
     <View>
@@ -116,7 +137,9 @@ export function SoclePlanning({ onOpen }: { onOpen: () => void }) {
       <View className="mt-2.5 flex-row items-center justify-between">
         <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-gray-500">
           Au programme
-          {total > visible ? <Text className="text-gray-600">{`  ·  ${total} à venir`}</Text> : null}
+          {total > entries.length ? (
+            <Text className="text-gray-600">{`  ·  ${total} à venir`}</Text>
+          ) : null}
         </Text>
         <Pressable
           onPress={onOpen}
@@ -133,20 +156,10 @@ export function SoclePlanning({ onOpen }: { onOpen: () => void }) {
         onPress={onOpen}
         accessibilityRole="button"
         accessibilityLabel="Ouvrir le planning"
-        className="mt-1 overflow-hidden active:opacity-70"
-        style={{ height: visible * ROW_HEIGHT }}
+        className="mt-1 active:opacity-70"
       >
-        {shown.map((entry) => (
-          <Animated.View
-            // La ligne du haut sort par le haut, celle du bas remonte via `layout`,
-            // et la suivante entre par le bas : un tableau d'affichage qui tourne.
-            key={entry.id}
-            layout={LinearTransition.duration(ROLL_MS)}
-            entering={FadeInDown.duration(ROLL_MS).withInitialValues({ opacity: 1 })}
-            exiting={FadeOutUp.duration(ROLL_MS)}
-          >
-            <HighlightRow entry={entry} now={now} />
-          </Animated.View>
+        {entries.map((entry) => (
+          <HighlightRow key={entry.id} entry={entry} now={now} />
         ))}
       </Pressable>
     </View>

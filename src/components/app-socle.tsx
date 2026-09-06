@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Linking, Platform, Pressable, Text, View } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 
@@ -8,7 +7,7 @@ import { useZeventState } from '@/api/queries';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { Metric, MetricDivider } from '@/components/metric';
 import { NavRow } from '@/components/nav-row';
-import { SoclePlanning } from '@/components/socle-planning';
+import { SocleNowLine, SoclePlanning } from '@/components/socle-planning';
 import { TabRow } from '@/components/app-tab-bar';
 import { Icon } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
@@ -117,37 +116,50 @@ function SoclePanel({ onDismiss }: { onDismiss: () => void }) {
 }
 
 /**
- * Hauteur de la ligne permanente. Fixée plutôt que laissée au contenu : le compteur
- * d'euros est un `TextInput` — c'est ainsi qu'il défile sans repasser par React — et la
- * hauteur intrinsèque d'un champ de saisie ne se prédit pas d'une plateforme à l'autre.
- * Le socle est du mobilier : il ne doit pas changer de taille selon l'appareil.
+ * Hauteur et corps du montant, repliés puis dépliés.
+ *
+ * La hauteur est fixée plutôt que laissée au contenu : le compteur d'euros est un
+ * `TextInput` — c'est ainsi qu'il défile sans repasser par React — et la hauteur
+ * intrinsèque d'un champ de saisie ne se prédit pas d'une plateforme à l'autre. Le socle
+ * est du mobilier : il ne doit pas changer de taille selon l'appareil.
+ *
+ * Le montant grandit au dépliage plutôt que d'être réécrit en grand dans le panneau. Le
+ * mode confort de l'ancienne barre l'affichait deux fois, en petit dans la ligne et en
+ * grand au-dessus, ce qui donnait deux chiffres à rapprocher là où il n'y en a qu'un à
+ * lire. Ici c'est le même, qui prend la place que le dépliage lui offre.
  */
-const GLOBAL_LINE_HEIGHT = 36;
+const LINE = {
+  closed: { height: 36, amount: 16 },
+  open: { height: 56, amount: 30 },
+} as const;
 
-/** Ligne permanente : la cagnotte, ce qu'il y a autour, et les deux gestes du week-end. */
-function GlobalLine() {
+/** Ligne permanente : la cagnotte, ce qui passe, et les deux gestes du week-end. */
+function GlobalLine({ open, onOpenPlanning }: { open: boolean; onOpenPlanning: () => void }) {
   const router = useRouter();
   const { data } = useZeventState();
   const state = data?.data;
   const stale = data?.source.stale ?? false;
-  const liveCount = state ? state.live.filter((s) => s.online).length : 0;
+  const metrics = open ? LINE.open : LINE.closed;
 
   return (
-    <View
-      className="flex-row items-center gap-2 px-5"
-      style={{ height: GLOBAL_LINE_HEIGHT }}
-    >
+    <View className="flex-row items-center gap-2 px-5" style={{ height: metrics.height }}>
       <FreshnessDot stale={stale} />
       {state ? (
-        <AnimatedEuros value={state.donationAmount.number} style={{ fontSize: 16 }} />
+        <AnimatedEuros value={state.donationAmount.number} style={{ fontSize: metrics.amount }} />
       ) : (
-        <Text className="text-base font-extrabold text-white">{EM_DASH}</Text>
+        <Text style={{ fontSize: metrics.amount }} className="font-extrabold text-white">
+          {EM_DASH}
+        </Text>
       )}
-      <Text numberOfLines={1} className="flex-1 text-[11px] text-gray-500">
-        {state
-          ? `${formatCount(state.viewersCount.number)} viewers · ${formatCount(liveCount)} en live`
-          : 'Chargement…'}
-      </Text>
+      {/* L'espace entre le montant et les boutons est réservé quoi qu'il arrive : le
+          programme peut n'avoir rien à dire — hors week-end, ou planning injoignable —, et
+          les boutons ne doivent pas venir se coller au chiffre pour autant.
+
+          Déplié, il reste vide : le programme est alors juste au-dessus, en trois lignes
+          lisibles, et le redire ici en abrégé ne servirait personne. */}
+      <View className="flex-1 flex-row items-center">
+        {open ? null : <SocleNowLine onOpen={onOpenPlanning} />}
+      </View>
       {/* Le don garde sa teinte pleine : l'action que l'application existe pour rendre
           possible ne peut pas se ranger au même gris que ses voisines. */}
       <IconButton
@@ -222,15 +234,24 @@ export function AppSocle(props: BottomTabBarProps) {
   if (keyboardShown) return null;
 
   return (
-    <Animated.View
-      layout={LinearTransition.duration(200)}
+    // Le dépliage ne s'anime pas, et c'est le seul montage qui ne clignote pas.
+    //
+    // Le socle portait une transition de disposition sur sa propre racine. Or il est posé
+    // par le navigateur, qui le mesure et lui réserve sa place : animer son cadre revenait
+    // à faire glisser la surface et le filet pendant que les enfants — la ligne de la
+    // cagnotte, ses deux boutons, la rangée d'onglets — étaient déjà rendus à leur
+    // position finale par la disposition, qui, elle, ne s'anime pas. Ils se retrouvaient
+    // donc, le temps de la transition, hors du fond qui les porte. C'est ce que l'usage a
+    // vu clignoter, et cela ne se règle pas en accélérant l'animation : le cadre et son
+    // contenu ne peuvent pas être d'accord tant que l'un des deux seulement s'anime.
+    <View
       className="border-t border-white/5 bg-surface"
       style={{ paddingBottom: Math.max(props.insets.bottom, 10) }}
     >
       <Handle open={open} onPress={() => setOpen((value) => !value)} />
       {open ? <SoclePanel onDismiss={() => setOpen(false)} /> : null}
-      <GlobalLine />
+      <GlobalLine open={open} onOpenPlanning={() => setOpen(true)} />
       <TabRow {...props} />
-    </Animated.View>
+    </View>
   );
 }
