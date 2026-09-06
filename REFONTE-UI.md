@@ -92,6 +92,27 @@ vaut **0,082**, et non les 0,109 du triangle idéal. La leçon vaut pour les ent
 suivantes — une correction optique se mesure sur le glyphe, elle ne se déduit pas de
 la forme qu'on croit qu'il a.
 
+**La mesure est passée du navigateur à la police** (`scripts/measure-icon-nudge.mjs`).
+Le relevé au canvas demandait l'aperçu web, qui est précisément l'environnement où le
+défaut ne se voit pas ; le script, lui, lit les contours du glyphe dans le fichier de
+police et calcule le barycentre de la surface encrée par l'aire signée de ses contours —
+les évidements, parcourus à l'envers, s'en retranchent d'eux-mêmes, comme le fait le
+remplissage non-nul du rendu. Il retrouve pour le `play` les 0,082 relevés au canvas
+(0,0809), ce qui vaut validation de la méthode, et se rejoue sans navigateur.
+
+Il sert aussi à écarter une piste plutôt qu'à en ouvrir une. Le cœur du socle, signalé
+mal centré à l'usage, a d'abord été soupçonné de mal tomber dans sa boîte de texte : le
+script montre que sa boîte d'encre est centrée au millième près, et cela dans les trois
+jeux de métriques verticales dont Android peut se servir — `hhea`, `OS/2 sTypo`,
+`OS/2 usWin`. La géométrie était donc juste, et le défaut bien optique : la masse d'un
+cœur est **5 % de la taille au-dessus** du centre de sa boîte, deux lobes larges en haut
+contre une pointe qui s'effile en bas. Dans le rond de 32 px du socle, cela fait près
+d'un pixel, et le cercle donne à l'œil de quoi le voir.
+
+`heart: { y: 0.05 }` est donc la deuxième entrée de la table, et la seule ajoutée depuis.
+Le script sait mesurer tout le lexique, mais y verser ses chiffres en bloc décalerait des
+glyphes que personne n'a vus fautifs — la règle reste : constaté à l'œil, puis mesuré.
+
 ### D3. Une action, plusieurs icônes
 
 - Partage : `share-social-outline` (barre de résumé, verdict des stats) **vs**
@@ -450,3 +471,10 @@ points en particulier :
 - **Le volet Récaps** dans son nouveau châssis : ses commandes flottantes et son bouton
   de création sont désormais posés sous un `Segmented`, et non plus directement sous
   l'en-tête.
+
+Deux défauts relevés à l'écran ont déjà été corrigés — l'étoile des favoris qui se
+collait à sa voisine faute de boîte (voir `favorite-button`), et le centrage du cœur
+(voir D2). Reste, du même genre et non traité : `ReminderBell` est la dernière bascule
+d'icône à rendre son glyphe hors du système, donc sans le rattrapage Android, et son
+`hitSlop` figé lui laisse une cible de 38 px. Elle vit seule en bout de ligne de texte,
+où rien ne la trahit ; c'est pourquoi elle attend.

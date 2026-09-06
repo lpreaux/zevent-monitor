@@ -10,7 +10,7 @@ import { StreamerAvatar } from '@/components/streamer-avatar';
 import { Button, ButtonRow } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { formatCount, formatEuros, formatPercent, formatRank, formatRelativeTime } from '@/lib/format';
-import { iconSizes, icons } from '@/lib/icons';
+import { icons } from '@/lib/icons';
 import { openDonationPage, openTwitchStream } from '@/lib/links';
 import { streamerActivity } from '@/lib/streamer-activity';
 import type { StreamerStanding } from '@/lib/streamer-profile';
@@ -99,7 +99,7 @@ export function StreamerHero({
               })
             }
           />
-          <FavoriteButton twitch={streamer.twitch} size={iconSizes.button} />
+          <FavoriteButton twitch={streamer.twitch} size="sm" />
         </View>
       </View>
 

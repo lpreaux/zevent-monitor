@@ -79,19 +79,35 @@ export const iconSizes = {
  * dans une ligne et à 20 px dans la barre du haut, et une correction figée à 1,5 px, juste
  * à la première taille, ne l'est plus à la seconde.
  *
- * 0,082 est le décalage mesuré, non estimé : le glyphe a été rendu à 400 px sur un canvas
- * et son barycentre calculé en pondérant chaque pixel par son opacité. Raisonner sur un
- * triangle idéal donnait 0,109 et sur-corrigeait d'un tiers — le « play » d'Ionicons a les
- * coins arrondis, ce qui ramène sa masse vers le centre. Refaire la mesure sur un autre
- * glyphe est le seul moyen honnête d'y ajouter une entrée.
+ * Les valeurs sont mesurées, jamais estimées : `scripts/measure-icon-nudge.mjs` lit les
+ * contours du glyphe dans la police et calcule le barycentre de la surface encrée par
+ * l'aire signée de ses contours — les évidements, parcourus à l'envers, s'en retranchent
+ * d'eux-mêmes, comme le fait le remplissage non-nul du rendu. Le script retrouve pour le
+ * « play » les 0,082 relevés au canvas dans l'aperçu web (il donne 0,0809), ce qui vaut
+ * validation de la méthode ; il a l'avantage de se rejouer sans navigateur.
  *
- * Si le décalage paraît encore trop fort à l'usage, la valeur à essayer ensuite est la
- * demi-correction, 0,041 : l'œil ne pondère pas seulement par l'aire, il tient aussi
- * compte de la boîte, et le centre perçu tombe quelque part entre les deux.
+ * Raisonner sur la forme qu'on croit voir donnait 0,109 pour le « play » et sur-corrigeait
+ * d'un tiers — le glyphe d'Ionicons a les coins arrondis, ce qui ramène sa masse vers le
+ * centre. Une correction optique se mesure ; elle ne se déduit pas.
  *
- * Le tableau ne contient que ce qui a été vérifié à l'œil. Y ajouter une entrée au jugé
- * décalerait un glyphe déjà juste — la mesure ci-dessus dit qu'ils le sont presque tous.
+ * Si un décalage paraît trop fort à l'usage, la valeur à essayer ensuite est sa moitié :
+ * l'œil ne pondère pas seulement par l'aire, il tient aussi compte de la boîte, et le
+ * centre perçu tombe quelque part entre les deux.
+ *
+ * Le tableau ne contient que ce qui a été constaté à l'œil, puis mesuré. Le script sait
+ * mesurer tout le lexique, mais y verser ses chiffres en bloc décalerait des glyphes que
+ * personne n'a vus fautifs. Ceux dont la masse s'écarte le plus du centre sans qu'on ait
+ * eu à s'en plaindre, si le besoin s'en fait sentir un jour : `share-outline` (−0,045 en
+ * vertical), `star` (−0,042), `tv-outline` (−0,012), `chevron-forward` (−0,012 en
+ * horizontal).
  */
 export const ICON_NUDGE: Partial<Record<IconName, { x?: number; y?: number }>> = {
+  /** Triangle : sa masse penche vers la pointe, à gauche du centre de sa chasse. */
   play: { x: 0.082 },
+  /**
+   * Cœur : deux lobes larges en haut, une pointe qui s'effile en bas. Sa boîte d'encre est
+   * centrée au millième près, mais sa masse est 5 % plus haut — soit près d'un pixel dans
+   * le rond de 32 px du socle, où le cercle donne l'œil pour le voir.
+   */
+  heart: { y: 0.05 },
 };

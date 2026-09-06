@@ -32,12 +32,19 @@ const VARIANT = {
  * `hitSlop` complète le cadre jusqu'aux 44 px recommandés : c'est le cadre qui se voit,
  * la cible tactile reste la même dans les deux cas.
  */
-const SIZE = {
+export const ICON_BUTTON_SIZE = {
   sm: { box: 'h-8 w-8', px: 32, icon: iconSizes.button },
   md: { box: 'h-10 w-10', px: 40, icon: iconSizes.header },
 } as const satisfies Record<IconButtonSize, { box: string; px: number; icon: number }>;
 
-const TOUCH_TARGET_PX = 44;
+const SIZE = ICON_BUTTON_SIZE;
+
+/**
+ * Cible tactile minimale. Exportée parce qu'elle vaut pour tout bouton-icône, y compris
+ * ceux qui ne passent pas par ce composant : une étoile de favori posée à côté d'un
+ * `IconButton` doit se viser aussi facilement que lui.
+ */
+export const TOUCH_TARGET_PX = 44;
 
 const BRAND_SOFT = '#c4b5fd';
 const MUTED = '#9ca3af';

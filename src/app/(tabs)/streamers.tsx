@@ -14,7 +14,6 @@ import { ScreenShell } from '@/components/screen-shell';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
 import { SectionTitle } from '@/components/section-title';
 import { formatCount } from '@/lib/format';
-import { iconSizes } from '@/lib/icons';
 import {
   groupStreamers,
   searchStreamers,
@@ -272,14 +271,14 @@ export default function StreamersScreen() {
                   show={shows.get(item.twitch.toLowerCase())}
                   // Sur la liste complète, le geste qui compte est de suivre quelqu'un :
                   // regarder un direct se fait depuis l'accueil ou la fiche.
-                  trailing={<FavoriteButton twitch={item.twitch} size={iconSizes.header} />}
+                  trailing={<FavoriteButton twitch={item.twitch} size="md" />}
                 />
               </Slot>
             ) : (
               <Slot height={OFFLINE_ROW_HEIGHT} separated={index > 0} inset={32}>
                 <OfflineStreamerRow
                   streamer={item}
-                  trailing={<FavoriteButton twitch={item.twitch} size={iconSizes.button} />}
+                  trailing={<FavoriteButton twitch={item.twitch} size="sm" />}
                 />
               </Slot>
             )
