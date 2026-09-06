@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildRecapDays } from '../src/recaps/days.js';
 import { resolvePeriod } from '../src/routes/recaps.js';
-import { sparkline } from '../src/routes/recap-days.js';
+import { comparableDurations, sparkline } from '../src/routes/recap-days.js';
 
 const at = (iso: string) => new Date(iso);
 
@@ -112,5 +112,25 @@ describe('vignette de courbe', () => {
 
   it('laisse une courte série intacte', () => {
     expect(sparkline([{ cents: 1 }, { cents: 2 }], 10)).toEqual([1, 2]);
+  });
+});
+
+describe('comparaison à la veille', () => {
+  const days = buildRecapDays(opening, at('2026-09-07T03:00:00.000Z'), at('2026-09-07T03:05:00.000Z'));
+
+  it('accepte deux journées pleines', () => {
+    // Samedi et dimanche, tous deux de 9 h à 9 h.
+    expect(comparableDurations(days[1]!, days[1]!)).toBe(true);
+  });
+
+  it('refuse de comparer une journée pleine à la tranche d’ouverture', () => {
+    // Quinze heures face à vingt-quatre : l'écart mesurerait la durée, pas la collecte.
+    expect(comparableDurations(days[1]!, days[0]!)).toBe(false);
+  });
+
+  it('refuse de comparer une journée entamée à une journée close', () => {
+    const running = buildRecapDays(opening, at('2026-09-06T10:00:00.000Z'), at('2026-09-06T10:00:30.000Z'));
+
+    expect(comparableDurations(running[2]!, running[1]!)).toBe(false);
   });
 });

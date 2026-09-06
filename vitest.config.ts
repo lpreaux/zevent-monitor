@@ -9,5 +9,8 @@ export default defineConfig({
   },
   test: {
     include: ['test/**/*.test.ts'],
+    // Une partie de l'affichage est datée en heure locale : sans fuseau fixe, les
+    // assertions passeraient ici et tomberaient sur une machine réglée autrement.
+    env: { TZ: 'Europe/Paris' },
   },
 });

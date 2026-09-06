@@ -1,417 +1,304 @@
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
 
 import {
+  deleteRecap,
   generateRecap,
+  getRecapDays,
   getRecaps,
-  getRecapSchedules,
-  putRecapSchedules,
   type Recap,
+  type RecapRequest,
 } from '@/api/recaps';
 import { AppHeader } from '@/components/app-header';
-import { SwitchRow } from '@/components/settings-row';
-import { TimePicker } from '@/components/time-picker';
-import { personalizeRecap } from '@/lib/recap-personalization';
+import { ListControls, useFloatingControls } from '@/components/list-controls';
+import { RecapCard } from '@/components/recap-card';
+import { RecapGeneratorSheet } from '@/components/recap-generator-sheet';
+import { ScreenShell } from '@/components/screen-shell';
+import { EmptyState } from '@/components/screen-state';
+import { SectionHeader } from '@/components/section-header';
+import { SkeletonBlock } from '@/components/skeleton';
+import {
+  dayToRecapCard,
+  filterRecaps,
+  RECAP_FILTERS,
+  sortRecaps,
+  type RecapFilter,
+} from '@/lib/recap-view';
 import { useRecapIdentity } from '@/lib/use-recap-identity';
 import { useFavoritesStore } from '@/store/favorites';
-import { useNotificationsStore } from '@/store/notifications';
+import { useRecapsReadStore } from '@/store/recaps-read';
 
-const DURATIONS = [
-  { minutes: 60, label: '1 h' },
-  { minutes: 180, label: '3 h' },
-  { minutes: 360, label: '6 h' },
-  { minutes: 720, label: '12 h' },
-  { minutes: 1440, label: '24 h' },
-] as const;
+/** Les journées bougent au rythme de la collecte : une resynchro par minute suffit. */
+const DAYS_REFETCH_MS = 60_000;
 
-const SUGGESTED_TIMES = ['00:00', '09:00', '13:00', '17:00', '20:00'] as const;
-const MIN_MINUTES = 15;
-const MAX_MINUTES = 7 * 24 * 60;
+/** Respiration entre la barre de commandes flottante et la première carte. */
+const CONTENT_GAP = 8;
 
-const euros = new Intl.NumberFormat('fr-FR', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
-const shortDateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+type Section = { key: string; title: string; hint: string; data: Recap[] };
 
-/** « 45 min », « 4 h 30 », « 3 j » : lu plus vite qu'une date de début calculée. */
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  if (minutes % (24 * 60) === 0 && minutes >= 48 * 60) return `${minutes / (24 * 60)} jours`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`;
-}
-
-function Chip({
-  label,
-  active,
-  disabled,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
+/** Attente dessinée à la forme des cartes : rien ne bouge quand elles prennent la place. */
+function RecapsSkeleton() {
   return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected: active, disabled: Boolean(disabled) }}
-      className={`rounded-full border px-4 py-2 active:opacity-70 ${
-        active ? 'border-zevent-500 bg-zevent-500/20' : 'border-gray-800 bg-gray-950'
-      } ${disabled ? 'opacity-50' : ''}`}
-    >
-      <Text className={`text-sm font-semibold ${active ? 'text-zevent-200' : 'text-gray-300'}`}>
-        {label}
-      </Text>
-    </Pressable>
+    <View accessibilityLabel="Chargement des récaps" className="gap-3 pt-2">
+      {[0, 1, 2].map((index) => (
+        <View
+          key={index}
+          className="gap-3 rounded-2xl border border-white/10 bg-surface p-4"
+        >
+          <SkeletonBlock width="45%" height={14} />
+          <SkeletonBlock width="30%" height={9} />
+          <SkeletonBlock width="60%" height={24} />
+          <SkeletonBlock width="80%" height={10} />
+        </View>
+      ))}
+    </View>
   );
 }
 
-/** Carte d'historique : le cumul de la période, puis ce qui concerne les favoris. */
-function RecapCard({
-  recap,
-  favorites,
-  onPress,
-}: {
-  recap: Recap;
-  favorites: readonly string[];
-  onPress: () => void;
-}) {
-  const { summary, counts } = recap.content;
-  const personal = personalizeRecap(recap.content, favorites);
-  const partial = summary.coverage ? !summary.coverage.complete : false;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      className="gap-3 rounded-2xl border border-gray-800 bg-gray-900 p-4 active:opacity-70"
-    >
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1 gap-1">
-          <Text className="text-base font-bold text-white">
-            +{euros.format(summary.raisedCents / 100)} sur la période
-          </Text>
-          {summary.endCents !== null ? (
-            <Text className="text-xs text-gray-400">
-              Cagnotte à {euros.format(summary.endCents / 100)}
-            </Text>
-          ) : null}
-          <Text className="text-xs text-gray-500">
-            {shortDateTime.format(new Date(recap.periodStart))} →{' '}
-            {shortDateTime.format(new Date(recap.periodEnd))}
-          </Text>
-        </View>
-        <View className="items-end gap-1">
-          <View className="rounded-full bg-zevent-500/20 px-2 py-1">
-            <Text className="text-xs font-semibold text-zevent-200">
-              {recap.kind === 'manual' ? 'Manuel' : 'Programmé'}
-            </Text>
-          </View>
-          {partial ? <Text className="text-[10px] text-amber-400">Période partielle</Text> : null}
-        </View>
-      </View>
-
-      <View className="flex-row flex-wrap gap-x-4 gap-y-1">
-        <Text className="text-xs text-gray-300">{counts.goalsReached} goals</Text>
-        <Text className="text-xs text-gray-300">{counts.liveStarts} lives</Text>
-        <Text className="text-xs text-gray-300">
-          Pic {summary.peakViewers.toLocaleString('fr-FR')}
-        </Text>
-      </View>
-
-      {personal.hasFavoriteContent ? (
-        <View className="flex-row items-center gap-2 border-t border-gray-800 pt-3">
-          <Ionicons name="star" size={13} color="#fbbf24" />
-          <Text className="flex-1 text-xs text-amber-200" numberOfLines={1}>
-            {personal.favoriteProgressions.length > 0
-              ? `${personal.favoriteProgressions[0]?.display} +${euros.format((personal.favoriteProgressions[0]?.raisedCents ?? 0) / 100)}`
-              : `${personal.favoriteLiveStarts.length} favori(s) passé(s) en live`}
-            {personal.favoriteGoals.length > 0
-              ? ` · ${personal.favoriteGoals.length} goal(s)`
-              : ''}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
-
+/**
+ * Historique des récaps.
+ *
+ * L'écran s'ouvre sur ce qu'il y a à lire, jamais sur ce qu'il y a à régler : les journées
+ * de l'événement d'abord — elles existent pour tout le monde et depuis vendredi, donc même
+ * pour qui installe l'application dimanche midi — puis les récaps demandés depuis cet
+ * appareil. Programmer des horaires est une opération qu'on fait une fois : elle a son
+ * écran, atteint depuis la barre du haut.
+ */
 export default function RecapsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { identity, error: identityError } = useRecapIdentity();
   const favorites = useFavoritesStore((s) => s.favorites);
-  const preferences = useNotificationsStore((s) => s.preferences);
-  const setPreferences = useNotificationsStore((s) => s.setPreferences);
+  const readIds = useRecapsReadStore((s) => s.read);
+  const markRead = useRecapsReadStore((s) => s.markRead);
+  const controls = useFloatingControls();
 
-  const scrollRef = useRef<ScrollView>(null);
-  const generatorY = useRef(0);
-  const [duration, setDuration] = useState<number>(1440);
-  const [customMode, setCustomMode] = useState(false);
-  const [customHours, setCustomHours] = useState('');
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [filter, setFilter] = useState<RecapFilter>('all');
+  const [sheetOpen, setSheetOpen] = useState(false);
 
+  const days = useQuery({
+    queryKey: ['recap-days'],
+    queryFn: getRecapDays,
+    refetchInterval: DAYS_REFETCH_MS,
+    refetchIntervalInBackground: false,
+  });
   const recaps = useQuery({
     queryKey: ['recaps', identity?.installationId],
     queryFn: () => getRecaps(identity!),
     enabled: Boolean(identity),
   });
-  const schedules = useQuery({
-    queryKey: ['recap-schedules', identity?.installationId],
-    queryFn: () => getRecapSchedules(identity!),
-    enabled: Boolean(identity),
-  });
+
   const generate = useMutation({
-    mutationFn: (minutes: number) => generateRecap(identity!, minutes, Crypto.randomUUID()),
+    mutationFn: (request: RecapRequest) =>
+      generateRecap(identity!, request, Crypto.randomUUID()),
     onSuccess: async (recap) => {
+      setSheetOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['recaps', identity?.installationId] });
+      markRead(recap.id);
       router.push(`/recap/${recap.id}` as never);
     },
   });
-  const saveSchedules = useMutation({
-    mutationFn: (times: string[]) => putRecapSchedules(identity!, times),
-    onSuccess: (data) =>
-      queryClient.setQueryData(['recap-schedules', identity?.installationId], data),
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteRecap(identity!, id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recaps', identity?.installationId] }),
   });
 
-  const times = schedules.data?.times ?? [];
-  const setTimes = (next: string[]) => saveSchedules.mutate([...new Set(next)].sort());
+  const dayCards = useMemo(
+    () => (days.data?.days ?? []).map(dayToRecapCard),
+    [days.data],
+  );
+  /** Les points de courbe ne voyagent pas dans la carte : ils viennent de l'aperçu. */
+  const dayPoints = useMemo(
+    () => new Map((days.data?.days ?? []).map((day) => [day.id, day.preview.points])),
+    [days.data],
+  );
 
-  const parsedCustom = Number(customHours.replace(',', '.'));
-  const customMinutes =
-    Number.isFinite(parsedCustom) && parsedCustom > 0 ? Math.round(parsedCustom * 60) : 0;
-  const chosenDuration = customMode ? customMinutes : duration;
-  const durationValid = chosenDuration >= MIN_MINUTES && chosenDuration <= MAX_MINUTES;
-  const message = identityError ?? (recaps.error instanceof Error ? recaps.error.message : null);
+  const sections = useMemo<Section[]>(() => {
+    // Aucun récap personnel n'est de type `day` : le filtre « Journées » les écarte seul.
+    const personal = filterRecaps(sortRecaps(recaps.data?.recaps ?? []), filter);
+    const list: Section[] = [];
+    if (filter === 'all' || filter === 'day') {
+      list.push({
+        key: 'days',
+        title: 'Le week-end',
+        hint: 'Chaque journée court de 9 h à 9 h, heure de Paris. Accessible à tous, depuis le début.',
+        data: [...dayCards].reverse(),
+      });
+    }
+    if (filter !== 'day') {
+      list.push({
+        key: 'personal',
+        title: 'Vos récaps',
+        hint: 'Générés sur cet appareil, aux horaires programmés ou à la demande.',
+        data: personal,
+      });
+    }
+    return list.filter((section) => section.data.length > 0);
+  }, [dayCards, recaps.data, filter]);
+
+  const total = sections.reduce((count, section) => count + section.data.length, 0);
+  const unread = useMemo(() => {
+    const known = new Set(readIds);
+    return sections.reduce(
+      (count, section) => count + section.data.filter((recap) => !known.has(recap.id)).length,
+      0,
+    );
+  }, [sections, readIds]);
+
+  const collected = useMemo(() => {
+    const list = days.data?.days ?? [];
+    const first = list[0];
+    const last = list[list.length - 1];
+    return first && last ? { start: first.periodStart, end: last.periodEnd } : null;
+  }, [days.data]);
+
+  const loading = days.isLoading || (Boolean(identity) && recaps.isLoading);
+  const message =
+    identityError ??
+    (days.error instanceof Error && !days.data ? days.error.message : null) ??
+    (recaps.error instanceof Error && !recaps.data ? recaps.error.message : null);
+
+  const open = (recap: Recap) => {
+    markRead(recap.id);
+    router.push(`/recap/${recap.id}` as never);
+  };
+
+  const confirmDelete = (recap: Recap) =>
+    Alert.alert(
+      'Supprimer ce récap ?',
+      'Il disparaît de cet appareil. Les journées de l’événement, elles, restent disponibles.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Supprimer', style: 'destructive', onPress: () => remove.mutate(recap.id) },
+      ],
+    );
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-gray-950"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <ScreenShell
+      header={
+        <AppHeader
+          title="Récaps"
+          subtitle="Le week-end, période par période"
+          actions={[
+            {
+              icon: 'options-outline',
+              label: 'Réglages des récaps',
+              onPress: () => router.push('/settings/recaps' as never),
+            },
+          ]}
+        />
+      }
     >
-      <AppHeader title="Récaps" subtitle="Les temps forts, période par période" />
-      <ScrollView
-        ref={scrollRef}
-        className="flex-1"
-        contentContainerClassName="gap-6 p-4 pb-24"
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
-        refreshControl={
-          <RefreshControl
-            refreshing={recaps.isRefetching}
-            onRefresh={() => void recaps.refetch()}
-            tintColor="#a78bfa"
-          />
-        }
-      >
-        <Text className="text-sm text-gray-400">
-          Les moments importants d’une période, calculés sans IA et mis en avant selon vos favoris.
-        </Text>
-
-        <View
-          onLayout={(event) => {
-            generatorY.current = event.nativeEvent.layout.y;
+      <View className="flex-1">
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{
+            paddingTop: controls.paddingTop + CONTENT_GAP,
+            paddingHorizontal: 18,
+            paddingBottom: 96,
           }}
-          className="gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-4"
-        >
-          <Text className="text-lg font-bold text-white">Générer maintenant</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {DURATIONS.map((item) => (
-              <Chip
-                key={item.minutes}
-                label={item.label}
-                active={!customMode && duration === item.minutes}
-                onPress={() => {
-                  setCustomMode(false);
-                  setDuration(item.minutes);
-                }}
-              />
-            ))}
-            <Chip
-              label="Personnalisé"
-              active={customMode}
-              onPress={() => setCustomMode(true)}
+          onScroll={controls.onScroll}
+          scrollEventThrottle={16}
+          stickySectionHeadersEnabled={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={days.isRefetching || recaps.isRefetching}
+              onRefresh={() => {
+                void days.refetch();
+                void recaps.refetch();
+              }}
+              tintColor="#a78bfa"
+              progressViewOffset={controls.paddingTop}
             />
-          </View>
-
-          {customMode ? (
-            <View className="gap-2">
-              <Text className="text-xs text-gray-400">Durée en heures (0,25 à 168)</Text>
-              <TextInput
-                value={customHours}
-                onChangeText={setCustomHours}
-                onFocus={() =>
-                  // Remonte la carte en haut de l'écran : elle reste visible clavier ouvert.
-                  scrollRef.current?.scrollTo({ y: generatorY.current, animated: true })
-                }
-                keyboardType="decimal-pad"
-                returnKeyType="done"
-                placeholder="Ex. 4,5"
-                placeholderTextColor="#6b7280"
-                className="rounded-xl border border-gray-700 bg-gray-950 px-4 py-3 text-white"
-              />
+          }
+          renderSectionHeader={({ section }) => (
+            <View className="pb-2 pt-4">
+              <SectionHeader title={section.title} hint={section.hint} />
             </View>
-          ) : null}
-
-          <Text className="text-xs text-gray-500">
-            {durationValid
-              ? `Période couverte : les ${formatDuration(chosenDuration)} précédant l’instant de génération.`
-              : 'Choisissez une durée entre 15 minutes et 7 jours.'}
-          </Text>
-
-          <Pressable
-            disabled={!identity || generate.isPending || !durationValid}
-            onPress={() => generate.mutate(chosenDuration)}
-            className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-3 ${
-              !identity || generate.isPending || !durationValid ? 'bg-gray-800' : 'bg-zevent-500'
-            }`}
-          >
-            {generate.isPending ? <ActivityIndicator color="white" /> : null}
-            <Text
-              className={`font-bold ${
-                !identity || generate.isPending || !durationValid ? 'text-gray-500' : 'text-white'
-              }`}
-            >
-              Créer le récap
-            </Text>
-          </Pressable>
-          {generate.error ? (
-            <Text className="text-sm text-red-400">{generate.error.message}</Text>
-          ) : null}
-        </View>
-
-        <View className="gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-4">
-          <View>
-            <Text className="text-lg font-bold text-white">Récaps programmés</Text>
-            <Text className="mt-1 text-xs text-gray-400">
-              Chaque période commence exactement à l’horaire précédent. Fuseau de l’appareil.
-            </Text>
-          </View>
-
-          {times.length > 0 ? (
-            <View className="flex-row flex-wrap gap-2">
-              {times.map((time) => (
-                <Pressable
-                  key={time}
-                  disabled={!identity || saveSchedules.isPending}
-                  onPress={() => setTimes(times.filter((value) => value !== time))}
-                  accessibilityLabel={`Retirer l’horaire ${time}`}
-                  className="flex-row items-center gap-2 rounded-full border border-zevent-500 bg-zevent-500/20 py-2 pl-4 pr-3 active:opacity-70"
-                >
-                  <Text className="text-sm font-bold text-zevent-200">{time}</Text>
-                  <Ionicons name="close-circle" size={16} color="#c4b5fd" />
-                </Pressable>
-              ))}
-            </View>
-          ) : (
-            <Text className="text-xs text-amber-400">
-              Aucun horaire : la planification est désactivée, les récaps manuels restent
-              disponibles.
-            </Text>
           )}
-
-          <Pressable
-            disabled={!identity || saveSchedules.isPending || times.length >= 12}
-            onPress={() => setPickerOpen(true)}
-            className={`flex-row items-center justify-center gap-2 rounded-xl border border-gray-700 bg-gray-950 py-3 active:opacity-70 ${
-              !identity || times.length >= 12 ? 'opacity-50' : ''
-            }`}
-          >
-            <Ionicons name="time-outline" size={18} color="#c4b5fd" />
-            <Text className="text-sm font-semibold text-gray-200">Ajouter un horaire</Text>
-          </Pressable>
-          {saveSchedules.error ? (
-            <Text className="text-sm text-red-400">{saveSchedules.error.message}</Text>
-          ) : null}
-
-          <View className="gap-3 border-t border-gray-800 pt-4">
-            <SwitchRow
-              label="Me notifier quand un récap est prêt"
-              hint={
-                preferences.enabled
-                  ? 'Le récap est enregistré dans tous les cas, même sans notification.'
-                  : 'Les alertes sont coupées dans le menu Notifications.'
-              }
-              value={preferences.recaps.enabled}
-              disabled={!preferences.enabled}
-              onValueChange={(enabled) =>
-                void setPreferences((current) => ({
-                  ...current,
-                  recaps: { ...current.recaps, enabled },
-                }))
-              }
-            />
-            <Pressable
-              onPress={() => router.push('/settings/notifications' as never)}
-              className="flex-row items-center gap-2 active:opacity-70"
-            >
-              <Ionicons name="options-outline" size={16} color="#9ca3af" />
-              <Text className="flex-1 text-xs text-gray-400">
-                Son, vibration et plage silencieuse : menu Notifications
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color="#6b7280" />
-            </Pressable>
-          </View>
-        </View>
-
-        <View className="gap-3">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-lg font-bold text-white">Historique</Text>
-            {recaps.data?.cached ? (
-              <Text className="text-xs text-amber-400">Copie hors ligne</Text>
-            ) : null}
-          </View>
-          {!identity && !message ? <ActivityIndicator color="#a78bfa" /> : null}
-          {message ? (
-            <Text className="rounded-xl bg-red-950 p-3 text-sm text-red-300">{message}</Text>
-          ) : null}
-          {recaps.data?.recaps.map((recap) => (
+          ItemSeparatorComponent={() => <View className="h-3" />}
+          renderItem={({ item }) => (
             <RecapCard
-              key={recap.id}
-              recap={recap}
+              recap={item}
               favorites={favorites}
-              onPress={() => router.push(`/recap/${recap.id}` as never)}
+              points={
+                dayPoints.get(item.id) ?? item.content.series?.points.map((point) => point.cents)
+              }
+              read={readIds.includes(item.id)}
+              onPress={() => open(item)}
+              {...(item.kind === 'manual' ? { onLongPress: () => confirmDelete(item) } : {})}
             />
-          ))}
-          {recaps.data?.recaps.length === 0 ? (
-            <Text className="py-6 text-center text-gray-500">Aucun récap pour le moment.</Text>
-          ) : null}
-        </View>
-      </ScrollView>
+          )}
+          ListHeaderComponent={
+            loading ? (
+              <RecapsSkeleton />
+            ) : message ? (
+              <Text className="rounded-2xl bg-red-950 p-3 text-sm text-red-300">{message}</Text>
+            ) : null
+          }
+          ListEmptyComponent={
+            loading || message ? null : (
+              <EmptyState
+                message={
+                  filter === 'manual'
+                    ? 'Aucun récap créé à la main. Le bouton « Nouveau récap » couvre la période de votre choix.'
+                    : filter === 'scheduled'
+                      ? 'Aucun récap programmé. Ajoutez un horaire dans les réglages pour en recevoir automatiquement.'
+                      : 'Les récaps arriveront dès que la collecte aura de quoi raconter le week-end.'
+                }
+              />
+            )
+          }
+        />
 
-      <TimePicker
-        visible={pickerOpen}
-        value="09:00"
-        title="Horaire du récap"
-        confirmLabel="Ajouter"
-        taken={times}
-        presets={SUGGESTED_TIMES}
-        onCancel={() => setPickerOpen(false)}
-        onConfirm={(time) => {
-          setPickerOpen(false);
-          setTimes([...times, time]);
-        }}
+        {/* Posée par-dessus, hors du flux : son repli ne redimensionne donc pas la liste. */}
+        <View className="absolute left-0 right-0 top-0">
+          {/* Le rail porte ici un filtre et non un tri : les récaps n'ont qu'un ordre, le
+              chronologique. Il occupe la place du tri parce qu'il reste visible une fois la
+              barre repliée — on filtre en cours de lecture, pas seulement en arrivant. */}
+          <ListControls
+            sorts={RECAP_FILTERS}
+            sort={filter}
+            onSortChange={setFilter}
+            summary={
+              total === 0
+                ? 'Aucun récap'
+                : `${total} récap${total > 1 ? 's' : ''}${unread > 0 ? ` · ${unread} non lu${unread > 1 ? 's' : ''}` : ''}`
+            }
+            hint="Les moments importants d’une période, calculés sans IA et mis en avant selon vos favoris."
+            note={days.data?.cached || recaps.data?.cached ? 'Copie hors ligne' : undefined}
+            compact={controls.compact}
+            onHeights={controls.onHeights}
+          />
+        </View>
+
+        <Pressable
+          onPress={() => setSheetOpen(true)}
+          disabled={!identity}
+          accessibilityRole="button"
+          accessibilityLabel="Créer un récap"
+          className={`absolute bottom-6 right-5 flex-row items-center gap-2 rounded-full bg-zevent-500 py-3.5 pl-4 pr-5 active:opacity-80 ${
+            identity ? '' : 'opacity-50'
+          }`}
+        >
+          <Ionicons name="add" size={18} color="white" />
+          <Text className="text-sm font-bold text-white">Nouveau récap</Text>
+        </Pressable>
+      </View>
+
+      <RecapGeneratorSheet
+        visible={sheetOpen}
+        window={collected}
+        pending={generate.isPending}
+        error={generate.error instanceof Error ? generate.error.message : null}
+        onCancel={() => setSheetOpen(false)}
+        onSubmit={(request) => generate.mutate(request)}
       />
-    </KeyboardAvoidingView>
+    </ScreenShell>
   );
 }
