@@ -329,17 +329,15 @@ validé avec Dockploy, l'API peut les appliquer au démarrage avant d'accepter d
 
 ## Plan de réalisation
 
-### Phase 0 — Faisabilité et sauvegarde `réalisée le 6 septembre 2026, hors exécution serveur`
+### Phase 0 — Faisabilité et sauvegarde `terminée le 6 septembre 2026`
 
 - ✅ remontée historique Streamlabs testée : `scripts/spike-streamlabs-history.mjs`, mesures dans
   `docs/sources/streamlabs-donations.md` ;
 - ✅ matrice des capacités de chaque source : `docs/sources/README.md` ;
 - ✅ import fichier de secours spécifié : `docs/sources/donation-import-format.md` ;
-- ⏳ sauvegarde et restauration : `scripts/db-backup.sh` et `scripts/db-restore.sh` livrés, testés
-  de bout en bout sur un PostgreSQL 18 jetable portant le schéma réel (dump, empreinte, manifeste,
-  détection d'un dump corrompu, refus sans `--force`, restauration effective, rotation), procédure
-  dans `docs/ops/postgres-backup-restore.md` ; **exécution sur l'instance Dockploy restante** et
-  obligatoire avant le premier backfill.
+- ✅ sauvegarde et restauration testées **sur la production** : `scripts/db-backup.sh` et
+  `scripts/db-restore.sh`, dump de 378 Mo vérifié par restauration dans une base jetable, sans
+  interruption du service ; procédure et mesures dans `docs/ops/postgres-backup-restore.md`.
 
 Critère de sortie atteint. Ce qui est su du vendredi :
 

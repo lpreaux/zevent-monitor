@@ -42,10 +42,16 @@ Trois fichiers sont produits :
 - `zevent-<horodatage>.dump` — format custom, restauration sélective possible ;
 - `zevent-<horodatage>.dump.sha256` — empreinte, vérifiée avant toute restauration ;
 - `zevent-<horodatage>.manifest.json` — version du serveur, taille et **nombre de lignes de chaque
-  table publique**.
+  table publique, relevé avant puis après le dump**.
 
 Le manifeste est ce qui transforme la sauvegarde en sauvegarde vérifiable : sans comptages de
 référence, une restauration « qui ne plante pas » ne prouve rien.
+
+Les comptages sont doublés parce que la base ne dort pas : pendant une édition, la collecte écrit
+en continu et le dump de production du 6 septembre 2026 a vu arriver 1 292 dons entre son premier
+et son dernier octet. Le contenu du dump est donc *encadré* par les deux relevés, il n'égale ni
+l'un ni l'autre. Sur une base au repos, les deux bornes se confondent et le contrôle redevient une
+égalité stricte.
 
 ## Tester la restauration
 
@@ -58,12 +64,14 @@ Par défaut, le script :
 1. vérifie l'empreinte SHA-256 ;
 2. crée une base jetable `zevent_restore_check` ;
 3. y restaure le dump ;
-4. compare table par table les comptages au manifeste ;
+4. vérifie table par table que le nombre de lignes tombe dans l'encadrement du manifeste ;
 5. supprime la base de test (`--keep` la conserve pour inspection).
 
-Toute divergence sort en code 1 avec la ligne fautive. Une divergence sur `donations` après un
-import est normale si le dump est antérieur à celui-ci ; une divergence sur `samples`,
-`recaps` ou `devices` entre un dump et sa propre restauration ne l'est jamais.
+La base de production n'est ni lue ni écrite pendant ce test : tout se passe dans la base jetable.
+
+Toute sortie de l'encadrement donne un code 1 avec la table fautive — c'est la signature d'un dump
+tronqué. Le script lit le manifeste avec `jq`, ou `node` à défaut : le serveur de déploiement n'a
+que le premier, le poste de développement plutôt le second.
 
 ## Restaurer réellement
 
@@ -106,17 +114,36 @@ et 500 échantillons de test. Cas couverts :
 | Restauration réelle après suppression de 1 111 dons | retour à 5 000 lignes | ✅ |
 | Rotation `BACKUP_KEEP=2` sur 3 sauvegardes | 2 conservées, la plus ancienne purgée | ✅ |
 
-Ce qui reste à faire : **exécuter la séquence sur l'instance Dockploy avant le premier backfill**,
-sur la vraie base et son vrai volume.
+La séquence a ensuite été exécutée **sur la production** (serveur `atlas`, Dokploy) le même jour :
+
+| | Mesure |
+| --- | --- |
+| Base | 1,2 Go, 1 004 121 dons, 4 867 échantillons, 14 tables |
+| Dump | 378 Mo en 19 secondes, collecte active pendant l'export |
+| Restauration de test | 14 tables dans l'encadrement, base `zevent_restore_check` supprimée |
+| Effet sur le service | aucun : `server` et `postgres` sont restés `healthy` |
+| Emplacement | `/home/lpreaux/backups/zevent/` |
+
+Deux contraintes découvertes à cette occasion et intégrées aux scripts : **Node n'est pas installé
+sur le serveur** (d'où le repli `jq`), et les comptages devaient être encadrés plutôt qu'exacts.
+
+### Reproduire
+
+Le conteneur PostgreSQL de Dokploy ne se résout pas par `docker compose` depuis un shell
+utilisateur : passer son nom explicitement.
 
 ```bash
-scripts/db-backup.sh
-scripts/db-restore.sh backups/<le-dump-produit>.dump
+PG_CONTAINER=$(docker ps -qf name=zeventmonitorback.*postgres) \
+  scripts/db-backup.sh ~/backups/zevent
+
+PG_CONTAINER=$(docker ps -qf name=zeventmonitorback.*postgres) \
+  scripts/db-restore.sh ~/backups/zevent/<le-dump-produit>.dump
 ```
 
 Les deux commandes doivent sortir en code 0, la seconde affichant `Restauration vérifiée.`
-Si Compose n'est pas pilotable depuis le shell du serveur, renseigner `PG_CONTAINER` :
 
-```bash
-PG_CONTAINER=$(docker ps -qf name=postgres) scripts/db-backup.sh /srv/backups/zevent
-```
+### Reste à faire
+
+- **Automatiser la cadence** : la sauvegarde est manuelle, aucune tâche planifiée n'existe encore.
+- **Sortir une copie du serveur** : les dumps vivent sur la même machine que la base, ce qui ne
+  protège que des erreurs applicatives, pas d'une perte de l'hôte.

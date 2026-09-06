@@ -68,6 +68,37 @@ fi
 
 psql_admin() { docker exec -i "${container}" psql -U "${pg_user}" -d postgres -tAc "$1"; }
 
+# `table<TAB>min<TAB>max` pour chaque table du manifeste. Le serveur de déploiement n'a que jq,
+# le poste de développement plutôt node : les deux sont acceptés. Les anciens manifestes n'ont
+# qu'un seul relevé (`rowCounts`), auquel cas les deux bornes se confondent.
+read_manifest_bounds() {
+  if command -v jq > /dev/null 2>&1; then
+    jq -r '
+      (.rowCountsBefore // .rowCounts // {}) as $b
+      | (.rowCountsAfter // .rowCounts // $b) as $a
+      | ($b * $a | keys[]) as $k
+      | ($b[$k] // $a[$k]) as $x
+      | ($a[$k] // $b[$k]) as $y
+      | [$k, ([$x, $y] | min), ([$x, $y] | max)] | @tsv
+    ' "$1"
+  elif command -v node > /dev/null 2>&1; then
+    node -e '
+      const fs = require("fs");
+      const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      const before = manifest.rowCountsBefore ?? manifest.rowCounts ?? {};
+      const after = manifest.rowCountsAfter ?? manifest.rowCounts ?? before;
+      for (const table of new Set([...Object.keys(before), ...Object.keys(after)])) {
+        const a = before[table] ?? after[table];
+        const b = after[table] ?? before[table];
+        console.log(`${table}\t${Math.min(a, b)}\t${Math.max(a, b)}`);
+      }
+    ' "$1"
+  else
+    echo "Ni jq ni node : impossible de lire le manifeste." >&2
+    return 1
+  fi
+}
+
 echo "Restauration de $(basename "${dump_file}") dans ${restore_db}"
 psql_admin "DROP DATABASE IF EXISTS \"${restore_db}\";" > /dev/null
 psql_admin "CREATE DATABASE \"${restore_db}\";" > /dev/null
@@ -78,22 +109,25 @@ manifest_file="${dump_file%.dump}.manifest.json"
 status=0
 if [[ -f "${manifest_file}" ]]; then
   echo "Comparaison au manifeste $(basename "${manifest_file}")"
-  while IFS=$'\t' read -r table expected; do
+  # Le manifeste encadre chaque table par ses comptages d'avant et d'après le dump. Sur une base
+  # au repos les deux bornes sont égales et le contrôle est exact ; sur une base qui collecte, le
+  # dump doit tomber entre les deux. En sortir signale un export tronqué.
+  while IFS=$'\t' read -r table low high; do
     [[ -n "${table}" ]] || continue
     # `< /dev/null` : sans cela, docker exec consommerait la liste des tables lue par la boucle.
     actual="$(docker exec "${container}" psql -U "${pg_user}" -d "${restore_db}" -tAc \
       "SELECT count(*) FROM \"${table}\"" < /dev/null 2>/dev/null || echo "absente")"
-    if [[ "${actual}" == "${expected}" ]]; then
-      printf '  ok   %-24s %s lignes\n' "${table}" "${actual}"
+    if [[ "${actual}" =~ ^[0-9]+$ ]] && (( actual >= low && actual <= high )); then
+      if (( low == high )); then
+        printf '  ok   %-24s %s lignes\n' "${table}" "${actual}"
+      else
+        printf '  ok   %-24s %s lignes (dump pris entre %s et %s)\n' "${table}" "${actual}" "${low}" "${high}"
+      fi
     else
-      printf '  ECHEC %-24s attendu %s, obtenu %s\n' "${table}" "${expected}" "${actual}"
+      printf '  ECHEC %-24s attendu entre %s et %s, obtenu %s\n' "${table}" "${low}" "${high}" "${actual}"
       status=1
     fi
-  done < <(node -e '
-    const fs = require("fs");
-    const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    for (const [table, count] of Object.entries(manifest.rowCounts ?? {})) console.log(`${table}\t${count}`);
-  ' "${manifest_file}")
+  done < <(read_manifest_bounds "${manifest_file}")
 else
   echo "Aucun manifeste : vérification limitée à la présence des tables."
   docker exec -i "${container}" psql -U "${pg_user}" -d "${restore_db}" -c '\dt'
