@@ -1,7 +1,7 @@
 import { Image, Text, View } from 'react-native';
 
 import type { Streamer } from '@/api/types';
-import type { GoalProgressSummary, PlanningFocus, StreamerStanding } from '@/lib/always-on-focus';
+import type { GoalProgressSummary, PlanningFocus, StreamerStanding } from '@/lib/streamer-profile';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { formatCount, formatEuros, formatPercent, formatRank } from '@/lib/format';
 import { formatCountdown, formatParisRange } from '@/lib/planning';

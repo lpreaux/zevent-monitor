@@ -43,9 +43,13 @@ export function GoalProgress({ goal, raisedEuros, highlighted }: GoalProgressPro
         />
       </View>
 
-      <View className="mt-1.5 flex-row items-center justify-between">
-        <Text className="text-xs text-gray-500">
-          {reached ? 'Palier atteint' : `${Math.round(pct * 100)} %`}
+      <View className="mt-1.5 flex-row items-center justify-between gap-3">
+        {/* Un pourcentage seul laisse le calcul à faire : c'est le montant qui manque qui
+            dit s'il se joue ce soir ou pas du week-end. */}
+        <Text className="shrink text-xs text-gray-500">
+          {reached
+            ? 'Palier atteint'
+            : `${Math.round(pct * 100)} % · il manque ${formatEuros(targetEuros - raisedEuros)}`}
         </Text>
         {goal.category ? (
           <Text className="text-xs uppercase tracking-wider text-gray-600">{goal.category}</Text>
