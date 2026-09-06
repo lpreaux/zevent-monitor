@@ -1,10 +1,18 @@
+---
+title: Refonte UI — cohérence des composants, châssis et navigation
+status: active
+scope: mobile
+created: 2026-09-06
+updated: 2026-09-06
+---
+
 # Refonte UI — cohérence des composants, châssis et navigation
 
 Document de suivi de la passe de refonte engagée en septembre 2026. Il porte le
 diagnostic, les décisions prises et l'état d'avancement des quatre étapes.
 
-Le `PLAN.md` reste la référence fonctionnelle (ce que l'app doit faire) ; ce
-document ne traite que de la forme (comment elle le présente).
+Le [plan de l'application mobile 2026](2026-mobile-app.md) reste la référence fonctionnelle
+(ce que l'app doit faire) ; ce document ne traite que de la forme (comment elle le présente).
 
 ---
 
@@ -207,7 +215,7 @@ Récaps est vide hors événement — ce qui laissait un onglet mort la moitié 
 
 ### Étape 1 — Le système de boutons  ▸ faite
 
-Créer `src/components/ui/` et `src/lib/icons.ts`, puis migrer tous les appels.
+Créer `apps/mobile/src/components/ui/` et `apps/mobile/src/lib/icons.ts`, puis migrer tous les appels.
 Aucun changement de structure : c'est la fondation des étapes suivantes.
 
 **`Button`** — variantes × tailles, plus rien d'écrit sur place.
@@ -234,7 +242,7 @@ côté d'autre chose ; `rounded-2xl` pour un bouton-bloc qui prend toute la larg
 Deux tailles : `sm` 32 px / icône 16, `md` 40 px / icône 20 ; `hitSlop` calculé
 pour atteindre 44 px dans les deux cas.
 
-**Le centrage est traité là, une fois** : `Icon` (`src/components/ui/icon.tsx`) est
+**Le centrage est traité là, une fois** : `Icon` (`apps/mobile/src/components/ui/icon.tsx`) est
 le seul rendu de glyphe de l'application. Il porte le rattrapage Android et la table
 `ICON_NUDGE`, ce qui remonte dans le système la correction qui ne vivait que dans
 `watch-button` — et la rend proportionnelle à la taille. Voir D2 pour la mesure qui
@@ -243,7 +251,7 @@ a conduit à ne garder qu'une seule entrée dans la table.
 **Échelle des tailles d'icône** : 12 (dans du texte), 14 (chips et lignes),
 16 (boutons), 20 (barre du haut), 22 (onglets).
 
-**Lexique — une action, une icône** (`src/lib/icons.ts`) :
+**Lexique — une action, une icône** (`apps/mobile/src/lib/icons.ts`) :
 
 | Action | Icône | À corriger |
 |---|---|---|
@@ -260,8 +268,8 @@ a conduit à ne garder qu'une seule entrée dans la table.
 
 #### Ce que l'étape a effectivement changé
 
-`src/components/ui/button.tsx`, `src/components/ui/icon-button.tsx` et
-`src/lib/icons.ts` créés ; 29 fichiers migrés, 436 lignes retirées pour 350
+`apps/mobile/src/components/ui/button.tsx`, `apps/mobile/src/components/ui/icon-button.tsx` et
+`apps/mobile/src/lib/icons.ts` créés ; 29 fichiers migrés, 436 lignes retirées pour 350
 ajoutées. Plus aucun `bg-zevent-500` porteur de padding hors du système, plus aucun
 cercle de bouton-icône écrit sur place, plus qu'une icône de partage.
 
@@ -319,7 +327,7 @@ l'étoile complète son `hitSlop` jusqu'aux 44 px comme le fait `IconButton` —
 10, il lui laissait une cible de 36 px à cette taille. Les deux étoiles des listes de
 streamers passent au passage sur l'échelle (20 et 16, contre 20 et 18).
 
-**Le rouge est tranché, et écrit dans `src/theme.ts`.** Il a trois emplois, qui ne se
+**Le rouge est tranché, et écrit dans `apps/mobile/src/theme.ts`.** Il a trois emplois, qui ne se
 confondent pas parce qu'ils ne portent jamais sur le même objet : le direct, l'écart
 négatif face à 2025, et l'erreur. Le diagnostic n'en voyait que deux — l'écart négatif
 manquait à l'appel alors qu'il occupe cinq fichiers.
@@ -336,7 +344,7 @@ rang `neutral` posé par-dessus du contenu qui défile, où un fond à cinq pour
 blanc laisse passer les lignes de la liste et fait changer le libellé de contraste à
 chaque geste.
 
-**`TONE_TEXT`, `TONE_COLOR` et `toneOf` rejoignent `src/theme.ts`.** Les trois classes
+**`TONE_TEXT`, `TONE_COLOR` et `toneOf` rejoignent `apps/mobile/src/theme.ts`.** Les trois classes
 de l'écart chiffré étaient réécrites dans cinq fichiers — verdict, rythme, paliers,
 momentum, carte de partage —, et avaient déjà divergé : le cas neutre en `gray-400`
 d'un côté, `gray-300` de l'autre. `VerdictTone` disparaît au profit de `Tone`, qui
@@ -361,7 +369,7 @@ puisqu'il n'y a plus de choix à faire. `AppHeader` perd `liveSummary` et
 
 #### Ce que l'étape a effectivement changé
 
-`src/components/app-socle.tsx` créé ; `live-summary-bar.tsx` et `store/live-bar.ts`
+`apps/mobile/src/components/app-socle.tsx` créé ; `live-summary-bar.tsx` et `store/live-bar.ts`
 supprimés ; `app-tab-bar.tsx` réduit à la seule rangée d'onglets (`TabRow`), le socle
 portant désormais la surface, le filet et la marge de zone sûre pour eux deux.
 
@@ -476,7 +484,7 @@ dans un bloc qu'on ouvre justement pour le lire, ne se défendait pas non plus.
 
 #### Ce que l'étape a effectivement changé
 
-**Le hub** (`src/app/settings/index.tsx`). Chaque en-tête de page y mène, et le socle
+**Le hub** (`apps/mobile/src/app/settings/index.tsx`). Chaque en-tête de page y mène, et le socle
 aussi : ce qui y alignait trois entrées — compte, écran secondaire, notifications —
 n'en porte plus qu'une. Les cinq onglets pointent donc vers la même destination, ce
 qui est tout l'intérêt de la règle « une action au maximum, toujours la même » posée à
