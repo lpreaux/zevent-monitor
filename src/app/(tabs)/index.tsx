@@ -1,9 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 
 import { useZeventState } from '@/api/queries';
-import { AppHeader, type HeaderAction } from '@/components/app-header';
+import { AppHeader, useSettingsAction } from '@/components/app-header';
 import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { FavoritesSection } from '@/components/favorites-section';
@@ -22,24 +21,11 @@ function readMarquee(marquee: unknown): string | null {
 }
 
 export default function DashboardScreen() {
-  const router = useRouter();
   const { data, isError, error, refetch, isRefetching } = useZeventState();
 
-  const headerActions = useMemo<HeaderAction[]>(
-    () => [
-      ...(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ? [{
-        icon: 'person-circle-outline',
-        label: 'Compte et synchronisation',
-        onPress: () => router.push('/account' as never),
-      } satisfies HeaderAction] : []),
-      {
-        icon: 'notifications-outline',
-        label: 'Réglages des notifications',
-        onPress: () => router.push('/settings/notifications'),
-      },
-    ],
-    [router],
-  );
+  // Le compte a quitté la barre du haut pour le socle : il vaut pour toute l'application,
+  // pas pour l'Accueil. Ne reste qu'une action, la même sur les cinq onglets — le hub.
+  const headerActions = useSettingsAction();
 
   const onRefresh = useCallback(() => void refetch(), [refetch]);
 

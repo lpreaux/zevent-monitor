@@ -11,11 +11,10 @@
  */
 
 import type { EditionComparison } from './stats-edition';
-
-export type VerdictTone = 'ahead' | 'behind' | 'idle';
+import type { Tone } from '../theme';
 
 export interface Verdict {
-  tone: VerdictTone;
+  tone: Tone;
   /** Le gros titre de la carte. */
   headline: string;
   /** Ce qui l'appuie, en une phrase. */

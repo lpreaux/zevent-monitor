@@ -11,6 +11,8 @@ import * as WebBrowser from 'expo-web-browser';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { LoadingState } from '@/components/screen-state';
+import { IconButton } from '@/components/ui/icon-button';
+import { icons } from '@/lib/icons';
 import { colors } from '@/theme';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -166,15 +168,7 @@ function SignInContent() {
       <Aurora />
       <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
         <View className="flex-row px-4 pt-1">
-          <Pressable
-            onPress={dismiss}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Fermer"
-            className="h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 active:opacity-60"
-          >
-            <Ionicons name="close" size={20} color={colors.brandSoft} />
-          </Pressable>
+          <IconButton variant="soft" icon={icons.close} label="Fermer" onPress={dismiss} />
         </View>
 
         {/*

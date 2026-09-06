@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,8 @@ import { StreamerDonations } from '@/components/streamer-donations';
 import { StreamerNextGoal } from '@/components/streamer-goals';
 import { StreamerHero } from '@/components/streamer-hero';
 import { StreamerSchedule } from '@/components/streamer-schedule';
+import { Button } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 import { openTwitchStream } from '@/lib/links';
 import { lastOnlineAt, streamerStanding } from '@/lib/streamer-profile';
 import { useLiveShows } from '@/lib/use-live-shows';
@@ -36,15 +38,15 @@ function UnknownStreamer({ twitch }: { twitch: string }) {
           {`« ${twitch} » ne figure pas dans la liste officielle du ZEvent : ni cagnotte, ni classement, ni direct à afficher.`}
         </Text>
       </View>
-      <Pressable
-        onPress={() => void openTwitchStream(twitch)}
-        accessibilityRole="button"
+      <Button
+        block
+        size="sm"
+        variant="secondary"
+        icon={icons.channel}
+        label="Ouvrir la chaîne"
         accessibilityLabel={`Ouvrir la chaîne ${twitch} sur Twitch`}
-        className="flex-row items-center justify-center gap-1.5 rounded-full border border-zevent-500/60 py-2.5 active:opacity-80"
-      >
-        <Ionicons name="logo-twitch" size={14} color="#c4b5fd" />
-        <Text className="text-xs font-bold text-zevent-200">Ouvrir la chaîne</Text>
-      </Pressable>
+        onPress={() => void openTwitchStream(twitch)}
+      />
     </View>
   );
 }

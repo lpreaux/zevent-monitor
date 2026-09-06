@@ -6,10 +6,12 @@ import { useRouter } from 'expo-router';
 
 import { getRecapSchedules, putRecapSchedules } from '@/api/recaps';
 import { AppHeader } from '@/components/app-header';
+import { NavRow } from '@/components/nav-row';
 import { ScreenShell } from '@/components/screen-shell';
 import { SectionHeader } from '@/components/section-header';
 import { SwitchRow } from '@/components/settings-row';
 import { TimePicker } from '@/components/time-picker';
+import { icons } from '@/lib/icons';
 import { useRecapIdentity } from '@/lib/use-recap-identity';
 import { useNotificationsStore } from '@/store/notifications';
 
@@ -54,8 +56,6 @@ export default function RecapSettingsScreen() {
         <AppHeader
           title="Réglages des récaps"
           compact
-          liveSummary={false}
-          alwaysOn={false}
           onBack={() => router.back()}
         />
       }
@@ -117,7 +117,7 @@ export default function RecapSettingsScreen() {
             label="Me prévenir quand un récap est prêt"
             hint={
               preferences.enabled
-                ? 'Vous le retrouvez dans l’onglet Récaps même sans notification.'
+                ? 'Vous le retrouvez dans le volet Récaps du Bilan même sans notification.'
                 : 'Les alertes sont coupées dans le menu Notifications.'
             }
             value={preferences.recaps.enabled}
@@ -129,16 +129,15 @@ export default function RecapSettingsScreen() {
               }))
             }
           />
-          <Pressable
+          {/* Le seul renvoi qui reste d'une feuille de réglages à l'autre, et il répond à
+              une question posée ici même : l'interrupteur ci-dessus dit si l'on est
+              prévenu, pas comment. Les autres allers-retours ont disparu avec le hub. */}
+          <NavRow
+            icon={icons.notificationsOff}
+            label="Son, vibration, plage silencieuse"
+            hint="Réglages des notifications"
             onPress={() => router.push('/settings/notifications' as never)}
-            className="flex-row items-center gap-2 active:opacity-70"
-          >
-            <Ionicons name="options-outline" size={16} color="#9ca3af" />
-            <Text className="flex-1 text-xs text-gray-400">
-              Son, vibration et plage silencieuse : menu Notifications
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color="#6b7280" />
-          </Pressable>
+          />
         </View>
 
         <View className="gap-3">

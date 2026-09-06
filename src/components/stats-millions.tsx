@@ -16,6 +16,7 @@ import {
 } from '@/lib/millions';
 import { formatElapsedLabel } from '@/lib/stats-edition';
 import { useEditionComparison } from '@/lib/use-edition-comparison';
+import { TONE_TEXT, toneOf } from '@/theme';
 
 /**
  * Nombre de franchissements gardés à l'écran quand la liste est repliée. Cinq lignes
@@ -54,12 +55,9 @@ function CrossingRow({ crossing, stepEur, reference }: CrossingRowProps) {
             reference ? ' qu’en 2025' : ''
           }`;
 
-  const gapTone =
-    rounded === null || rounded > 0
-      ? 'text-emerald-400'
-      : rounded === 0
-        ? 'text-gray-400'
-        : 'text-red-400';
+  // Un palier jamais atteint en 2025 compte comme une avance, pas comme une absence de
+  // comparaison : c'est la meilleure nouvelle que la ligne puisse porter.
+  const gapTone = TONE_TEXT[rounded === null ? 'ahead' : toneOf(rounded)];
 
   return (
     <View className="flex-row items-baseline gap-3 py-2">

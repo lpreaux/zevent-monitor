@@ -1,5 +1,5 @@
-import { Pressable, Text } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Button } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 
 interface DisclosureButtonProps {
   expanded: boolean;
@@ -13,10 +13,11 @@ interface DisclosureButtonProps {
 /**
  * Bouton qui déplie le reste d'une section sur place.
  *
- * À ne pas confondre avec `SectionLink`, qui envoie ailleurs : ici on reste, et c'est
- * pourquoi le bouton porte un cadre plutôt qu'un chevron de navigation. Même dessin
- * partout — paliers franchis, émissions passées, directs en trop — pour qu'un cadre
- * signifie toujours la même chose : il y en a d'autres, dessous.
+ * À ne pas confondre avec `SectionLink`, qui envoie ailleurs. La distinction se joue
+ * maintenant sur deux traits plutôt qu'un : le cadre — on reste, il y a donc quelque
+ * chose dessous à encadrer — et le gris du rang `neutral`, quand le lien de section garde
+ * le violet de ce qui mène ailleurs. Déplier est un service rendu à la lecture, pas une
+ * proposition : cela ne doit pas appeler l'œil autant qu'une sortie.
  */
 export function DisclosureButton({
   expanded,
@@ -25,16 +26,13 @@ export function DisclosureButton({
   expandedLabel,
 }: DisclosureButtonProps) {
   return (
-    <Pressable
+    <Button
+      block
+      size="sm"
+      variant="neutral"
+      icon={expanded ? icons.collapse : icons.expand}
+      label={expanded ? (expandedLabel ?? label) : label}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ expanded }}
-      className="flex-row items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 active:opacity-70"
-    >
-      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={13} color="#c4b5fd" />
-      <Text className="text-xs font-semibold text-zevent-200">
-        {expanded ? (expandedLabel ?? label) : label}
-      </Text>
-    </Pressable>
+    />
   );
 }

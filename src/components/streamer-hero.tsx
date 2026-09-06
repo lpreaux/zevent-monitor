@@ -1,6 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import type { PlanningEntry, Streamer } from '@/api/types';
 import { AnimatedEuros } from '@/components/animated-euros';
@@ -8,36 +7,14 @@ import { FavoriteButton } from '@/components/favorite-button';
 import { Metric, MetricDivider } from '@/components/metric';
 import { StreamerActivityLine } from '@/components/streamer-activity-line';
 import { StreamerAvatar } from '@/components/streamer-avatar';
+import { Button, ButtonRow } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { formatCount, formatEuros, formatPercent, formatRank, formatRelativeTime } from '@/lib/format';
+import { icons } from '@/lib/icons';
 import { openDonationPage, openTwitchStream } from '@/lib/links';
 import { streamerActivity } from '@/lib/streamer-activity';
 import type { StreamerStanding } from '@/lib/streamer-profile';
 import { useAlwaysOnStore } from '@/store/always-on';
-
-type IconName = keyof typeof Ionicons.glyphMap;
-
-/** Action secondaire de la carte : un rond discret, à côté des deux boutons pleins. */
-function RoundAction({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: IconName;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={6}
-      className="h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 active:opacity-60"
-    >
-      <Ionicons name={icon} size={16} color="#c4b5fd" />
-    </Pressable>
-  );
-}
 
 interface StreamerHeroProps {
   streamer: Streamer;
@@ -95,7 +72,35 @@ export function StreamerHero({
             <StreamerActivityLine activity={activity} size={12} />
           </View>
         </View>
-        <FavoriteButton twitch={streamer.twitch} size={24} />
+        {/* Suivre, envoyer sur l'écran secondaire et partager sont trois choses que l'on
+            fait *de* ce streamer : elles se rangent ensemble en haut à droite, comme sur
+            la carte de verdict et sur l'écran d'un récap. En bas ne restent que les deux
+            actions qui font quelque chose *avec* lui — le regarder, lui donner —, et
+            elles se partagent la largeur à parts égales. La rangée du bas alignait
+            jusqu'ici deux boutons pleins et deux ronds, ce qui donnait quatre choses de
+            même rang là où il n'y en a que deux. */}
+        <View className="flex-row items-center gap-1">
+          <IconButton
+            size="sm"
+            icon={icons.alwaysOn}
+            label="Afficher sur l’écran secondaire"
+            onPress={focusOnSecondScreen}
+          />
+          {/* Le partage ouvre sa propre page : une carte en image demande d'être vue avant
+              d'être envoyée, et le texte y reste disponible en repli. */}
+          <IconButton
+            size="sm"
+            icon={icons.share}
+            label={`Partager la fiche de ${streamer.display}`}
+            onPress={() =>
+              router.push({
+                pathname: '/streamer/[twitch]/share',
+                params: { twitch: streamer.twitch },
+              })
+            }
+          />
+          <FavoriteButton twitch={streamer.twitch} size="sm" />
+        </View>
       </View>
 
       <View>
@@ -148,50 +153,29 @@ export function StreamerHero({
         />
       </View>
 
-      <View className="flex-row items-center gap-2">
-        <Pressable
-          onPress={() => void openTwitchStream(streamer.twitch)}
-          accessibilityRole="button"
+      <ButtonRow>
+        <Button
+          grow
+          size="sm"
+          icon={online ? icons.watch : icons.channel}
+          label={online ? 'Regarder' : 'Sa chaîne'}
           accessibilityLabel={
             online
               ? `Regarder ${streamer.display} sur Twitch`
               : `Ouvrir la chaîne de ${streamer.display}`
           }
-          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-full bg-zevent-500 py-2.5 active:opacity-80"
-        >
-          <Ionicons name={online ? 'play' : 'logo-twitch'} size={14} color="#ffffff" />
-          <Text className="text-xs font-bold text-white">
-            {online ? 'Regarder' : 'Sa chaîne'}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
-          accessibilityRole="button"
+          onPress={() => void openTwitchStream(streamer.twitch)}
+        />
+        <Button
+          grow
+          size="sm"
+          variant="secondary"
+          icon={icons.donate}
+          label="Faire un don"
           accessibilityLabel={`Faire un don à ${streamer.display}`}
-          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-full border border-zevent-500/60 py-2.5 active:opacity-80"
-        >
-          <Ionicons name="heart" size={14} color="#c4b5fd" />
-          <Text className="text-xs font-bold text-zevent-200">Faire un don</Text>
-        </Pressable>
-
-        <RoundAction
-          icon="tv-outline"
-          label="Afficher sur l’écran secondaire"
-          onPress={focusOnSecondScreen}
+          onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
         />
-        {/* Le partage ouvre sa propre page : une carte en image demande d'être vue avant
-            d'être envoyée, et le texte y reste disponible en repli. */}
-        <RoundAction
-          icon="share-outline"
-          label={`Partager la fiche de ${streamer.display}`}
-          onPress={() =>
-            router.push({
-              pathname: '/streamer/[twitch]/share',
-              params: { twitch: streamer.twitch },
-            })
-          }
-        />
-      </View>
+      </ButtonRow>
     </View>
   );
 }

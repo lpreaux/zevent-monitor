@@ -1,8 +1,6 @@
 import { RefreshControl, ScrollView } from 'react-native';
 
-import { AppHeader } from '@/components/app-header';
 import { EditionsHistory } from '@/components/editions-history';
-import { ScreenShell } from '@/components/screen-shell';
 import { SectionBreak } from '@/components/section-break';
 import { StatsAudience } from '@/components/stats-audience';
 import { StatsComparison } from '@/components/stats-comparison';
@@ -25,41 +23,37 @@ import { useEditionComparison } from '@/lib/use-edition-comparison';
  * paliers, le rythme), puis qui la regarde, puis les streamers, puis les dix ans qui
  * précèdent. Chaque section descend d'un cran dans l'échelle de temps.
  */
-export default function StatsScreen() {
+export function StatsPane() {
   const { isRefetching, refetch } = useEditionComparison();
 
   return (
-    <ScreenShell
-      header={<AppHeader title="Statistiques" subtitle="2026 face aux éditions passées" />}
+    <ScrollView
+      // Sections espacées franchement : c'est le vide entre elles, plus qu'un encadré,
+      // qui découpe une page faite de graphes et de listes.
+      contentContainerClassName="gap-7 px-5 pb-10 pt-4"
+      refreshControl={
+        <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#a78bfa" />
+      }
     >
-      <ScrollView
-        // Sections espacées franchement : c'est le vide entre elles, plus qu'un encadré,
-        // qui découpe une page faite de graphes et de listes.
-        contentContainerClassName="gap-7 px-5 pb-10 pt-4"
-        refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#a78bfa" />
-        }
-      >
-        <StatsVerdict />
+      <StatsVerdict />
 
-        <StatsComparison />
+      <StatsComparison />
 
-        <StatsMillions />
+      <StatsMillions />
 
-        <StatsRate />
+      <StatsRate />
 
-        <StatsAudience />
+      <StatsAudience />
 
-        {/* On descend de l'événement aux streamers qui le font : dernière section avant
-            de changer d'échelle de temps. */}
-        <StatsStreamerCompare />
+      {/* On descend de l'événement aux streamers qui le font : dernière section avant
+          de changer d'échelle de temps. */}
+      <StatsStreamerCompare />
 
-        {/* On quitte l'édition en cours pour les dix ans qui la précèdent : la rupture
-            d'échelle mérite plus qu'un interligne. */}
-        <SectionBreak />
+      {/* On quitte l'édition en cours pour les dix ans qui la précèdent : la rupture
+          d'échelle mérite plus qu'un interligne. */}
+      <SectionBreak />
 
-        <EditionsHistory />
-      </ScrollView>
-    </ScreenShell>
+      <EditionsHistory />
+    </ScrollView>
   );
 }

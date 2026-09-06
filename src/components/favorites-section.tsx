@@ -1,9 +1,10 @@
 import { Fragment } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 
+import { Button } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 import { formatCount } from '@/lib/format';
 import { FAVORITES_MOMENTUM_WINDOW_MINUTES, useRankedFavorites } from '@/lib/use-ranked-favorites';
 import { FavoriteHighlightCard } from './favorite-highlight-card';
@@ -24,14 +25,12 @@ function NoFavorites() {
         Suivez vos streamers : leur cagnotte, ce qu’ils jouent et leurs shows remontent ici,
         les plus actifs en premier.
       </Text>
-      <Pressable
+      <Button
+        size="sm"
+        icon={icons.add}
+        label="Choisir mes favoris"
         onPress={() => router.push('/streamers')}
-        accessibilityRole="button"
-        className="flex-row items-center gap-1.5 rounded-full bg-zevent-500 px-4 py-2 active:opacity-80"
-      >
-        <Ionicons name="add" size={15} color="#ffffff" />
-        <Text className="text-xs font-bold text-white">Choisir mes favoris</Text>
-      </Pressable>
+      />
     </View>
   );
 }
@@ -43,7 +42,7 @@ function NoFavorites() {
  *
  * Rien que des directs : puisque l'extrait ne montre déjà pas tous les favoris en ligne,
  * descendre jusqu'aux hors ligne reviendrait à faire de la place à ceux dont il n'y a
- * précisément rien à dire. Ils attendent sur la page « Mes favoris ».
+ * précisément rien à dire. Ils attendent dans l'onglet Streamers, réduit aux favoris.
  */
 export function FavoritesSection() {
   const router = useRouter();
@@ -52,7 +51,7 @@ export function FavoritesSection() {
   const [highlight, ...rest] = live;
   const liveRows = rest.slice(0, HOME_LIVE_ROWS);
   const shown = (highlight ? 1 : 0) + liveRows.length;
-  // Les hors ligne comptent parmi les « autres » : c'est bien ce que la page complète montre.
+  // Les hors ligne comptent parmi les « autres » : c'est bien ce que la liste complète montre.
   const hidden = known - shown;
 
   return (
@@ -111,7 +110,9 @@ export function FavoritesSection() {
                 : 'Ouvrir mes favoris'
             }
             accessibilityLabel="Ouvrir la liste de mes favoris"
-            onPress={() => router.push('/favorites')}
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/streamers', params: { scope: 'favorites' } } as never)
+            }
           />
         </Animated.View>
       )}

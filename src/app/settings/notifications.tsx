@@ -6,6 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { ChoiceChips } from '@/components/choice-chips';
 import { SettingsSection, SwitchRow } from '@/components/settings-row';
+import { Button } from '@/components/ui/button';
 import {
   BIG_DONATION_THRESHOLDS_CENTS,
   MILESTONE_STEPS_CENTS,
@@ -86,25 +87,22 @@ export default function NotificationSettingsScreen() {
               Réglages non synchronisés : {syncError}
             </Text>
           ) : null}
-          <Pressable
-            onPress={() => void (pushEnabled ? disablePush() : enablePush())}
-            accessibilityRole="button"
-            className={`items-center rounded-2xl py-3 active:opacity-80 ${
-              pushEnabled ? 'border border-gray-700 bg-gray-900' : 'bg-zevent-500'
-            }`}
-          >
-            <Text
-              className={`text-sm font-bold ${pushEnabled ? 'text-gray-200' : 'text-white'}`}
-            >
-              {sync === 'syncing'
+          <Button
+            block
+            size="lg"
+            variant={pushEnabled ? 'neutral' : 'primary'}
+            loading={sync === 'syncing'}
+            label={
+              sync === 'syncing'
                 ? 'Synchronisation…'
                 : pushEnabled
                   ? 'Désactiver sur cet appareil'
                   : permission === 'denied'
                     ? 'Redemander l’autorisation'
-                    : 'Activer les notifications'}
-            </Text>
-          </Pressable>
+                    : 'Activer les notifications'
+            }
+            onPress={() => void (pushEnabled ? disablePush() : enablePush())}
+          />
         </View>
 
         <SettingsSection
@@ -311,7 +309,7 @@ export default function NotificationSettingsScreen() {
 
         <SettingsSection
           title="Récapitulatifs"
-          description="Les horaires se règlent dans l’onglet Récaps ; ici, seule la notification."
+          description="Les horaires se règlent dans le volet Récaps du Bilan ; ici, seule la notification."
         >
           <SwitchRow
             label="Prévenir quand un récap est prêt"
@@ -335,7 +333,7 @@ export default function NotificationSettingsScreen() {
             }
           />
           <Pressable
-            onPress={() => router.push('/(tabs)/recaps' as never)}
+            onPress={() => router.push('/(tabs)/bilan' as never)}
             accessibilityRole="button"
             className="flex-row items-center gap-2 active:opacity-70"
           >

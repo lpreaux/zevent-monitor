@@ -3,6 +3,8 @@ import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import type { PlanningEntry } from '@/api/types';
+import { Button, ButtonRow } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 import type { RelevanceReason, ScoredFavorite } from '@/lib/favorite-relevance';
 import { formatCount, formatEuros } from '@/lib/format';
 import { openDonationPage, openTwitchStream } from '@/lib/links';
@@ -96,25 +98,26 @@ export function FavoriteHighlightCard({ item, show, windowMinutes }: FavoriteHig
         </View>
       </Pressable>
 
-      <View className="flex-row gap-2 px-4 pb-3.5">
-        <Pressable
-          onPress={() => void openTwitchStream(streamer.twitch)}
-          accessibilityRole="button"
-          accessibilityLabel={`Regarder ${streamer.display} sur Twitch`}
-          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-full bg-zevent-500 py-2 active:opacity-80"
-        >
-          <Ionicons name="play" size={14} color="#ffffff" />
-          <Text className="text-xs font-bold text-white">Regarder</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
-          accessibilityRole="button"
-          accessibilityLabel={`Faire un don à ${streamer.display}`}
-          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-full border border-zevent-500/60 py-2 active:opacity-80"
-        >
-          <Ionicons name="heart" size={14} color="#c4b5fd" />
-          <Text className="text-xs font-bold text-zevent-200">Faire un don</Text>
-        </Pressable>
+      <View className="px-4 pb-3.5">
+        <ButtonRow>
+          <Button
+            grow
+            size="sm"
+            icon={icons.watch}
+            label="Regarder"
+            accessibilityLabel={`Regarder ${streamer.display} sur Twitch`}
+            onPress={() => void openTwitchStream(streamer.twitch)}
+          />
+          <Button
+            grow
+            size="sm"
+            variant="secondary"
+            icon={icons.donate}
+            label="Faire un don"
+            accessibilityLabel={`Faire un don à ${streamer.display}`}
+            onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
+          />
+        </ButtonRow>
       </View>
     </View>
   );

@@ -8,6 +8,7 @@ import type { PlanningEntry } from '@/api/types';
 import { rankChange } from '@/lib/donations';
 import { formatEuros } from '@/lib/format';
 import { streamerActivity } from '@/lib/streamer-activity';
+import { TONE_COLOR, TONE_TEXT, toneOf } from '@/theme';
 import { StreamerActivityLine } from './streamer-activity-line';
 import { StreamerAvatar } from './streamer-avatar';
 import { WatchButton } from './watch-button';
@@ -32,11 +33,12 @@ function RankBadge({ item }: { item: StreamerMomentum }) {
   if (change === null) return <Text className="text-[11px] text-gray-600">#{item.rank}</Text>;
   if (change === 0) return <Text className="text-[11px] text-gray-600">#{item.rank}</Text>;
   const up = change > 0;
+  const tone = toneOf(change);
   return (
     <View className="flex-row items-center gap-0.5">
       <Text className="text-[11px] text-gray-600">#{item.rank}</Text>
-      <Ionicons name={up ? 'arrow-up' : 'arrow-down'} size={10} color={up ? '#34d399' : '#f87171'} />
-      <Text className={`text-[11px] font-semibold ${up ? 'text-emerald-400' : 'text-red-400'}`}>
+      <Ionicons name={up ? 'arrow-up' : 'arrow-down'} size={10} color={TONE_COLOR[tone]} />
+      <Text className={`text-[11px] font-semibold ${TONE_TEXT[tone]}`}>
         {Math.abs(change)}
       </Text>
     </View>

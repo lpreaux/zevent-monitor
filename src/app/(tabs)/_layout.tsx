@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router/js-tabs';
 import type { ColorValue } from 'react-native';
 
-import { AppTabBar } from '@/components/app-tab-bar';
+import { AppSocle } from '@/components/app-socle';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -33,7 +33,9 @@ export default function TabsLayout() {
       // Chaque écran fournit sa propre barre du haut (`AppHeader`), plus riche que
       // le titre par défaut : mode de l'événement, compteurs, actions.
       screenOptions={{ headerShown: false }}
-      tabBar={(props) => <AppTabBar {...props} />}
+      // Le socle est rendu comme barre d'onglets : c'est ce qui garantit qu'il
+      // n'existe qu'une fois et que la scène se dimensionne d'elle-même au-dessus.
+      tabBar={(props) => <AppSocle {...props} />}
     >
       <Tabs.Screen
         name="index"
@@ -63,18 +65,14 @@ export default function TabsLayout() {
           tabBarIcon: (props) => <TabBarIcon name="calendar" {...props} />,
         }}
       />
+      {/* Cinq onglets, pas six : au-delà, le libellé en dix pixels devient la seule
+          chose qui distingue deux icônes. Stats et Récaps répondaient à la même
+          question, ils la partagent maintenant sous « Bilan ». */}
       <Tabs.Screen
-        name="stats"
+        name="bilan"
         options={{
-          title: 'Stats',
+          title: 'Bilan',
           tabBarIcon: (props) => <TabBarIcon name="stats-chart" {...props} />,
-        }}
-      />
-      <Tabs.Screen
-        name="recaps"
-        options={{
-          title: 'Récaps',
-          tabBarIcon: (props) => <TabBarIcon name="newspaper" {...props} />,
         }}
       />
     </Tabs>

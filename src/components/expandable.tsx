@@ -1,7 +1,8 @@
 import { type ReactNode, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { View } from 'react-native';
 
+import { IconButton } from '@/components/ui/icon-button';
+import { icons } from '@/lib/icons';
 import { FullscreenModal } from './fullscreen-modal';
 
 interface ExpandableProps {
@@ -37,18 +38,18 @@ export function Expandable({ title, children, expanded, handleTop = 8 }: Expanda
     <View>
       {children}
 
-      <Pressable
-        onPress={() => setOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel={title ? `Agrandir : ${title}` : 'Agrandir'}
-        hitSlop={10}
-        // Posé au-dessus du tracé : le SVG d'une courbe monte lui-même en `zIndex` à
-        // l'intérieur de son cadre, et sur Android un frère sans rang finit dessous.
-        style={{ position: 'absolute', left: 8, top: handleTop, zIndex: 3 }}
-        className="rounded-full bg-gray-900/85 p-1.5 active:opacity-60"
-      >
-        <Ionicons name="expand" size={13} color="#9ca3af" />
-      </Pressable>
+      {/* Posé au-dessus du tracé : le SVG d'une courbe monte lui-même en `zIndex` à
+          l'intérieur de son cadre, et sur Android un frère sans rang finit dessous. */}
+      <View style={{ position: 'absolute', left: 8, top: handleTop, zIndex: 3 }}>
+        <IconButton
+          size="sm"
+          variant="overlay"
+          tone="muted"
+          icon={icons.fullscreen}
+          label={title ? `Agrandir : ${title}` : 'Agrandir'}
+          onPress={() => setOpen(true)}
+        />
+      </View>
 
       <FullscreenModal visible={open} onClose={() => setOpen(false)} title={title}>
         {expanded ?? children}

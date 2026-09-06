@@ -6,7 +6,7 @@ import { parisClock } from '@/lib/donations';
 import { formatDate, formatEuros, formatEurosCompact } from '@/lib/format';
 import type { HistoryProvenance } from '@/lib/history-2025';
 import { formatElapsedLabel, type EditionComparison } from '@/lib/stats-edition';
-import { colors } from '@/theme';
+import { colors, TONE_TEXT } from '@/theme';
 
 /**
  * Mêmes teintes que la superposition de l'onglet Statistiques. Une carte partagée est
@@ -128,7 +128,7 @@ export const StatsShareCard = forwardRef<View, StatsShareCardProps>(function Sta
           {delta !== null ? (
             <Text
               numberOfLines={2}
-              className={`mt-1 text-base font-semibold ${ahead ? 'text-emerald-400' : 'text-red-400'}`}
+              className={`mt-1 text-base font-semibold ${TONE_TEXT[ahead ? 'ahead' : 'behind']}`}
             >
               {`${ahead ? '+' : '−'}${formatEuros(Math.abs(delta))} ${ahead ? 'd’avance sur' : 'de retard sur'} 2025 au même moment`}
             </Text>

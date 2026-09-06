@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useMomentum, useZeventState } from '@/api/queries';
 import type { Streamer } from '@/api/types';
-import { AppHeader } from '@/components/app-header';
+import { AppHeader, useSettingsAction } from '@/components/app-header';
 import { FavoriteButton } from '@/components/favorite-button';
 import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { LiveStreamerRow } from '@/components/live-streamer-row';
@@ -70,6 +70,11 @@ function sortFromParams(value: string | string[] | undefined): StreamerSort {
   return STREAMER_SORTS.some((option) => option.key === key) ? (key as StreamerSort) : 'donation';
 }
 
+/** Périmètre porté par l'URL, comme le tri : voir `scope` plus bas. */
+function scopeFromParams(value: string | string[] | undefined): Scope {
+  return (Array.isArray(value) ? value[0] : value) === 'favorites' ? 'favorites' : 'all';
+}
+
 /**
  * Case de hauteur fixe autour d'une ligne. Le filet y est posé en absolu : compté dans
  * le flux, il ferait dériver d'un pixel par ligne les positions calculées plus bas.
@@ -123,8 +128,7 @@ function measure(sections: StreamerSection[]): { length: number; offset: number 
 export default function StreamersScreen() {
   const { data, isError, error, refetch } = useZeventState();
   const [search, setSearch] = useState('');
-  const [scope, setScope] = useState<Scope>('all');
-  const params = useLocalSearchParams<{ sort?: string }>();
+  const params = useLocalSearchParams<{ sort?: string; scope?: string }>();
   const router = useRouter();
 
   // Le tri vit dans les paramètres de la route, pas dans un état local : l'onglet reste
@@ -133,12 +137,22 @@ export default function StreamersScreen() {
   const sort = sortFromParams(params.sort);
   const setSort = useCallback((key: StreamerSort) => router.setParams({ sort: key }), [router]);
 
+  // Le périmètre suit la même règle depuis que l'écran « Mes favoris » a disparu : c'est
+  // lui qui rend `?scope=favorites` adressable, et donc cet onglet capable de recevoir le
+  // lien que l'accueil envoyait à une seconde liste.
+  const scope = scopeFromParams(params.scope);
+  const setScope = useCallback(
+    (next: Scope) => router.setParams({ scope: next === 'favorites' ? 'favorites' : '' }),
+    [router],
+  );
+
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const needle = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const controls = useFloatingControls();
 
   const favorites = useFavoritesStore((s) => s.favorites);
   const shows = useLiveShows();
+  const headerActions = useSettingsAction();
 
   // Toujours demandé, quel que soit le tri : la progression ne sert pas qu'à classer,
   // elle s'affiche sur chaque ligne en direct.
@@ -186,12 +200,13 @@ export default function StreamersScreen() {
   const liveCount = data ? data.data.live.filter((s) => s.online).length : 0;
   const header = (
     <AppHeader
-      title="Streamers"
+      title={scope === 'favorites' ? 'Mes favoris' : 'Streamers'}
       subtitle={
         data
           ? `${formatCount(liveCount)} en live · ${formatCount(data.data.live.length)} inscrits`
           : 'Liste officielle du ZEvent'
       }
+      actions={headerActions}
     />
   );
 
@@ -258,14 +273,14 @@ export default function StreamersScreen() {
                   show={shows.get(item.twitch.toLowerCase())}
                   // Sur la liste complète, le geste qui compte est de suivre quelqu'un :
                   // regarder un direct se fait depuis l'accueil ou la fiche.
-                  trailing={<FavoriteButton twitch={item.twitch} size={20} />}
+                  trailing={<FavoriteButton twitch={item.twitch} size="md" />}
                 />
               </Slot>
             ) : (
               <Slot height={OFFLINE_ROW_HEIGHT} separated={index > 0} inset={32}>
                 <OfflineStreamerRow
                   streamer={item}
-                  trailing={<FavoriteButton twitch={item.twitch} size={18} />}
+                  trailing={<FavoriteButton twitch={item.twitch} size="sm" />}
                 />
               </Slot>
             )
