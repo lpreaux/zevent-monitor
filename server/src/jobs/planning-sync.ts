@@ -59,7 +59,7 @@ const showSchema = z
 /**
  * Entrée du champ `calendar` de `zevent.fr/api/`, resté vide jusqu'au lancement 2026.
  * Sa forme exacte n'ayant jamais été publiée, on accepte les noms de champs les plus
- * probables et on ignore silencieusement ce qui ne s'y conforme pas (PLAN.md §1.1 et §5).
+ * probables et on ignore silencieusement ce qui ne s'y conforme pas (docs/plans/2026-mobile-app.md §1.1 et §5).
  */
 const officialEntrySchema = z
   .object({
@@ -178,7 +178,7 @@ function sortEntries(entries: PlanningEntry[]): PlanningEntry[] {
 
 /**
  * Synchronise le planning du ZEvent 2026. Source principale : les « shows » d'EvenMoreStats
- * (InGDoc, communautaire, cf. PLAN.md §1.3) ; le champ `calendar` de l'API officielle, vide
+ * (InGDoc, communautaire, cf. docs/plans/2026-mobile-app.md §1.3) ; le champ `calendar` de l'API officielle, vide
  * jusqu'au lancement, est fusionné dès qu'il contient quelque chose d'exploitable.
  * Le dernier snapshot valide reste servi par `GET /v1/planning`.
  */

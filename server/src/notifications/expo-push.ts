@@ -58,7 +58,7 @@ type ExpoPushClientOptions = {
 
 /**
  * Client minimal de l'Expo Push Service. Aucun token push ni commentaire de don
- * n'est journalisé ici : l'appelant ne reçoit que des tickets et des reçus (cf. PLAN.md §3.2).
+ * n'est journalisé ici : l'appelant ne reçoit que des tickets et des reçus (cf. docs/plans/2026-mobile-app.md §3.2).
  */
 export class ExpoPushClient {
   readonly #fetch: typeof fetch;

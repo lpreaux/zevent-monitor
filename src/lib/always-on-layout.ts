@@ -1,5 +1,5 @@
 /**
- * Calcul de mise en page de l'écran AlwaysOn (cf. PLAN.md §4 P1, « écran secondaire »).
+ * Calcul de mise en page de l'écran AlwaysOn (cf. docs/plans/2026-mobile-app.md §4 P1, « écran secondaire »).
  *
  * Isolé de React pour rester testable sur plusieurs ratios d'écran : téléphones
  * 9:16 et 9:20, paysage 16:9 et 20:9, petits écrans et tablettes 4:3 — et désormais
@@ -84,7 +84,7 @@ export interface AlwaysOnLayout {
   captionFontSize: number;
   /** Diamètre de l'avatar de la carte Focus. */
   focusAvatarSize: number;
-  /** Nombre de favoris qui tiennent réellement à l'écran (max 5, cf. PLAN.md). */
+  /** Nombre de favoris qui tiennent réellement à l'écran (max 5, cf. docs/plans/2026-mobile-app.md). */
   favoriteSlots: number;
   /** Nombre d'entrées de planning qui tiennent réellement à l'écran. */
   planningSlots: number;

@@ -72,7 +72,7 @@ export interface PlanningResult {
 
 /**
  * Planning affiché : snapshot backend en priorité, repli sur la copie embarquée dès que
- * le backend est injoignable ou n'a encore rien synchronisé (PLAN.md §4 P0 et §7).
+ * le backend est injoignable ou n'a encore rien synchronisé (docs/plans/2026-mobile-app.md §4 P0 et §7).
  */
 export function usePlanning(): PlanningResult & {
   isLoading: boolean;

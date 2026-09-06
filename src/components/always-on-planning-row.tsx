@@ -23,7 +23,7 @@ function participantsLabel(entry: PlanningEntry): string | null {
 
 /**
  * Entrée de planning pour l'écran secondaire : créneau, statut et participants,
- * sans interaction ni bordure claire (fond AMOLED noir, cf. PLAN.md §4 P1).
+ * sans interaction ni bordure claire (fond AMOLED noir, cf. docs/plans/2026-mobile-app.md §4 P1).
  */
 export function AlwaysOnPlanningRow({
   entry,

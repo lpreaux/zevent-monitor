@@ -1,3 +1,11 @@
+---
+title: Application mobile ZEvent Monitor 2026
+status: active
+scope: mobile, api
+created: 2026-09-03
+updated: 2026-09-06
+---
+
 # ZEvent Monitor 2026 — Plan de projet
 
 App Android (React Native / Expo) pour suivre en temps réel le ZEvent 2026

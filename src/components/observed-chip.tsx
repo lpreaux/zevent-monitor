@@ -16,7 +16,7 @@ interface ObservedChipProps {
  * Provenance des chiffres de dons, en une ligne dépliable.
  *
  * Le feed Streamlabs ne montre qu'une fenêtre de dons récents : tout ce qui en découle est
- * établi « d'après les dons observés » (PLAN.md §5), et l'app doit le dire. Mais le dire
+ * établi « d'après les dons observés » (docs/plans/2026-mobile-app.md §5), et l'app doit le dire. Mais le dire
  * trois fois en paragraphe sur le même écran finit par ne plus rien dire : la mention
  * tient donc sur une ligne, et le détail attend qu'on le demande.
  */

@@ -1,5 +1,5 @@
 {
-  "note": "Totaux historiques figés (PLAN.md §1.4). Le ZEvent n'a pas eu lieu en 2023.",
+  "note": "Totaux historiques figés (docs/plans/2026-mobile-app.md §1.4). Le ZEvent n'a pas eu lieu en 2023.",
   "editions": [
     { "year": 2016, "label": "Projet Avengers", "dates": "4–6 mars 2016", "totalEur": 170770, "streamers": 16 },
     { "year": 2017, "label": null, "dates": "8–10 sept. 2017", "totalEur": 451851, "streamers": 30 },
