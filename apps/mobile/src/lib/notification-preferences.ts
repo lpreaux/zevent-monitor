@@ -1,5 +1,5 @@
 /**
- * Miroir des préférences de notification du backend (`server/src/notifications/preferences.ts`).
+ * Miroir des préférences de notification du backend (`apps/api/src/notifications/preferences.ts`).
  * Le serveur reste l'autorité : il valide et complète tout objet reçu.
  */
 export interface NotificationPreferences {

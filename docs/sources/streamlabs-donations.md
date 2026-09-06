@@ -130,7 +130,7 @@ environ 90 requêtes.
 
 ## Pièges relevés dans le code actuel
 
-- `server/src/sources/streamlabs.ts` ne demande que la première page (`order=desc`, 3 000 dons) :
+- `apps/api/src/sources/streamlabs.ts` ne demande que la première page (`order=desc`, 3 000 dons) :
   c'est un feed glissant, la couverture qu'il produit est `observed`, jamais `complete`.
 - `streamlabsTeamSchema` attend `amount_raised`, `slug` et `campaign_id` au premier niveau. Le
   endpoint `teams/{id}` ne renvoie plus aujourd'hui que `id`, `display_name`, `slug`, `public`,

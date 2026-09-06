@@ -14,13 +14,14 @@ web-build/
 *.orig.*
 
 # Native build output
-android/.gradle/
-android/app/build/
-ios/Pods/
-ios/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/
 
 # Backend build and coverage
-server/dist/
+apps/*/dist/
+.turbo/
 coverage/
 
 # Environment and secrets

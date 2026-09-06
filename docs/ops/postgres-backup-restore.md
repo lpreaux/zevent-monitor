@@ -101,7 +101,7 @@ moins le dump de fin d'édition en dehors du VPS.
 ## État de la vérification
 
 Les deux scripts ont été exécutés de bout en bout le 6 septembre 2026 contre un PostgreSQL 18
-jetable portant le schéma réel du projet (les migrations de `server/src/db/migrate.ts`), 5 000 dons
+jetable portant le schéma réel du projet (les migrations de `apps/api/src/db/migrate.ts`), 5 000 dons
 et 500 échantillons de test. Cas couverts :
 
 | Cas | Résultat attendu | Obtenu |

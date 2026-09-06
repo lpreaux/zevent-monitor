@@ -17,9 +17,10 @@ services:
       retries: 10
       start_period: 10s
 
-  server:
+  api:
     build:
-      context: ./server
+      context: .
+      dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0

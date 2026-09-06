@@ -16,9 +16,9 @@ Application Android dédiée au suivi en temps réel du ZEvent 2026. Elle réuni
 - Continuer à fonctionner en mode dégradé lorsqu'une source tierce est indisponible.
 - Retrouver ses favoris et préférences sur plusieurs appareils via un compte Clerk.
 
-## Architecture cible
+## Architecture
 
-Le projet prendra la forme d'un monorepo composé de deux parties :
+Le projet est un monorepo pnpm orchestré par Turborepo, composé actuellement de deux applications :
 
 - une application **React Native / Expo** en TypeScript, avec Expo Router, TanStack Query, Zustand et NativeWind ;
 - un backend **Node.js / Fastify** avec PostgreSQL, distribué par Docker et destiné à être déployé via Dockploy.
@@ -26,12 +26,14 @@ Le projet prendra la forme d'un monorepo composé de deux parties :
 Le backend centralisera la collecte des différentes sources, conservera les séries temporelles et pilotera les notifications Expo. L'application privilégiera ce backend et conservera localement le dernier état valide.
 
 ```text
-src/app/                  routes et écrans Expo Router
-src/                      API, composants, état local et cache mobile
-src/content/              snapshots versionnés (goals 2026, planning 2026, courbe historique 2025)
-server/                   backend Fastify, jobs et accès PostgreSQL
+apps/mobile/              application Expo, tests et configuration EAS
+apps/mobile/src/content/  snapshots versionnés (goals 2026, planning 2026, courbe historique 2025)
+apps/api/                 backend Fastify, jobs, tests et accès PostgreSQL
+packages/                 futurs packages partagés
 docker-compose.yml        déploiement du backend et de PostgreSQL (Dockploy)
 docker-compose.override.yml  port 3000 publié en local uniquement
+pnpm-workspace.yaml       workspaces pnpm
+turbo.json                graphe des tâches du monorepo
 scripts/                  imports ponctuels, spikes de source et exploitation PostgreSQL
 docs/plans/               plans de produit et d'architecture
 docs/sources/             capacités mesurées des sources externes et formats d'import
@@ -65,16 +67,31 @@ Le détail des priorités, décisions techniques, risques et critères d'accepta
 
 ## Développement local
 
-Prérequis : Node.js 24+, npm et Docker.
+Prérequis : Node.js 24+, pnpm 11.13.1 et Docker.
 
 ```bash
-# Application mobile
-npm install
-npm start
+# Installation unique de tout le monorepo
+pnpm install --frozen-lockfile
+
+# Application mobile seule
+pnpm start
 
 # Backend seul en mode développement
-npm --prefix server install
-npm run server:dev
+pnpm api:dev
+
+# Les deux applications avec Turborepo
+pnpm dev
+```
+
+Les tâches `build`, `typecheck`, `lint` et `test` se lancent globalement (`pnpm build`) ou pour un
+workspace (`pnpm --filter @zevent-monitor/api test`). `pnpm check` exécute toute la vérification.
+
+Les commandes EAS doivent être lancées depuis la racine de l'application. Le raccourci racine le
+fait automatiquement :
+
+```bash
+pnpm mobile:doctor
+pnpm mobile:build:android --profile development
 ```
 
 ### Compte utilisateur (Clerk)
@@ -85,7 +102,8 @@ méthodes activées dans *User & authentication*.
 Google et Twitch sont uniquement les fournisseurs de connexion Clerk : l'application ne demande
 pas d'accès aux comptes YouTube/Twitch et n'importe aucun abonnement.
 
-Copier `.env.example` vers `.env`, puis renseigner :
+Copier `apps/mobile/.env.example` vers `apps/mobile/.env` pour Expo. Pour Compose, copier aussi
+`.env.example` vers `.env`, puis renseigner les clés correspondantes :
 
 ```dotenv
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
@@ -105,18 +123,18 @@ docker compose up --build
 ```
 
 `docker compose` fusionne automatiquement `docker-compose.override.yml` en l'absence de `-f` explicite :
-le service `server` est alors publié sur `http://localhost:${SERVER_PORT:-3000}`. Ce fichier n'est
+le service `api` est alors publié sur `http://localhost:${API_PORT:-3000}`. Ce fichier n'est
 utile qu'en local (voir section suivante pour Dockploy).
 
-Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL. La suite de vérification locale s'exécute avec `npm run check` (types, tests mobiles `npm test`, build et tests du serveur).
+Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL.
 
-Pour régénérer les snapshots versionnés dans `src/content/` (courbe 2025, donation goals et planning
+Pour régénérer les snapshots versionnés dans `apps/mobile/src/content/` (courbe 2025, donation goals et planning
 2026, cf. `docs/plans/2026-mobile-app.md` §1.3, §1.5 et §1.6) :
 
 ```bash
-npm run content:import-history-2025
-npm run content:export-goals-2026
-npm run content:export-planning-2026
+pnpm content:import-history-2025
+pnpm content:export-goals-2026
+pnpm content:export-planning-2026
 ```
 
 ## Déploiement Dockploy
@@ -129,7 +147,7 @@ côté Dockploy). Définir au minimum `POSTGRES_PASSWORD` avec une valeur longue
 `GOALS_SYNC_ENABLED`, `GOALS_SYNC_INTERVAL_MS`, `PLANNING_SYNC_ENABLED` et
 `PLANNING_SYNC_INTERVAL_MS` sont optionnelles et documentées dans `.env.example`. Pour activer la
 synchronisation de compte, `CLERK_SECRET_KEY` doit aussi être fournie au service backend
-(`SERVER_PORT` n'a d'effet qu'en local). Le volume nommé `postgres-data` conserve les échantillons
+(`API_PORT` n'a d'effet qu'en local). Le volume nommé `postgres-data` conserve les échantillons
 lors des redéploiements.
 
 Le volume ne remplace pas une sauvegarde : les tables `samples`, `goals_snapshots` et
@@ -140,7 +158,7 @@ scripts (`scripts/db-backup.sh`, `scripts/db-restore.sh`) sont décrits dans
 Après le premier déploiement, vérifier la santé et l'accumulation pendant au moins une minute :
 
 ```bash
-npm --prefix server run verify:deployment -- https://api.example.org
+pnpm api:verify:deployment -- https://api.example.org
 ```
 
 La commande échoue si `/healthz` ou `/readyz` ne répond pas correctement, ou si le nombre de points
@@ -214,7 +232,7 @@ tableau des éditions précédentes avec la provenance des totaux.
 géante, progression sur 1 h, viewers, streamers en live, heure et top 5 des favoris), écran maintenu
 allumé, verrouillage d'orientation paysage/portrait relâché en quittant l'écran, gradation en quatre
 paliers et déplacement lent anti burn-in. La mise en page s'adapte au ratio d'écran (une ou deux
-colonnes) via `src/lib/always-on-layout.ts`, couvert par `npm test` sur sept ratios (2:3, 16:9, 9:20
+colonnes) via `apps/mobile/src/lib/always-on-layout.ts`, couvert par `pnpm test` sur sept ratios (2:3, 16:9, 9:20
 et 4:3, portrait et paysage, avec et sans encoche).
 
 L'écran propose cinq dispositions cyclables (bouton, double tap ou balayage) :
@@ -253,7 +271,7 @@ restant — deux d'emblée, les autres annoncées et dépliables — puis la sui
 sur un rail qui montre l'heure et la durée de chaque créneau, avec repère « maintenant » et retour au
 présent d'un geste. Filtre par journée ou par streamers suivis, marquage des créneaux en parallèle,
 rappel local 10 min avant le début d'une émission (aucun réglage backend), participants cliquables
-(fiche interne ou Twitch) et repli sur le snapshot embarqué `src/content/planning-2026.json` quand le
+(fiche interne ou Twitch) et repli sur le snapshot embarqué `apps/mobile/src/content/planning-2026.json` quand le
 backend est injoignable.
 
 ## Avertissement

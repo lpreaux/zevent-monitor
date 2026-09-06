@@ -358,13 +358,15 @@ Ce qui reste non rattrapable, et qui justifie la sauvegarde : `samples`, `goals_
 `planning_snapshots` proviennent de sources instantanées, sans historique interrogeable. Un trou de
 collecte y est définitif.
 
-### Phase 1 — Monorepo pnpm sans changement métier
+### Phase 1 — Monorepo pnpm sans changement métier `terminée le 6 septembre 2026`
 
-- déplacer Expo vers `apps/mobile` et Fastify vers `apps/api` ;
-- créer les workspaces, le lockfile unique et le graphe Turborepo ;
-- adapter scripts, chemins, Expo/EAS, Docker et Dockploy ;
-- supprimer les lockfiles npm uniquement après validation ;
-- exécuter tests, typecheck, builds, `expo-doctor` et une build Android de contrôle.
+- ✅ Expo déplacé vers `apps/mobile` et Fastify vers `apps/api` ;
+- ✅ workspaces pnpm, lockfile unique, graphe Turborepo et cache CI créés ;
+- ✅ scripts, chemins, Expo/EAS, Docker et Dockploy adaptés ;
+- ✅ lockfiles npm supprimés après validation des tests et builds ;
+- ✅ lint, typecheck, 643 tests, builds API/mobile et les 21 contrôles `expo-doctor` validés ;
+- ✅ APK Android de développement construit avec EAS :
+  [build 77100efa](https://expo.dev/accounts/lpreaux/projects/zevent-monitor/builds/77100efa-4c7a-44ee-82e1-01c633d1658f).
 
 ### Phase 2 — Fondations partagées et séparation des processus
 

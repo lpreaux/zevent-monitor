@@ -12,7 +12,7 @@ const EVENT_NAME = 'ZEvent 2026';
 const FALLBACK_EVENT_ID = '019f5bd1-fe07-7d78-a326-a02198a9d50f'; // cf. GET /events le 3 septembre 2026
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outputPath = join(rootDir, 'src/content/planning-2026.json');
+const outputPath = join(rootDir, 'apps/mobile/src/content/planning-2026.json');
 
 async function getJson(path) {
   const response = await fetch(new URL(path, API_BASE), {

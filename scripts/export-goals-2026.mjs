@@ -12,7 +12,7 @@ const FALLBACK_EVENT_ID = '019f5bd1-fe07-7d78-a326-a02198a9d50f'; // cf. GET /ev
 const REQUEST_DELAY_MS = 150; // reste raisonnable envers une API non documentée
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outputPath = join(rootDir, 'src/content/goals-2026.json');
+const outputPath = join(rootDir, 'apps/mobile/src/content/goals-2026.json');
 
 async function getJson(path) {
   const response = await fetch(new URL(path, API_BASE), {
