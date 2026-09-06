@@ -1,4 +1,5 @@
 import type { Recap, RecapContent, RecapDaySummary } from '@/api/recaps';
+import { allProgressions } from '@/lib/recap-personalization';
 
 /**
  * Mise en forme des récaps : comment on les nomme, comment on les range, et comment les
@@ -80,6 +81,7 @@ export function dayToRecapCard(day: RecapDaySummary): Recap {
     periodStart: day.periodStart,
     periodEnd: day.periodEnd,
     inProgress: day.inProgress,
+    previous: day.previous ?? null,
     generatedAt: day.periodEnd,
     content: {
       summary: {
@@ -91,7 +93,12 @@ export function dayToRecapCard(day: RecapDaySummary): Recap {
       },
       counts: day.preview.counts,
       milestones: [], bigDonations: [], liveStarts: [], goalsReached: [],
-      topProgressions: [], highlights: [],
+      // Les têtes de classement voyagent avec l'aperçu : c'est ce qui permet à la carte
+      // d'une journée de dire ce qu'elle contient sur les streamers suivis, sans avoir
+      // à charger le contenu complet.
+      topProgressions: (day.preview.progressions ?? []).slice(0, 5),
+      progressions: day.preview.progressions ?? [],
+      highlights: [],
     },
   };
 }
@@ -197,6 +204,101 @@ export function buildRecapTimeline(
   if (items.length <= limit) return { items, hidden: 0 };
   const kept = [...items].sort((a, b) => weight(b) - weight(a)).slice(0, limit);
   return { items: kept.sort(byDate), hidden: items.length - limit };
+}
+
+/** Tout ce que la période contient sur un streamer suivi, rassemblé sous son nom. */
+export interface FavoriteDigest {
+  twitch: string;
+  display: string;
+  raisedCents: number;
+  goals: { label: string; occurredAt: string }[];
+  /** Premier passage en direct pendant la période, s'il y en a eu un. */
+  liveStartedAt: string | null;
+  bigDonations: { donor: string; amountCents: number; occurredAt: string }[];
+}
+
+/**
+ * Ce que la période dit de chaque favori, une entrée par personne.
+ *
+ * Le contenu d'un récap est rangé par nature d'événement — les progressions ensemble, les
+ * paliers ensemble, les directs ensemble. Affiché tel quel, un favori qui a progressé,
+ * franchi deux paliers et lancé son direct apparaissait quatre fois dans la même liste, à
+ * quatre endroits, sans que rien ne dise qu'il s'agissait de la même personne. On lit
+ * cette section par personne : elle est donc construite par personne.
+ */
+export function groupFavoriteActivity(
+  content: RecapContent,
+  favorites: readonly string[],
+): FavoriteDigest[] {
+  const logins = new Set(favorites.map((twitch) => twitch.toLowerCase()));
+  if (logins.size === 0) return [];
+
+  const digests = new Map<string, FavoriteDigest>();
+  const entry = (twitch: string, display: string): FavoriteDigest | null => {
+    const login = twitch.toLowerCase();
+    if (!logins.has(login)) return null;
+    let digest = digests.get(login);
+    if (!digest) {
+      digest = { twitch: login, display, raisedCents: 0, goals: [], liveStartedAt: null, bigDonations: [] };
+      digests.set(login, digest);
+    }
+    // Le premier nom rencontré fait foi, sauf s'il était vide : les événements archivés
+    // n'ont pas toujours retenu le nom d'affichage, la progression si.
+    if (!digest.display) digest.display = display;
+    return digest;
+  };
+
+  for (const item of allProgressions(content)) {
+    const digest = entry(item.twitch, item.display);
+    if (digest) digest.raisedCents = item.raisedCents;
+  }
+  for (const item of content.goalsReached) {
+    entry(item.twitch, item.display)?.goals.push({ label: item.label, occurredAt: item.occurredAt });
+  }
+  for (const item of content.liveStarts) {
+    const digest = entry(item.twitch, item.display);
+    // Un streamer peut couper puis relancer : seul le premier démarrage raconte quelque chose.
+    if (digest && digest.liveStartedAt === null) digest.liveStartedAt = item.occurredAt;
+  }
+  for (const item of content.bigDonations) {
+    if (!item.twitch) continue;
+    entry(item.twitch, item.twitch)?.bigDonations.push({
+      donor: item.donor, amountCents: item.amountCents, occurredAt: item.occurredAt,
+    });
+  }
+
+  return [...digests.values()].sort(
+    (a, b) =>
+      b.raisedCents - a.raisedCents ||
+      factCount(b) - factCount(a) ||
+      a.display.localeCompare(b.display, 'fr'),
+  );
+}
+
+const factCount = (digest: FavoriteDigest): number =>
+  digest.goals.length + digest.bigDonations.length + (digest.liveStartedAt ? 1 : 0);
+
+/**
+ * Ce qu'on écrit sous le pseudo d'un favori : ses faits de la période, abrégés.
+ *
+ * `online` décrit l'instant présent, pas la période : savoir qu'un favori a lancé son
+ * direct cette nuit importe moins que de savoir qu'il est encore dessus au moment où on
+ * lit. Quand les deux sont vrais, c'est le présent qui est dit.
+ */
+export function favoriteMarks(digest: FavoriteDigest, online = false): string[] {
+  const marks: string[] = [];
+  if (online) marks.push('en direct');
+  else if (digest.liveStartedAt) {
+    marks.push(`direct lancé à ${clock.format(new Date(digest.liveStartedAt))}`);
+  }
+  if (digest.goals.length === 1) marks.push('1 palier');
+  else if (digest.goals.length > 1) marks.push(`${digest.goals.length} paliers`);
+  const biggest = digest.bigDonations.reduce(
+    (best, item) => (best === null || item.amountCents > best.amountCents ? item : best),
+    null as FavoriteDigest['bigDonations'][number] | null,
+  );
+  if (biggest) marks.push(`don de ${euros.format(biggest.amountCents / 100)}`);
+  return marks;
 }
 
 /** Une barre du graphe de rythme : ce qu'une tranche a rapporté. */

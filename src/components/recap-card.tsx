@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Recap } from '@/api/recaps';
 import { RecapSparkline } from '@/components/recap-sparkline';
 import { formatCount, formatEuros } from '@/lib/format';
+import { FLAT_RATIO, formatComparisonRatio } from '@/lib/recap-comparison';
 import { personalizeRecap } from '@/lib/recap-personalization';
 import { recapSubtitle, recapTitle } from '@/lib/recap-view';
 
@@ -69,6 +70,12 @@ export function RecapCard({
   const personal = personalizeRecap(recap.content, favorites);
   const partial = summary.coverage ? !summary.coverage.complete : false;
   const favoriteLine = personal.favoriteProgressions[0];
+  // L'écart n'est calculé que là où le serveur a jugé la veille comparable : une journée
+  // pleine ne se mesure pas à une tranche d'ouverture.
+  const previousRatio =
+    recap.previous && recap.previous.raisedCents > 0
+      ? (summary.raisedCents - recap.previous.raisedCents) / recap.previous.raisedCents
+      : null;
 
   return (
     <Pressable
@@ -103,9 +110,29 @@ export function RecapCard({
 
       <View className="flex-row items-end gap-3">
         <View className="flex-1">
-          <Text className={`font-black text-white ${featured ? 'text-3xl' : 'text-2xl'}`}>
-            +{formatEuros(summary.raisedCents / 100)}
-          </Text>
+          <View className="flex-row items-baseline gap-2">
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              className={`shrink font-black text-white ${featured ? 'text-3xl' : 'text-2xl'}`}
+            >
+              +{formatEuros(summary.raisedCents / 100)}
+            </Text>
+            {previousRatio !== null ? (
+              <Text
+                className={`text-[11px] font-bold ${
+                  Math.abs(previousRatio) < FLAT_RATIO
+                    ? 'text-gray-400'
+                    : previousRatio > 0
+                      ? 'text-emerald-300'
+                      : 'text-red-300'
+                }`}
+              >
+                {formatComparisonRatio(previousRatio)}
+              </Text>
+            ) : null}
+          </View>
           {summary.endCents !== null ? (
             <Text className="text-[11px] text-gray-500">
               cagnotte à {formatEuros(summary.endCents / 100)}

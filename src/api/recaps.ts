@@ -72,6 +72,14 @@ export interface Recap {
   subtitle?: string;
   /** Journées : la période court encore, le contenu changera. */
   inProgress?: boolean;
+  /** Journées : la veille, quand sa durée autorise la comparaison. */
+  previous?: RecapDayNeighbour | null;
+}
+
+/** La journée précédente, réduite à ce qu'il faut pour situer celle qu'on lit. */
+export interface RecapDayNeighbour {
+  title: string;
+  raisedCents: number;
 }
 
 /** Ce qu'une carte de journée montre, sans faire descendre tout le contenu. */
@@ -90,7 +98,10 @@ export interface RecapDaySummary {
     shareOfTotal: number | null;
     counts: RecapContent['counts'];
     points: number[];
+    /** Têtes de classement de la journée, où l'app va chercher ses favoris. */
+    progressions?: RecapProgression[];
   };
+  previous?: RecapDayNeighbour | null;
 }
 
 /** Les journées sont publiques : leur cache ne dépend d'aucune installation. */

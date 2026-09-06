@@ -13,7 +13,10 @@ import {
 } from '@/api/recaps';
 import { AppHeader } from '@/components/app-header';
 import { BarChart } from '@/components/bar-chart';
+import { DisclosureButton } from '@/components/disclosure-button';
 import { ObservedChip } from '@/components/observed-chip';
+import { RecapComparisonPanel } from '@/components/recap-comparison-panel';
+import { RecapFavorites } from '@/components/recap-favorites';
 import { RecapHero } from '@/components/recap-hero';
 import { RecapTimeline } from '@/components/recap-timeline';
 import { RecapShareSheet } from '@/components/recap-share-sheet';
@@ -22,14 +25,17 @@ import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { SectionHeader } from '@/components/section-header';
 import { formatCount, formatEuros, formatEurosCompact } from '@/lib/format';
+import { buildRecapComparison } from '@/lib/recap-comparison';
 import { coverageNotice, personalizeRecap } from '@/lib/recap-personalization';
 import {
   buildRecapTimeline,
   dayToRecapCard,
+  groupFavoriteActivity,
   recapSubtitle,
   recapTitle,
   toRhythmBars,
 } from '@/lib/recap-view';
+import { useEditionComparison } from '@/lib/use-edition-comparison';
 import { useRecapIdentity } from '@/lib/use-recap-identity';
 import { useFavoritesStore } from '@/store/favorites';
 import { useRecapsReadStore } from '@/store/recaps-read';
@@ -139,6 +145,13 @@ export default function RecapDetailScreen() {
   const favorites = useFavoritesStore((s) => s.favorites);
   const markRead = useRecapsReadStore((s) => s.markRead);
   const [shareOpen, setShareOpen] = useState(false);
+  /** Le fil réduit aux moments qui concernent les streamers suivis. */
+  const [threadFavoritesOnly, setThreadFavoritesOnly] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const [livesOpen, setLivesOpen] = useState(false);
+  // Les courbes des deux éditions ne servent qu'à situer une journée : la requête est
+  // partagée avec l'écran des statistiques, React Query n'ira pas la chercher deux fois.
+  const editions = useEditionComparison('10m');
 
   const query = useQuery({
     queryKey: ['recap', recapId, isDay ? 'public' : identity?.installationId],
@@ -190,9 +203,15 @@ export default function RecapDetailScreen() {
   // Il sert encore là où le récap sort de son contexte : carte de partage et notification.
   const { summary, counts, bigDonations, goalsReached, liveStarts } = recap.content;
   const personal = personalizeRecap(recap.content, favorites);
+  const digests = groupFavoriteActivity(recap.content, favorites);
   const timeline = buildRecapTimeline(recap.content, favorites);
+  const favoriteMoments = timeline.items.filter((item) => item.favorite).length;
+  const threadItems = threadFavoritesOnly
+    ? timeline.items.filter((item) => item.favorite)
+    : timeline.items;
   const notice = coverageNotice(recap);
   const bars = toRhythmBars(recap.content.series?.points ?? []);
+  const comparison = buildRecapComparison(recap, isDay ? editions.comparison : null);
   const observed = recap.content.observedDonations;
   const openStreamer = (twitch: string) => router.push(`/streamer/${twitch}` as never);
   const goTo = (target: Recap) => {
@@ -232,6 +251,8 @@ export default function RecapDetailScreen() {
           </View>
         ) : null}
 
+        <RecapComparisonPanel comparison={comparison} />
+
         {bars.length > 1 ? (
           <View className="gap-3">
             <SectionHeader title="Le rythme" hint="Ce que chaque tranche de la période a rapporté." />
@@ -239,37 +260,14 @@ export default function RecapDetailScreen() {
           </View>
         ) : null}
 
-        {personal.hasFavoriteContent ? (
-          <Panel title="Vos favoris" hint="Ce que la période contient sur les streamers suivis." accent>
-            <Rows
-              items={[
-                ...personal.favoriteProgressions.map((item) => (
-                  <StreamerRow
-                    key={`progress-${item.twitch}`}
-                    display={item.display}
-                    detail="progression sur la période"
-                    value={`+${formatEuros(item.raisedCents / 100)}`}
-                    onPress={() => openStreamer(item.twitch)}
-                  />
-                )),
-                ...personal.favoriteGoals.map((item, index) => (
-                  <StreamerRow
-                    key={`goal-${item.twitch}-${index}`}
-                    display={item.display}
-                    detail={`goal atteint · ${item.label}`}
-                    onPress={() => openStreamer(item.twitch)}
-                  />
-                )),
-                ...personal.favoriteLiveStarts.map((item) => (
-                  <StreamerRow
-                    key={`live-${item.twitch}`}
-                    display={item.display}
-                    detail={`live lancé à ${hourMinute.format(new Date(item.occurredAt))}`}
-                    onPress={() => openStreamer(item.twitch)}
-                  />
-                )),
-              ]}
-            />
+        {digests.length > 0 ? (
+          <Panel
+            title="Vos favoris"
+            count={digests.length}
+            hint="Ce que la période contient sur les streamers suivis."
+            accent
+          >
+            <RecapFavorites digests={digests} onOpenStreamer={openStreamer} />
           </Panel>
         ) : favorites.length === 0 ? (
           <View className="flex-row items-center gap-2 rounded-2xl border border-white/10 bg-surface p-4">
@@ -285,11 +283,37 @@ export default function RecapDetailScreen() {
           <View className="gap-3">
             <SectionHeader
               title="Le fil de la période"
-              hint="Les moments marquants, dans l’ordre où ils sont arrivés."
+              hint={
+                threadFavoritesOnly
+                  ? 'Réduit aux moments qui concernent vos favoris.'
+                  : 'Les moments marquants, dans l’ordre où ils sont arrivés.'
+              }
+              accessory={
+                favoriteMoments > 0 ? (
+                  <Pressable
+                    onPress={() => setThreadFavoritesOnly((current) => !current)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: threadFavoritesOnly }}
+                    accessibilityLabel="N’afficher que les moments de mes favoris"
+                    hitSlop={6}
+                    className={`h-8 w-8 items-center justify-center rounded-full border active:opacity-70 ${
+                      threadFavoritesOnly
+                        ? 'border-amber-400/60 bg-amber-500/20'
+                        : 'border-white/10 bg-white/5'
+                    }`}
+                  >
+                    <Ionicons
+                      name={threadFavoritesOnly ? 'star' : 'star-outline'}
+                      size={14}
+                      color={threadFavoritesOnly ? '#fbbf24' : '#9ca3af'}
+                    />
+                  </Pressable>
+                ) : undefined
+              }
             />
             <RecapTimeline
-              items={timeline.items}
-              hidden={timeline.hidden}
+              items={threadItems}
+              hidden={threadFavoritesOnly ? 0 : timeline.hidden}
               onOpenStreamer={openStreamer}
             />
           </View>
@@ -366,7 +390,7 @@ export default function RecapDetailScreen() {
         {goalsReached.length > 0 ? (
           <Panel title="Donation goals" count={goalsReached.length}>
             <Rows
-              items={goalsReached.slice(0, MAX_ROWS).map((item, index) => (
+              items={(goalsOpen ? goalsReached : goalsReached.slice(0, MAX_ROWS)).map((item, index) => (
                 <Pressable
                   key={`${item.occurredAt}-${index}`}
                   onPress={() => openStreamer(item.twitch)}
@@ -388,9 +412,12 @@ export default function RecapDetailScreen() {
               ))}
             />
             {goalsReached.length > MAX_ROWS ? (
-              <Text className="text-[11px] text-gray-400">
-                + {goalsReached.length - MAX_ROWS} autres
-              </Text>
+              <DisclosureButton
+                expanded={goalsOpen}
+                onPress={() => setGoalsOpen((current) => !current)}
+                label={`${goalsReached.length - MAX_ROWS} autres paliers`}
+                expandedLabel="Réduire"
+              />
             ) : null}
           </Panel>
         ) : null}
@@ -400,7 +427,7 @@ export default function RecapDetailScreen() {
             {/* Des pastilles, pas une phrase : douze pseudos collés par des points se
                 lisent comme un paragraphe, où plus aucun nom ne se détache. */}
             <View className="flex-row flex-wrap gap-2">
-              {liveStarts.slice(0, MAX_ROWS).map((item, index) => (
+              {(livesOpen ? liveStarts : liveStarts.slice(0, MAX_ROWS)).map((item, index) => (
                 <Pressable
                   key={`${item.twitch}-${index}`}
                   onPress={() => openStreamer(item.twitch)}
@@ -410,14 +437,15 @@ export default function RecapDetailScreen() {
                   <Text className="text-[12px] font-medium text-gray-200">{item.display}</Text>
                 </Pressable>
               ))}
-              {liveStarts.length > MAX_ROWS ? (
-                <View className="justify-center px-1">
-                  <Text className="text-[11px] text-gray-400">
-                    + {liveStarts.length - MAX_ROWS} autres
-                  </Text>
-                </View>
-              ) : null}
             </View>
+            {liveStarts.length > MAX_ROWS ? (
+              <DisclosureButton
+                expanded={livesOpen}
+                onPress={() => setLivesOpen((current) => !current)}
+                label={`${liveStarts.length - MAX_ROWS} autres directs`}
+                expandedLabel="Réduire"
+              />
+            ) : null}
           </Panel>
         ) : null}
 

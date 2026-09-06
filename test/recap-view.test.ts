@@ -5,9 +5,11 @@ import {
   buildRecapShareText,
   buildRecapTimeline,
   dayToRecapCard,
+  favoriteMarks,
   filterRecaps,
   formatDuration,
   formatPeriod,
+  groupFavoriteActivity,
   recapTitle,
   sortRecaps,
   toRhythmBars,
@@ -192,5 +194,107 @@ describe('carte d’une journée', () => {
     expect(text).toContain('ZEvent — Samedi');
     expect(text).toContain('sam. 09:00 → dim. 09:00');
     expect(text).toContain('12 donation goals atteints');
+  });
+});
+
+describe('activité des favoris', () => {
+  const content = (): RecapContent => ({
+    ...emptyContent(),
+    progressions: [
+      { twitch: 'zerator', display: 'ZeratoR', raisedCents: 1_200_000 },
+      { twitch: 'etoiles', display: 'Etoiles', raisedCents: 400_000 },
+      { twitch: 'autre', display: 'Autre', raisedCents: 9_000_000 },
+    ],
+    goalsReached: [
+      { twitch: 'zerator', display: 'ZeratoR', label: 'Rasage', occurredAt: '2026-09-05T11:00:00.000Z' },
+      { twitch: 'zerator', display: 'ZeratoR', label: 'Karaoké', occurredAt: '2026-09-05T14:00:00.000Z' },
+    ],
+    liveStarts: [
+      { twitch: 'zerator', display: 'ZeratoR', occurredAt: '2026-09-05T09:00:00.000Z' },
+      { twitch: 'zerator', display: 'ZeratoR', occurredAt: '2026-09-05T18:00:00.000Z' },
+    ],
+    bigDonations: [
+      { donor: 'Alice', amountCents: 50_000, twitch: 'zerator', occurredAt: '2026-09-05T12:00:00.000Z' },
+      { donor: 'Bob', amountCents: 300_000, twitch: 'zerator', occurredAt: '2026-09-05T13:00:00.000Z' },
+    ],
+  });
+
+  it('rassemble tout ce qui concerne un favori sous une seule entrée', () => {
+    const digests = groupFavoriteActivity(content(), ['zerator', 'etoiles']);
+
+    expect(digests).toHaveLength(2);
+    const [first] = digests;
+    expect(first?.twitch).toBe('zerator');
+    expect(first?.raisedCents).toBe(1_200_000);
+    expect(first?.goals).toHaveLength(2);
+    expect(first?.bigDonations).toHaveLength(2);
+  });
+
+  it('ne retient que le premier passage en direct', () => {
+    const [first] = groupFavoriteActivity(content(), ['zerator']);
+
+    expect(first?.liveStartedAt).toBe('2026-09-05T09:00:00.000Z');
+  });
+
+  it('écarte ce qui ne concerne aucun favori', () => {
+    const digests = groupFavoriteActivity(content(), ['zerator']);
+
+    expect(digests.map((item) => item.twitch)).toEqual(['zerator']);
+    expect(groupFavoriteActivity(content(), [])).toEqual([]);
+  });
+
+  it('classe par progression décroissante', () => {
+    const digests = groupFavoriteActivity(content(), ['etoiles', 'zerator']);
+
+    expect(digests.map((item) => item.twitch)).toEqual(['zerator', 'etoiles']);
+  });
+
+  it('garde un favori qui n’a pas progressé mais a fait quelque chose', () => {
+    const withoutProgression: RecapContent = {
+      ...emptyContent(),
+      goalsReached: [
+        { twitch: 'kameto', display: 'Kameto', label: 'Palier', occurredAt: '2026-09-05T11:00:00.000Z' },
+      ],
+    };
+
+    const digests = groupFavoriteActivity(withoutProgression, ['kameto']);
+
+    expect(digests).toHaveLength(1);
+    expect(digests[0]?.raisedCents).toBe(0);
+  });
+});
+
+describe('marques sous un favori', () => {
+  const digest = {
+    twitch: 'zerator',
+    display: 'ZeratoR',
+    raisedCents: 100,
+    goals: [
+      { label: 'A', occurredAt: '2026-09-05T11:00:00.000Z' },
+      { label: 'B', occurredAt: '2026-09-05T12:00:00.000Z' },
+    ],
+    liveStartedAt: '2026-09-05T07:00:00.000Z',
+    bigDonations: [
+      { donor: 'Alice', amountCents: 50_000, occurredAt: '2026-09-05T12:00:00.000Z' },
+      { donor: 'Bob', amountCents: 300_000, occurredAt: '2026-09-05T13:00:00.000Z' },
+    ],
+  };
+
+  it('dit le présent plutôt que le passé quand le direct tient toujours', () => {
+    expect(favoriteMarks(digest, true)[0]).toBe('en direct');
+    expect(favoriteMarks(digest, false)[0]).toBe('direct lancé à 09:00');
+  });
+
+  it('compte les paliers et retient le plus gros don', () => {
+    const marks = favoriteMarks(digest, true);
+
+    expect(marks).toContain('2 paliers');
+    expect(marks.some((mark) => mark.startsWith('don de') && mark.includes('3'))).toBe(true);
+  });
+
+  it('ne dit rien d’une période sans fait marquant', () => {
+    expect(
+      favoriteMarks({ ...digest, goals: [], liveStartedAt: null, bigDonations: [] }, false),
+    ).toEqual([]);
   });
 });
