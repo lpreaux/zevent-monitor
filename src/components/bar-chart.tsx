@@ -23,7 +23,17 @@ interface BarChartProps {
   labelEvery?: number;
   /** Nombre de lignes de repère horizontales. */
   gridLines?: number;
+  /**
+   * Seuil de lecture tracé en travers des barres, avec son libellé : la moyenne d'une
+   * autre édition, un objectif. Il ne s'agit pas d'une seconde série — superposer deux
+   * histogrammes demande un tout autre dessin — mais du niveau unique par rapport auquel
+   * chaque barre se juge. L'axe s'ouvre au besoin pour que le trait reste dans le cadre.
+   */
+  reference?: { value: number; label: string };
 }
+
+/** Ambre du repère : la couleur de l'édition 2025 partout dans l'application. */
+const REFERENCE_COLOR = '#f59e0b';
 
 /**
  * Histogramme en `View` pures (pas de lib native, cf. `OverlayChart`). Un tap sur une barre
@@ -37,18 +47,23 @@ export function BarChart({
   formatValue,
   labelEvery = 1,
   gridLines = 3,
+  reference,
 }: BarChartProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const model = useMemo(() => {
     const max = bars.reduce((acc, bar) => Math.max(acc, bar.value), 0);
-    const yMax = niceCeil(max);
+    // Un repère au-dessus de toutes les barres sortirait du cadre : c'est lui qui donne
+    // alors la hauteur de l'axe. Sans repère, `Math.max` retombe sur le maximum des
+    // barres et l'échelle ne bouge pas d'un pixel.
+    const yMax = niceCeil(Math.max(max, reference?.value ?? 0));
     const peakKey = max > 0 ? bars.find((bar) => bar.value === max)?.key ?? null : null;
     return { yMax, peakKey, max };
-  }, [bars]);
+  }, [bars, reference]);
 
   const selectedBar = bars.find((bar) => bar.key === selected) ?? null;
   const gridValues = Array.from({ length: gridLines }, (_, i) => (model.yMax * (i + 1)) / gridLines);
+  const referenceY = reference && model.yMax > 0 ? (reference.value / model.yMax) * height : null;
 
   if (bars.length === 0) {
     return (
@@ -105,6 +120,35 @@ export function BarChart({
             );
           })}
         </View>
+
+        {referenceY !== null && reference ? (
+          <View pointerEvents="none" className="absolute inset-0">
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: referenceY,
+                height: 1,
+                backgroundColor: REFERENCE_COLOR,
+              }}
+            />
+            <Text
+              numberOfLines={1}
+              style={{
+                position: 'absolute',
+                right: 4,
+                // Le libellé se pose au-dessus du trait, sauf tout en haut du cadre où il
+                // serait rogné : il passe alors dessous plutôt que de disparaître.
+                bottom: referenceY > height - 14 ? Math.max(referenceY - 13, 0) : referenceY + 2,
+                color: REFERENCE_COLOR,
+              }}
+              className="text-[9px] font-semibold"
+            >
+              {reference.label}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View className="mt-1 flex-row px-1">

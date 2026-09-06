@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { getRecap } from '@/api/recaps';
-import { StatTile } from '@/components/stat-tile';
+import { Metric, MetricDivider } from '@/components/metric';
 import { coverageNotice, personalizeRecap } from '@/lib/recap-personalization';
 import { useRecapIdentity } from '@/lib/use-recap-identity';
 import { useFavoritesStore } from '@/store/favorites';
@@ -125,8 +125,8 @@ export default function RecapDetailScreen() {
         </View>
       ) : null}
 
-      <View className="flex-row gap-3">
-        <StatTile
+      <View className="flex-row items-start">
+        <Metric
           label="Cagnotte"
           value={summary.endCents === null ? '—' : euros.format(summary.endCents / 100)}
           hint={
@@ -135,11 +135,13 @@ export default function RecapDetailScreen() {
               : `depuis ${euros.format(summary.startCents / 100)}`
           }
         />
-        <StatTile label="Pic viewers" value={summary.peakViewers.toLocaleString('fr-FR')} />
+        <MetricDivider />
+        <Metric label="Pic viewers" value={summary.peakViewers.toLocaleString('fr-FR')} />
       </View>
-      <View className="flex-row gap-3">
-        <StatTile label="Goals atteints" value={String(counts.goalsReached)} />
-        <StatTile label="Lives lancés" value={String(counts.liveStarts)} />
+      <View className="flex-row items-start">
+        <Metric label="Goals atteints" value={String(counts.goalsReached)} />
+        <MetricDivider />
+        <Metric label="Lives lancés" value={String(counts.liveStarts)} />
       </View>
 
       {personal.hasFavoriteContent ? (

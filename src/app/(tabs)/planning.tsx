@@ -14,6 +14,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { usePlanning, useZeventState } from '@/api/queries';
 import { AppHeader } from '@/components/app-header';
+import { DisclosureButton } from '@/components/disclosure-button';
 import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { PlanningFocusCard } from '@/components/planning-focus-card';
 import { PlanningNowMarker } from '@/components/planning-now-marker';
@@ -359,23 +360,12 @@ export default function PlanningScreen() {
                       cette ligne, « 4 à l'antenne » dans le résumé contredisait les deux
                       cartes visibles. */}
                   {view.live.length > LIVE_CARDS ? (
-                    <Pressable
+                    <DisclosureButton
+                      expanded={showAllLive}
                       onPress={() => setShowAllLive((value) => !value)}
-                      accessibilityRole="button"
-                      accessibilityState={{ expanded: showAllLive }}
-                      className="flex-row items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 active:opacity-70"
-                    >
-                      <Ionicons
-                        name={showAllLive ? 'chevron-up' : 'chevron-down'}
-                        size={13}
-                        color="#c4b5fd"
-                      />
-                      <Text className="text-xs font-semibold text-zevent-200">
-                        {showAllLive
-                          ? 'Réduire les émissions en cours'
-                          : `${formatCount(focus.hiddenLive)} autre${focus.hiddenLive > 1 ? 's' : ''} à l’antenne`}
-                      </Text>
-                    </Pressable>
+                      label={`${formatCount(focus.hiddenLive)} autre${focus.hiddenLive > 1 ? 's' : ''} à l’antenne`}
+                      expandedLabel="Réduire les émissions en cours"
+                    />
                   ) : null}
                 </View>
               ) : view.sections.length > 0 ? (

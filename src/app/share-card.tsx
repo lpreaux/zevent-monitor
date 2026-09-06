@@ -1,18 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { useCallback, useMemo, useRef } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Sharing from 'expo-sharing';
-import { captureRef } from 'react-native-view-shot';
 
 import { useTimeseries2026, useZeventState } from '@/api/queries';
 import { LoadingState } from '@/components/screen-state';
+import { ShareActions } from '@/components/share-actions';
 import { buildShareCardModel, buildShareText, parisClock } from '@/lib/donations';
 import { formatCount, formatEuros } from '@/lib/format';
 import { recentDeltaEur, toElapsedSeries, type RawPoint } from '@/lib/timeseries';
+import { useShareCapture } from '@/lib/use-share-capture';
 import { useFavoritesStore } from '@/store/favorites';
-
-type Status = { kind: 'idle' } | { kind: 'busy' } | { kind: 'error'; message: string } | { kind: 'done' };
 
 /**
  * Carte « cagnotte à l'instant T » : rendu natif capturé en PNG puis partagé via la feuille
@@ -23,7 +20,6 @@ export default function ShareCardScreen() {
   const timeseriesQuery = useTimeseries2026('10m');
   const favorites = useFavoritesStore((s) => s.favorites);
   const cardRef = useRef<View>(null);
-  const [status, setStatus] = useState<Status>({ kind: 'idle' });
 
   const model = useMemo(() => {
     const state = stateQuery.data?.data;
@@ -37,36 +33,11 @@ export default function ShareCardScreen() {
     return buildShareCardModel(state, favorites, delta, stateQuery.data?.sampledAt);
   }, [stateQuery.data, timeseriesQuery.data, favorites]);
 
-  const shareText = useCallback(async () => {
-    if (!model) return;
-    setStatus({ kind: 'busy' });
-    try {
-      await Share.share({ message: buildShareText(model) });
-      setStatus({ kind: 'done' });
-    } catch (error) {
-      setStatus({ kind: 'error', message: error instanceof Error ? error.message : 'Partage impossible' });
-    }
-  }, [model]);
-
-  const shareImage = useCallback(async () => {
-    if (!model || !cardRef.current) return;
-    setStatus({ kind: 'busy' });
-    try {
-      if (Platform.OS === 'web' || !(await Sharing.isAvailableAsync())) {
-        await Share.share({ message: buildShareText(model) });
-        setStatus({ kind: 'done' });
-        return;
-      }
-      const uri = await captureRef(cardRef, { format: 'png', quality: 1, result: 'tmpfile' });
-      await Sharing.shareAsync(uri, {
-        mimeType: 'image/png',
-        dialogTitle: 'Partager la cagnotte ZEvent',
-      });
-      setStatus({ kind: 'done' });
-    } catch (error) {
-      setStatus({ kind: 'error', message: error instanceof Error ? error.message : 'Partage impossible' });
-    }
-  }, [model]);
+  const share = useShareCapture(
+    cardRef,
+    useCallback(() => (model ? buildShareText(model) : null), [model]),
+    'Partager la cagnotte ZEvent',
+  );
 
   if (!model) {
     return stateQuery.isError ? (
@@ -147,32 +118,7 @@ export default function ShareCardScreen() {
           </View>
         </View>
 
-        <View className="flex-row gap-3">
-          <Pressable
-            onPress={() => void shareImage()}
-            disabled={status.kind === 'busy'}
-            accessibilityRole="button"
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-zevent-500 py-3.5 active:opacity-80"
-          >
-            <Ionicons name="image-outline" size={18} color="#ffffff" />
-            <Text className="text-sm font-bold text-white">Partager l’image</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => void shareText()}
-            disabled={status.kind === 'busy'}
-            accessibilityRole="button"
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-zevent-500 py-3.5 active:opacity-80"
-          >
-            <Ionicons name="text-outline" size={18} color="#ddd6fe" />
-            <Text className="text-sm font-bold text-zevent-200">Texte</Text>
-          </Pressable>
-        </View>
-
-        {status.kind === 'error' ? (
-          <Text className="text-xs text-red-300">Partage impossible : {status.message}</Text>
-        ) : status.kind === 'busy' ? (
-          <Text className="text-xs text-gray-500">Préparation du partage…</Text>
-        ) : null}
+        <ShareActions share={share} />
 
         <Text className="text-xs text-gray-600">
           La carte reprend l’état officiel zevent.fr au moment de l’ouverture de cet écran et vos
