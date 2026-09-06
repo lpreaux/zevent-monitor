@@ -10,6 +10,7 @@ import {
   formatDuration,
   formatPeriod,
   groupFavoriteActivity,
+  normalizeGoalLabel,
   recapTitle,
   sortRecaps,
   toRhythmBars,
@@ -137,6 +138,54 @@ describe('rythme de la période', () => {
 
   it('ne dessine rien sans au moins deux points', () => {
     expect(toRhythmBars([{ t: '2026-09-05T10:00:00.000Z', cents: 10 }])).toEqual([]);
+  });
+
+  it('étale une interruption de collecte au lieu d’en faire un pic', () => {
+    // Un relevé à 10:00, puis plus rien pendant quatre heures, puis 400 € d'un coup :
+    // ces 400 € ont été collectés pendant l'arrêt, pas dans la tranche de reprise.
+    const bars = toRhythmBars(
+      [
+        { t: '2026-09-05T10:00:00.000Z', cents: 0 },
+        { t: '2026-09-05T14:00:00.000Z', cents: 40_000 },
+      ],
+      4,
+    );
+
+    expect(bars).toHaveLength(1);
+    expect(bars[0]?.value).toBe(400);
+  });
+
+  it('répartit un écart sur toutes les tranches qu’il recouvre', () => {
+    const bars = toRhythmBars(
+      [
+        { t: '2026-09-05T10:00:00.000Z', cents: 0 },
+        { t: '2026-09-05T11:00:00.000Z', cents: 0 },
+        { t: '2026-09-05T13:00:00.000Z', cents: 20_000 },
+      ],
+      3,
+    );
+
+    // Deux intervalles relevés, donc deux tranches de 1 h 30 : on ne dessine jamais plus
+    // fin que ce qui a été mesuré. Les 200 € de l'écart 11:00 → 13:00 se répartissent au
+    // prorata du temps — un quart dans la première tranche, trois quarts dans la seconde —
+    // au lieu d'être jetés en bloc sur celle où le relevé est retombé.
+    expect(bars.map((bar) => Math.round(bar.value))).toEqual([50, 150]);
+  });
+});
+
+describe('libellés de paliers', () => {
+  it('rend lisible un libellé entièrement crié', () => {
+    expect(normalizeGoalLabel('TIER LIST DES PERSONNAGES DE KAMELOT'))
+      .toBe('Tier list des personnages de kamelot');
+  });
+
+  it('laisse tranquille un libellé déjà écrit normalement', () => {
+    expect(normalizeGoalLabel('Rasage de la barbe en direct'))
+      .toBe('Rasage de la barbe en direct');
+  });
+
+  it('ne touche pas aux libellés courts, où les capitales sont souvent des sigles', () => {
+    expect(normalizeGoalLabel('GTA RP')).toBe('GTA RP');
   });
 });
 

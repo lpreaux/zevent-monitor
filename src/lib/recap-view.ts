@@ -184,7 +184,7 @@ export function buildRecapTimeline(
       at: item.occurredAt,
       kind: 'goal' as const,
       title: item.display,
-      detail: item.label,
+      detail: normalizeGoalLabel(item.label),
       twitch: item.twitch,
       favorite: isFavorite(item.twitch),
     })),
@@ -312,37 +312,70 @@ export interface RecapRhythmBar {
 /**
  * Rythme de la période, tranche par tranche, à partir de la courbe cumulée.
  *
- * Les points sont regroupés jusqu'à tenir dans la largeur : sur un écran de téléphone,
- * cent vingt barres ne forment plus qu'un aplat. Le regroupement somme les écarts — un
- * rythme s'additionne, il ne s'échantillonne pas : garder un point sur cinq afficherait un
- * cinquième de ce qui a été collecté.
+ * Les tranches sont découpées sur le temps, pas sur les points relevés — et c'est toute la
+ * différence. Compter les écarts entre points consécutifs revient à supposer qu'ils sont
+ * régulièrement espacés ; ils ne le sont pas. Une collecte interrompue ne laisse aucun
+ * relevé pendant l'arrêt, et le premier point qui suit porte alors tout ce qui a été
+ * collecté entre-temps : le graphe dressait un pic de plusieurs millions là où il ne
+ * s'était rien passé de particulier, sinon une panne. Chaque écart est donc réparti sur la
+ * durée qu'il couvre réellement, ce qui transforme ce faux pic en plateau.
  */
 export function toRhythmBars(
   points: readonly { t: string; cents: number }[],
   maxBars = 24,
 ): RecapRhythmBar[] {
   if (points.length < 2) return [];
-  const deltas = points.slice(1).map((point, index) => ({
-    t: point.t,
-    from: points[index]!.t,
-    value: Math.max(0, point.cents - points[index]!.cents),
-  }));
-  const size = Math.max(1, Math.ceil(deltas.length / maxBars));
-  const groups = Array.from({ length: Math.ceil(deltas.length / size) }, (_, index) =>
-    deltas.slice(index * size, (index + 1) * size),
-  );
-  return groups
-    .filter((group) => group.length > 0)
-    .map((group) => {
-      const start = new Date(group[0]!.from);
-      const value = group.reduce((total, item) => total + item.value, 0) / 100;
-      return {
-        key: group[0]!.from,
-        label: clock.format(start),
-        value,
-        hint: `à partir de ${clock.format(start)}`,
-      };
-    });
+  const from = Date.parse(points[0]!.t);
+  const to = Date.parse(points[points.length - 1]!.t);
+  const span = to - from;
+  if (!(span > 0)) return [];
+
+  // Jamais plus de barres que d'intervalles relevés : au-delà, on dessinerait du vide.
+  const bars = Math.max(1, Math.min(maxBars, points.length - 1));
+  const slot = span / bars;
+  const cents = new Array<number>(bars).fill(0);
+
+  for (let index = 1; index < points.length; index += 1) {
+    const start = Date.parse(points[index - 1]!.t);
+    const end = Date.parse(points[index]!.t);
+    const delta = Math.max(0, points[index]!.cents - points[index - 1]!.cents);
+    if (delta === 0 || !(end > start)) continue;
+
+    const firstBar = Math.max(0, Math.floor((start - from) / slot));
+    const lastBar = Math.min(bars - 1, Math.floor((end - from) / slot));
+    for (let bar = firstBar; bar <= lastBar; bar += 1) {
+      const barStart = from + bar * slot;
+      const overlap = Math.min(end, barStart + slot) - Math.max(start, barStart);
+      if (overlap > 0) cents[bar] += (delta * overlap) / (end - start);
+    }
+  }
+
+  return cents.map((value, index) => {
+    const start = new Date(from + index * slot);
+    return {
+      key: start.toISOString(),
+      label: clock.format(start),
+      value: value / 100,
+      hint: `à partir de ${clock.format(start)}`,
+    };
+  });
+}
+
+/**
+ * Libellé de donation goal remis en casse lisible.
+ *
+ * Les paliers sont saisis par les streamers eux-mêmes : beaucoup arrivent entièrement en
+ * capitales, qui se lisent plus lentement et occupent plus de place — au point de se faire
+ * couper à mi-mot dans une liste. On ne retouche que ce qui est manifestement crié : un
+ * libellé court, ou qui mêle déjà les casses, est laissé tel quel, sigles compris.
+ */
+export function normalizeGoalLabel(label: string): string {
+  const letters = label.replace(/[^\p{L}]/gu, '');
+  if (letters.length < 12) return label;
+  const upper = letters.replace(/\p{Ll}/gu, '').length;
+  if (upper / letters.length < 0.9) return label;
+  const lowered = label.toLocaleLowerCase('fr');
+  return lowered.charAt(0).toLocaleUpperCase('fr') + lowered.slice(1);
 }
 
 /** Texte partagé pour un récap : ce qu'on retiendrait en le racontant. */
