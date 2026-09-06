@@ -263,7 +263,9 @@ Tables minimales : `samples`, `donations`, `detected_events`, `goals_snapshots`,
 | `PUT /v1/device` | token Expo, fuseau et version de l'app |
 | `PUT /v1/preferences` | favoris, seuils, catégories et horaires de récaps |
 | `GET /v1/recaps` / `GET /v1/recaps/:id` | historique et détail |
-| `POST /v1/recaps/generate` | récap à la volée sur les X dernières heures |
+| `DELETE /v1/recaps/:id` | retrait d'un récap créé à la main |
+| `POST /v1/recaps/generate` | récap à la volée : `durationMinutes`, ou bornes `from`/`to` |
+| `GET /v1/recap-days` / `GET /v1/recap-days/:key` | journées publiques 9 h → 9 h (sans appareil) |
 | `GET /v1/donations/recent?limit&twitch&minCents&withComment` | feed des derniers dons observés |
 | `GET /v1/donations/top?window=1h|6h|24h|all` | top donateurs nominatifs (anonymes exclus) |
 | `GET /v1/donations/largest?window&twitch` | plus gros dons observés |
@@ -316,9 +318,20 @@ logs. Le service n'envoie une notification qu'après insertion réussie d'une cl
 - Horaire par défaut : **09h00 Europe/Paris**, récapitulant les 24 h précédentes. L'utilisateur peut
   ajouter autant d'horaires que nécessaire (ex. 09h, 17h, 20h, 00h) ; chaque récap couvre la période
   depuis le précédent horaire programmé, sans doublon.
-- Génération à la volée sur une durée choisie (1 h, 3 h, 6 h, 12 h, 24 h ou valeur personnalisée).
+- **Journées de l'événement** : l'application publie un récap par tranche de **9 h à 9 h, heure de
+  Paris**, accessible sans appareil enregistré et depuis l'ouverture de la collecte. La frontière à
+  9 h garde la nuit attachée à la soirée qui la précède, et le fuseau fixe fait que « Samedi » désigne
+  la même période pour tout le monde — condition pour partager le contenu et le calculer une fois.
+  Les bornes viennent de la collecte réelle (`min`/`max(sampled_at)`), pas du calendrier annoncé ;
+  une tranche d'ouverture de moins de six heures est reversée dans la journée suivante. La journée en
+  cours est recalculée derrière un cache mémoire court, les journées closes sont pré-générées par le
+  planificateur.
+- Génération à la volée sur une durée choisie (1 h, 3 h, 6 h, 12 h, 24 h ou valeur personnalisée),
+  **ou sur des bornes explicites** pour revenir sur un moment précis du week-end une fois passé.
   Le récap est déterministe en V1 : progression globale, seuils franchis, gros dons, nouveaux lives,
-  goals atteints, top progressions et moments forts. Pas de dépendance à un LLM.
+  goals atteints, top progressions et moments forts. Pas de dépendance à un LLM. Le contenu v3 ajoute
+  la courbe de la période (pas adapté à la durée, charge utile constante), la meilleure heure, la part
+  de la cagnotte apportée et les dons observés du feed (top donateurs, moyenne, plus gros don).
 - **Contenu mutualisé, affichage personnel** : le contenu ne dépend que de la période, jamais de
   l'appareil. Il est donc calculé une seule fois et partagé anonymement (`recap_contents`, clé
   `period_start`/`period_end`) : deux utilisateurs sur la même plage — le cas courant, les horaires

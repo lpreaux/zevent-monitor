@@ -1,0 +1,275 @@
+import type { Recap, RecapContent, RecapDaySummary } from '@/api/recaps';
+
+/**
+ * Mise en forme des récaps : comment on les nomme, comment on les range, et comment les
+ * faits d'une période se remettent bout à bout pour se lire comme un récit.
+ *
+ * Tout ce qui est ici est calculé à l'affichage, à partir d'un contenu identique pour tout
+ * le monde : c'est le seul endroit où un récap devient celui de quelqu'un.
+ */
+
+const NBSP = ' ';
+
+const weekdayTime = new Intl.DateTimeFormat('fr-FR', {
+  weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+const clock = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+/** « 45 min », « 4 h 30 », « 3 jours » : lu plus vite qu'une date de début calculée. */
+export function formatDuration(minutes: number): string {
+  const rounded = Math.round(minutes);
+  if (rounded < 60) return `${rounded}${NBSP}min`;
+  if (rounded % (24 * 60) === 0 && rounded >= 48 * 60) return `${rounded / (24 * 60)} jours`;
+  const hours = Math.floor(rounded / 60);
+  const rest = rounded % 60;
+  return rest === 0 ? `${hours}${NBSP}h` : `${hours}${NBSP}h${NBSP}${String(rest).padStart(2, '0')}`;
+}
+
+export function recapDurationMinutes(recap: Pick<Recap, 'periodStart' | 'periodEnd'>): number {
+  return (Date.parse(recap.periodEnd) - Date.parse(recap.periodStart)) / 60_000;
+}
+
+/**
+ * Bornes d'une période en une ligne.
+ *
+ * Le jour n'est rappelé sur la fin que s'il a changé : « sam. 09:00 → 17:00 » se lit d'un
+ * trait, là où répéter « sam. » deux fois oblige à comparer deux dates pour constater
+ * qu'elles sont identiques.
+ */
+export function formatPeriod(startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const sameDay = start.toDateString() === end.toDateString();
+  return `${weekdayTime.format(start)} → ${sameDay ? clock.format(end) : weekdayTime.format(end)}`;
+}
+
+/** Titre d'un récap : le nom du chapitre pour une journée, sa durée sinon. */
+export function recapTitle(recap: Recap): string {
+  if (recap.title) return recap.title;
+  const minutes = recapDurationMinutes(recap);
+  return recap.kind === 'scheduled'
+    ? `Récap de ${clock.format(new Date(recap.periodEnd))}`
+    : `Les ${formatDuration(minutes)} avant ${clock.format(new Date(recap.periodEnd))}`;
+}
+
+/** Ce qui distingue une carte d'une autre dans la liste : la période, en clair. */
+export function recapSubtitle(recap: Recap): string {
+  return recap.subtitle ?? formatPeriod(recap.periodStart, recap.periodEnd);
+}
+
+export type RecapFilter = 'all' | 'day' | 'scheduled' | 'manual';
+
+export const RECAP_FILTERS: readonly { key: RecapFilter; label: string }[] = [
+  { key: 'all', label: 'Tout' },
+  { key: 'day', label: 'Journées' },
+  { key: 'scheduled', label: 'Programmés' },
+  { key: 'manual', label: 'Manuels' },
+];
+
+export function filterRecaps(recaps: readonly Recap[], filter: RecapFilter): Recap[] {
+  return filter === 'all' ? [...recaps] : recaps.filter((recap) => recap.kind === filter);
+}
+
+/** Une journée telle que la liste la manipule, avant d'aller chercher son contenu complet. */
+export function dayToRecapCard(day: RecapDaySummary): Recap {
+  return {
+    id: day.id,
+    kind: 'day',
+    title: day.title,
+    subtitle: day.subtitle,
+    periodStart: day.periodStart,
+    periodEnd: day.periodEnd,
+    inProgress: day.inProgress,
+    generatedAt: day.periodEnd,
+    content: {
+      summary: {
+        startCents: null,
+        endCents: day.preview.endCents,
+        raisedCents: day.preview.raisedCents,
+        peakViewers: day.preview.peakViewers,
+        shareOfTotal: day.preview.shareOfTotal,
+      },
+      counts: day.preview.counts,
+      milestones: [], bigDonations: [], liveStarts: [], goalsReached: [],
+      topProgressions: [], highlights: [],
+    },
+  };
+}
+
+export type RecapEventKind = 'milestone' | 'bigDonation' | 'goal' | 'liveStart';
+
+export interface RecapTimelineItem {
+  key: string;
+  at: string;
+  kind: RecapEventKind;
+  /** Ce qui s'est passé, en une ligne. */
+  title: string;
+  detail?: string;
+  amountCents?: number;
+  twitch?: string;
+  /** Concerne un streamer suivi : la ligne est mise en avant. */
+  favorite: boolean;
+}
+
+/** Ce que la timeline peut montrer sans devenir une liste à faire défiler indéfiniment. */
+const TIMELINE_LIMIT = 40;
+
+/**
+ * Poids d'un fait, quand il y en a plus que la timeline n'en montre.
+ *
+ * Ce qui touche un favori passe devant le reste : c'est la seule chose que le lecteur ne
+ * retrouvera nulle part ailleurs dans l'écran. Viennent ensuite les paliers globaux, rares
+ * et datés, puis les goals, puis les gros dons — départagés par leur montant, un don à
+ * 5 000 € méritant sa place plus qu'un don au seuil.
+ */
+function weight(item: RecapTimelineItem): number {
+  const base = item.favorite ? 100 : 0;
+  if (item.kind === 'milestone') return base + 50;
+  if (item.kind === 'goal') return base + 30;
+  if (item.kind === 'bigDonation') return base + 10 + Math.min(19, (item.amountCents ?? 0) / 100_000);
+  return base + 5;
+}
+
+const byDate = (a: RecapTimelineItem, b: RecapTimelineItem): number =>
+  Date.parse(a.at) - Date.parse(b.at);
+
+const euros = new Intl.NumberFormat('fr-FR', {
+  style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
+});
+
+/**
+ * Faits marquants de la période remis dans l'ordre où ils se sont produits.
+ *
+ * Quatre listes séparées — paliers, gros dons, goals, lives — disent ce qui est arrivé mais
+ * jamais dans quel ordre, alors que c'est l'enchaînement qui fait le récit d'une nuit de
+ * ZEvent. Les démarrages de live n'y entrent que pour les favoris : trois cents streamers
+ * qui se lancent le samedi matin noieraient tout le reste, et la liste compacte des
+ * nouveaux lives dit déjà ce qu'il y a à en dire.
+ */
+export function buildRecapTimeline(
+  content: RecapContent,
+  favorites: readonly string[],
+  limit = TIMELINE_LIMIT,
+): { items: RecapTimelineItem[]; hidden: number } {
+  const logins = new Set(favorites.map((twitch) => twitch.toLowerCase()));
+  const isFavorite = (twitch: string | null | undefined): boolean =>
+    Boolean(twitch) && logins.has(String(twitch).toLowerCase());
+
+  const items: RecapTimelineItem[] = [
+    ...content.milestones.map((item, index) => ({
+      key: `milestone-${index}-${item.occurredAt}`,
+      at: item.occurredAt,
+      kind: 'milestone' as const,
+      title: `Cap des ${euros.format(item.thresholdCents / 100)} franchi`,
+      favorite: false,
+    })),
+    ...content.bigDonations.map((item, index) => ({
+      key: `donation-${index}-${item.occurredAt}`,
+      at: item.occurredAt,
+      kind: 'bigDonation' as const,
+      title: item.donor,
+      amountCents: item.amountCents,
+      favorite: isFavorite(item.twitch),
+      ...(item.twitch ? { detail: `pour ${item.twitch}`, twitch: item.twitch } : {}),
+    })),
+    ...content.goalsReached.map((item, index) => ({
+      key: `goal-${index}-${item.occurredAt}`,
+      at: item.occurredAt,
+      kind: 'goal' as const,
+      title: item.display,
+      detail: item.label,
+      twitch: item.twitch,
+      favorite: isFavorite(item.twitch),
+    })),
+    ...content.liveStarts
+      .filter((item) => isFavorite(item.twitch))
+      .map((item, index) => ({
+        key: `live-${index}-${item.occurredAt}`,
+        at: item.occurredAt,
+        kind: 'liveStart' as const,
+        title: item.display,
+        detail: 'passe en live',
+        twitch: item.twitch,
+        favorite: true,
+      })),
+  ].sort(byDate);
+
+  if (items.length <= limit) return { items, hidden: 0 };
+  const kept = [...items].sort((a, b) => weight(b) - weight(a)).slice(0, limit);
+  return { items: kept.sort(byDate), hidden: items.length - limit };
+}
+
+/** Une barre du graphe de rythme : ce qu'une tranche a rapporté. */
+export interface RecapRhythmBar {
+  key: string;
+  label: string;
+  value: number;
+  hint: string;
+}
+
+/**
+ * Rythme de la période, tranche par tranche, à partir de la courbe cumulée.
+ *
+ * Les points sont regroupés jusqu'à tenir dans la largeur : sur un écran de téléphone,
+ * cent vingt barres ne forment plus qu'un aplat. Le regroupement somme les écarts — un
+ * rythme s'additionne, il ne s'échantillonne pas : garder un point sur cinq afficherait un
+ * cinquième de ce qui a été collecté.
+ */
+export function toRhythmBars(
+  points: readonly { t: string; cents: number }[],
+  maxBars = 24,
+): RecapRhythmBar[] {
+  if (points.length < 2) return [];
+  const deltas = points.slice(1).map((point, index) => ({
+    t: point.t,
+    from: points[index]!.t,
+    value: Math.max(0, point.cents - points[index]!.cents),
+  }));
+  const size = Math.max(1, Math.ceil(deltas.length / maxBars));
+  const groups = Array.from({ length: Math.ceil(deltas.length / size) }, (_, index) =>
+    deltas.slice(index * size, (index + 1) * size),
+  );
+  return groups
+    .filter((group) => group.length > 0)
+    .map((group) => {
+      const start = new Date(group[0]!.from);
+      const value = group.reduce((total, item) => total + item.value, 0) / 100;
+      return {
+        key: group[0]!.from,
+        label: clock.format(start),
+        value,
+        hint: `à partir de ${clock.format(start)}`,
+      };
+    });
+}
+
+/** Texte partagé pour un récap : ce qu'on retiendrait en le racontant. */
+export function buildRecapShareText(recap: Recap): string {
+  const { summary, counts } = recap.content;
+  const euro = (cents: number) => euros.format(cents / 100);
+  const lines = [
+    `ZEvent — ${recapTitle(recap)}`,
+    recapSubtitle(recap),
+    `+${euro(summary.raisedCents)} collectés`,
+  ];
+  if (summary.endCents !== null) lines.push(`Cagnotte : ${euro(summary.endCents)}`);
+  if (counts.goalsReached > 0) lines.push(`${counts.goalsReached} donation goals atteints`);
+  if (recap.content.bestHour) {
+    lines.push(`Meilleure heure : ${clock.format(new Date(recap.content.bestHour.start))}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Les journées d'abord, puis les récaps personnels du plus récent au plus ancien.
+ *
+ * Les journées sont le sommaire de l'événement : elles restent en tête même quand un récap
+ * manuel vient d'être créé, sans quoi la liste se réordonnerait sous les doigts à chaque
+ * génération.
+ */
+export function sortRecaps(recaps: readonly Recap[]): Recap[] {
+  return [...recaps].sort((a, b) => {
+    if ((a.kind === 'day') !== (b.kind === 'day')) return a.kind === 'day' ? -1 : 1;
+    return Date.parse(b.periodEnd) - Date.parse(a.periodEnd);
+  });
+}

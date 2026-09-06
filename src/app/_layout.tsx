@@ -119,13 +119,11 @@ function AppLayout({ accountsEnabled = true }: { accountsEnabled?: boolean }) {
               header: stackHeader({ title: 'Streamer' }),
             }}
           />
-          <Stack.Screen
-            name="recap/[id]"
-            options={{
-              headerShown: true,
-              header: stackHeader({ title: 'Récapitulatif', subtitle: 'Résumé personnalisé' }),
-            }}
-          />
+          {/* Récap et ses réglages portent leur propre barre : l'un affiche le nom de la
+              période chargée, l'autre revient à l'onglet. Une barre figée par le Stack ne
+              saurait ni l'un ni l'autre. */}
+          <Stack.Screen name="recap/[id]" />
+          <Stack.Screen name="settings/recaps" />
         </Stack>
         <StatusBar style="light" />
       </QueryClientProvider>
