@@ -26,14 +26,13 @@ import {
   dayToRecapCard,
   recapSubtitle,
   recapTitle,
-  sortRecaps,
   toRhythmBars,
 } from '@/lib/recap-view';
 import { useRecapIdentity } from '@/lib/use-recap-identity';
 import { useFavoritesStore } from '@/store/favorites';
 import { useRecapsReadStore } from '@/store/recaps-read';
 
-/** Une journée en cours se complète au fil des relevés. */
+/** Une journée en cours se complète au fil des relevés ; une journée close est figée. */
 const IN_PROGRESS_REFETCH_MS = 60_000;
 
 /** Au-delà, une liste brute devient illisible sur mobile. */
@@ -105,7 +104,9 @@ export default function RecapDetailScreen() {
     queryKey: ['recap', recapId, isDay ? 'public' : identity?.installationId],
     queryFn: () => getRecapById(identity, recapId),
     enabled: recapId.length > 0 && (isDay || Boolean(identity)),
-    ...(isDay ? { refetchInterval: IN_PROGRESS_REFETCH_MS } : {}),
+    // Le rafraîchissement se décide sur la réponse : rien ne dit avant de l'avoir lue si
+    // la journée demandée est encore en cours.
+    refetchInterval: (query) => (query.state.data?.inProgress ? IN_PROGRESS_REFETCH_MS : false),
   });
   const recap = query.data;
 
@@ -120,12 +121,10 @@ export default function RecapDetailScreen() {
       ? (queryClient.getQueryData<{ days: RecapDaySummary[] }>(['recap-days'])?.days ?? []).map(
           dayToRecapCard,
         )
-      : sortRecaps(
-          queryClient.getQueryData<{ recaps: Recap[] }>([
-            'recaps',
-            identity?.installationId,
-          ])?.recaps ?? [],
-        );
+      : (queryClient.getQueryData<{ recaps: Recap[] }>([
+          'recaps',
+          identity?.installationId,
+        ])?.recaps ?? []);
     const ordered = [...siblings].sort(
       (a, b) => Date.parse(a.periodEnd) - Date.parse(b.periodEnd),
     );

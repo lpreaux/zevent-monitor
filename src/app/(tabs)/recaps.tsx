@@ -258,6 +258,9 @@ export default function RecapsScreen() {
 
         {/* Posée par-dessus, hors du flux : son repli ne redimensionne donc pas la liste. */}
         <View className="absolute left-0 right-0 top-0">
+          {/* Le rail porte ici un filtre et non un tri : les récaps n'ont qu'un ordre, le
+              chronologique. Il occupe la place du tri parce qu'il reste visible une fois la
+              barre repliée — on filtre en cours de lecture, pas seulement en arrivant. */}
           <ListControls
             sorts={RECAP_FILTERS}
             sort={filter}

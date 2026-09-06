@@ -59,6 +59,7 @@ const toDto = (day: RecapDay): RecapDayDto => ({
  * porte le total, et une vignette qui s'arrête avant la fin raconte une autre journée.
  */
 export function sparkline(points: readonly { cents: number }[], size = SPARKLINE_POINTS): number[] {
+  if (size < 2) return points.length > 0 ? [points[points.length - 1]!.cents] : [];
   if (points.length <= size) return points.map((point) => point.cents);
   const step = (points.length - 1) / (size - 1);
   return Array.from({ length: size }, (_, index) =>
