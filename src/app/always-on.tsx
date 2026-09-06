@@ -47,15 +47,17 @@ import {
   shouldBatterySave,
 } from '@/lib/always-on-comfort';
 import {
-  entriesForStreamer,
-  nextGoalProgress,
   orderFavorites,
-  planningFocus,
-  recentStreamerDeltaEur,
   resolveFocus,
   stepFocus,
-  streamerStanding,
 } from '@/lib/always-on-focus';
+import {
+  entriesForStreamer,
+  nextGoalProgress,
+  planningFocus,
+  recentStreamerDeltaEur,
+  streamerStanding,
+} from '@/lib/streamer-profile';
 import {
   computeAlwaysOnLayout,
   CYCLE_STEP_MS,

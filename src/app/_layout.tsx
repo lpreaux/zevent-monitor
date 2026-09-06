@@ -113,10 +113,41 @@ function AppLayout({ accountsEnabled = true }: { accountsEnabled?: boolean }) {
             }}
           />
           <Stack.Screen
-            name="streamer/[twitch]"
+            name="stats-share"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              header: stackHeader({
+                title: 'Partager la comparaison',
+                subtitle: 'Carte à publier',
+                modal: true,
+              }),
+            }}
+          />
+          <Stack.Screen
+            name="streamer/[twitch]/index"
             options={{
               headerShown: true,
               header: stackHeader({ title: 'Streamer' }),
+            }}
+          />
+          <Stack.Screen
+            name="streamer/[twitch]/goals"
+            options={{
+              headerShown: true,
+              header: stackHeader({ title: 'Paliers', subtitle: 'Donation goals du streamer' }),
+            }}
+          />
+          <Stack.Screen
+            name="streamer/[twitch]/share"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              header: stackHeader({
+                title: 'Partager la fiche',
+                subtitle: 'Carte à publier',
+                modal: true,
+              }),
             }}
           />
           <Stack.Screen
