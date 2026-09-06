@@ -54,43 +54,43 @@ function TabItem({ label, icon, focused, accessibilityLabel, onPress, onLongPres
 }
 
 /**
- * Menu du bas maison : même surface que la barre du haut, pastille animée sur
- * l'onglet actif. Les icônes proviennent des `tabBarIcon` déclarés dans le layout.
+ * Rangée d'onglets du socle : pastille animée sur l'onglet actif, icônes puisées dans les
+ * `tabBarIcon` déclarés par le layout.
+ *
+ * Elle ne porte plus ni surface, ni bordure, ni marge de zone sûre : le socle qui la
+ * contient est la pièce de mobilier, elle n'en est que l'étage du bas. Les faire porter
+ * ici donnerait un filet au milieu du bloc, à l'endroit précis où il ne doit pas y en
+ * avoir pour que la poignée, la ligne globale et les onglets se lisent d'un seul tenant.
  */
-export function AppTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+export function TabRow({ state, descriptors, navigation }: BottomTabBarProps) {
   return (
-    <View
-      className="border-t border-white/5 bg-surface"
-      style={{ paddingBottom: Math.max(insets.bottom, 10) }}
-    >
-      <View className="flex-row px-1.5 pt-2">
-        {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
-          const focused = state.index === index;
-          const color = focused ? colors.brandSoft : colors.inactive;
+    <View className="flex-row px-1.5 pt-2">
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const focused = state.index === index;
+        const color = focused ? colors.brandSoft : colors.inactive;
 
-          return (
-            <TabItem
-              key={route.key}
-              label={options.title ?? route.name}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              icon={options.tabBarIcon?.({ focused, color, size: 22 })}
-              focused={focused}
-              onPress={() => {
-                const event = navigation.emit({
-                  type: 'tabPress',
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-                if (!focused && !event.defaultPrevented) {
-                  navigation.navigate(route.name, route.params);
-                }
-              }}
-              onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
-            />
-          );
-        })}
-      </View>
+        return (
+          <TabItem
+            key={route.key}
+            label={options.title ?? route.name}
+            accessibilityLabel={options.tabBarAccessibilityLabel}
+            icon={options.tabBarIcon?.({ focused, color, size: 22 })}
+            focused={focused}
+            onPress={() => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!focused && !event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              }
+            }}
+            onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+          />
+        );
+      })}
     </View>
   );
 }

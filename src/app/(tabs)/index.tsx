@@ -26,13 +26,10 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { data, isError, error, refetch, isRefetching } = useZeventState();
 
+  // Le compte a quitté la barre du haut pour le socle : il vaut pour toute l'application,
+  // pas pour l'Accueil, et l'en-tête d'une page ne porte plus qu'une action — la sienne.
   const headerActions = useMemo<HeaderAction[]>(
     () => [
-      ...(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ? [{
-        icon: icons.account,
-        label: 'Compte et synchronisation',
-        onPress: () => router.push('/account' as never),
-      } satisfies HeaderAction] : []),
       {
         icon: icons.settings,
         label: 'Réglages des notifications',

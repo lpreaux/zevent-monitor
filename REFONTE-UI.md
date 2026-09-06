@@ -329,24 +329,59 @@ Volontairement laissé de côté :
 - **La jauge de `momentum-row`** garde ses trois couleurs en dur, comme son commentaire
   l'explique : la piste et son remplissage doivent arriver ensemble.
 
-### Étape 3 — Le socle
+### Étape 3 — Le socle  ▸ faite
 
-Démonter `LiveSummaryBar` et la reconstruire en bas, soudée à `AppTabBar` :
+Démonter `LiveSummaryBar` et la reconstruire en bas, soudée à la barre d'onglets :
 poignée, ligne globale d'une hauteur fixe, navbar. Le dépliage loge le détail du
 mode confort. Suppression des trois modes (`comfort` / `compact` / `hidden`), du
 bouton de densité et de `useLiveBarStore` — il n'y a plus de préférence à mémoriser
 puisqu'il n'y a plus de choix à faire. `AppHeader` perd `liveSummary` et
 `alwaysOn`, et ne porte plus qu'une action.
 
-Trois points à traiter :
+#### Ce que l'étape a effectivement changé
 
-1. **Budget vertical en bas** : navbar ~56 + safe area 34 + ligne globale ~40 =
-   ~130 px permanents. Reprendre les `paddingBottom` des listes.
-2. **Collisions flottantes** : le FAB « Nouveau récap » et le bouton
-   « Maintenant » sont ancrés en `bottom-6` / `bottom: 20` en dur ; ils devront
-   s'appuyer sur une constante de hauteur du socle.
-3. **Clavier** : la recherche de l'onglet Streamers ouvre le clavier ; le socle
-   doit se retirer avec la navbar, pas se faire pousser par-dessus le contenu.
+`src/components/app-socle.tsx` créé ; `live-summary-bar.tsx` et `store/live-bar.ts`
+supprimés ; `app-tab-bar.tsx` réduit à la seule rangée d'onglets (`TabRow`), le socle
+portant désormais la surface, le filet et la marge de zone sûre pour eux deux.
+
+**Le socle est rendu comme barre d'onglets** (`tabBar` du navigateur) plutôt qu'ajouté
+à chaque écran. C'est ce qui garantit qu'il n'existe qu'une fois, et surtout que la
+scène se dimensionne d'elle-même au-dessus de lui : le navigateur pose la barre en
+frère de la scène dans une colonne, si bien que les listes et les deux boutons
+flottants n'ont eu aucune mesure à reprendre. Le point 1 (« budget vertical ») et le
+point 2 (« collisions flottantes ») se sont donc réglés seuls — et la constante de
+hauteur du socle qu'ils appelaient n'a pas eu lieu d'être.
+
+Le point 3 (**clavier**) a bien demandé du code : `tabBarHideOnKeyboard` n'est
+implémenté que dans la barre par défaut de la navigation, jamais atteinte ici. Le socle
+écoute donc lui-même le clavier — `keyboardWill*` sur iOS pour partir en même temps que
+lui, `keyboardDid*` sur Android — et s'efface entièrement tant qu'il est ouvert.
+
+**Une correction est venue par-dessus le marché.** `ScreenShell` protégeait le bas de
+tous les écrans, y compris ceux des onglets, alors que le navigateur transmet à la
+scène les marges de la fenêtre entière. La barre de gestes était donc comptée deux
+fois : une trentaine de pixels vides entre la dernière ligne de liste et le menu du
+bas. Le contexte de hauteur du menu n'existe que dans une scène d'onglet, sa seule
+présence suffit à savoir qui borde le bas.
+
+**Le compte quitte la barre du haut.** Il n'était atteignable que depuis l'Accueil, où
+il figurait parmi les actions de page alors qu'il ne parle pas de l'Accueil. Il rejoint
+l'écran secondaire et les notifications dans le menu d'application du dépliage —
+lequel deviendra une seule entrée « Réglages » quand l'étape 4 aura créé le hub.
+
+Écarts assumés avec le plan :
+
+- **Pas de grand montant dans le dépliage.** Il était le cœur du mode confort parce que
+  la barre réduite n'affichait plus rien ; ici la cagnotte est écrite en permanence à
+  trente pixels plus bas, et l'écrire deux fois dans le même bloc en ferait deux
+  chiffres à rapprocher plutôt qu'un seul à lire. Le dépliage porte ce que la ligne ne
+  peut pas : fraîcheur, viewers, streamers en live, programme, menu d'application.
+- **`PlanningTicker` disparaît** avec la barre réduite dont il était la seconde ligne.
+  Le socle tient sur une ligne de hauteur fixe, et les faits du planning se lisent dans
+  le dépliage — c'est `PlanningHighlights`, renommé `SoclePlanning`, qui les porte.
+- **Les écrans empilés perdent le résumé** (fiche d'un streamer, favoris, compte,
+  réglages). Le socle est soudé à la barre d'onglets, et une tâche ponctuelle n'a pas
+  besoin d'avoir la cagnotte sous les yeux.
 
 ### Étape 4 — La navigation
 

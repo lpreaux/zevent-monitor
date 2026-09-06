@@ -42,9 +42,6 @@ function stackHeader({ title, subtitle, modal = false }: StackHeaderConfig) {
         subtitle={subtitle}
         backIcon={modal ? icons.close : icons.back}
         insetTop={insetTop}
-        // Une feuille modale est une tâche ponctuelle : ni résumé du direct ni AlwaysOn.
-        liveSummary={!modal}
-        alwaysOn={!modal}
         onBack={back ? () => navigation.goBack() : undefined}
       />
     );

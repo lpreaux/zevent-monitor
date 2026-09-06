@@ -255,8 +255,6 @@ export default function RecapDetailScreen() {
           title={recapTitle(recap)}
           subtitle={recapSubtitle(recap)}
           compact
-          liveSummary={false}
-          alwaysOn={false}
           onBack={() => router.back()}
           actions={[
             { icon: icons.share, label: 'Partager ce récap', onPress: () => setShareOpen(true) },

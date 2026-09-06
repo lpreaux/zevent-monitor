@@ -54,8 +54,6 @@ export default function RecapSettingsScreen() {
         <AppHeader
           title="Réglages des récaps"
           compact
-          liveSummary={false}
-          alwaysOn={false}
           onBack={() => router.back()}
         />
       }
