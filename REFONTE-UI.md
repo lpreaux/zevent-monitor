@@ -411,17 +411,40 @@ qu'on puisse rien en faire — on ne va pas voir un chiffre —, là où un titr
 est une raison d'ouvrir un onglet. Ils n'ont pas disparu, le dépliage les porte ; c'est
 là qu'on va les chercher quand on les veut, et non à chaque écran.
 
-**Le dépliage ne s'anime plus, et c'est ce qui règle le clignotement.** Le socle portait
-une transition de disposition sur sa propre racine. Or il est posé par le navigateur, qui
-le mesure et lui réserve sa place : animer son cadre faisait glisser la surface et le
-filet pendant que ses enfants — la ligne de la cagnotte, ses deux boutons, la rangée
-d'onglets — étaient déjà rendus à leur position finale par la disposition, qui, elle, ne
-s'anime pas. Le temps de la transition, ils se retrouvaient hors du fond qui les porte.
+**Le clignotement venait de la racine du socle.** Elle portait une transition de
+disposition. Or le socle est posé par le navigateur, qui le mesure et lui réserve sa
+place : animer son cadre faisait glisser la surface et le filet pendant que ses enfants —
+la ligne de la cagnotte, ses deux boutons, la rangée d'onglets — restaient là où la
+disposition les avait mis, puisqu'elle, elle ne s'anime pas. Le temps de la transition,
+ils se retrouvaient hors du fond qui les porte.
 
-Cela ne se réglait pas en accélérant l'animation, ni en rognant le cadre : le cadre et
-son contenu ne peuvent pas être d'accord tant que l'un des deux seulement s'anime. Un
-dépliage qui s'ouvre d'un coup ne coûte rien à un panneau qu'on ouvre d'un appui
-délibéré.
+Cela ne se réglait ni en raccourcissant l'animation, ni en rognant le cadre — un
+`overflow-hidden` essayé au passage découpait les mêmes éléments et aggravait le
+symptôme. Le cadre et son contenu ne peuvent pas être d'accord tant que l'un des deux
+seulement s'anime.
+
+**Ce qui s'anime s'anime donc en dessous, sur des propriétés que la disposition
+recalcule.** Une seule horloge — un `SharedValue` mené par `withTiming` — commande trois
+choses, qui partent et arrivent ensemble :
+
+| Ce qui bouge | Comment |
+|---|---|
+| Hauteur du tiroir | de zéro à la hauteur mesurée de son contenu, qui reste monté et n'est que recouvert |
+| Hauteur de la ligne et corps du montant | 36 → 48 px et 16 → 26 px, le chiffre grandissant vers le haut |
+| Programme du mode réduit | fondu et glissement de 24 px vers la droite |
+
+Rien d'autre n'apparaît ni ne disparaît. La pastille de fraîcheur, le montant et les deux
+boutons sont montés une fois pour toutes ; la rangée qui les porte est de hauteur fixe et
+calée au bas de la ligne, de sorte que la ligne grandit **au-dessus** d'eux et non autour
+d'eux. Centrés dans une ligne de hauteur variable, ils auraient coulissé d'une dizaine de
+pixels à chaque dépliage — un mouvement qu'aucune des deux commandes ne justifie, et qui
+ferait bouger la cible sous le pouce au moment où l'on cherche à la viser. C'est aussi ce
+qui borne le corps déplié du montant : 26 px pour que sa boîte de texte tienne dans les
+36 de la rangée.
+
+Le tiroir garde son contenu monté et le recouvre plutôt que de le démonter. C'est ce qui
+écarte d'un coup les animations d'entrée et de sortie et les demi-images qu'elles
+laissent ; replié, il cesse simplement de recevoir l'appui et d'être annoncé.
 
 Un second clignotement attendait son tour dans `SoclePlanning` : ses lignes tournaient
 toutes les quatre secondes et demie avec leurs propres animations d'entrée et de sortie,

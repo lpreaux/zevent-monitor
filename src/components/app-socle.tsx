@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Keyboard, Linking, Platform, Pressable, Text, View } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 
@@ -116,7 +123,13 @@ function SoclePanel({ onDismiss }: { onDismiss: () => void }) {
 }
 
 /**
- * Hauteur et corps du montant, repliés puis dépliés.
+ * Durée du dépliage. Assez courte pour ne pas retenir, assez longue pour qu'on voie que
+ * le chiffre grandit plutôt qu'il ne saute.
+ */
+const OPEN_MS = 220;
+
+/**
+ * Hauteur de la ligne et corps du montant, repliés puis dépliés.
  *
  * La hauteur est fixée plutôt que laissée au contenu : le compteur d'euros est un
  * `TextInput` — c'est ainsi qu'il défile sans repasser par React — et la hauteur
@@ -130,55 +143,109 @@ function SoclePanel({ onDismiss }: { onDismiss: () => void }) {
  */
 const LINE = {
   closed: { height: 36, amount: 16 },
-  open: { height: 56, amount: 30 },
+  open: { height: 48, amount: 26 },
 } as const;
 
-/** Ligne permanente : la cagnotte, ce qui passe, et les deux gestes du week-end. */
-function GlobalLine({ open, onOpenPlanning }: { open: boolean; onOpenPlanning: () => void }) {
+/**
+ * Hauteur de la rangée elle-même, invariable et calée au bas de la ligne.
+ *
+ * C'est ce qui rend les boutons fixes au sens propre : la ligne grandit au-dessus d'eux
+ * et non autour d'eux. Centrés dans une ligne dont la hauteur varie, ils auraient
+ * coulissé d'une dizaine de pixels à chaque dépliage — un mouvement qu'aucune des deux
+ * commandes ne justifie, et qui aurait fait bouger la cible sous le pouce au moment même
+ * où l'on cherche à la viser.
+ *
+ * Le corps déplié du montant est choisi pour tenir dedans : à 26 px, sa boîte de texte
+ * reste sous les 36, et le chiffre grandit sans venir mordre sur la rangée d'onglets.
+ */
+const ROW_HEIGHT = 36;
+
+/** Distance dont le programme s'écarte par la droite en s'effaçant. */
+const NOW_SLIDE_PX = 24;
+
+/**
+ * Ligne permanente : la cagnotte, ce qui passe, et les deux gestes du week-end.
+ *
+ * Rien n'y apparaît ni n'en disparaît, à une exception près. La pastille de fraîcheur, le
+ * montant et les deux boutons sont montés une fois pour toutes et le restent : ce sont
+ * eux qui clignotaient, et un élément qu'on ne démonte jamais ne peut pas clignoter. Seul
+ * le programme s'efface, en fondu et en glissant par la droite — lui a une raison de
+ * partir, puisque le dépliage l'affiche en trois lignes juste au-dessus.
+ *
+ * Il s'efface sans être démonté non plus : sa place reste tenue par le conteneur
+ * extensible, ce qui évite aux boutons de coulisser latéralement quand il s'en va.
+ */
+function GlobalLine({
+  open,
+  progress,
+  onOpenPlanning,
+}: {
+  /** État d'arrivée : ce qui ne s'anime pas s'en déduit — appui, lecteur d'écran. */
+  open: boolean;
+  progress: SharedValue<number>;
+  onOpenPlanning: () => void;
+}) {
   const router = useRouter();
   const { data } = useZeventState();
   const state = data?.data;
   const stale = data?.source.stale ?? false;
-  const metrics = open ? LINE.open : LINE.closed;
+
+  const lineStyle = useAnimatedStyle(() => ({
+    height: interpolate(progress.value, [0, 1], [LINE.closed.height, LINE.open.height]),
+  }));
+  const amountStyle = useAnimatedStyle(() => ({
+    fontSize: interpolate(progress.value, [0, 1], [LINE.closed.amount, LINE.open.amount]),
+  }));
+  const nowStyle = useAnimatedStyle(() => ({
+    opacity: 1 - progress.value,
+    transform: [{ translateX: progress.value * NOW_SLIDE_PX }],
+  }));
 
   return (
-    <View className="flex-row items-center gap-2 px-5" style={{ height: metrics.height }}>
-      <FreshnessDot stale={stale} />
-      {state ? (
-        <AnimatedEuros value={state.donationAmount.number} style={{ fontSize: metrics.amount }} />
-      ) : (
-        <Text style={{ fontSize: metrics.amount }} className="font-extrabold text-white">
-          {EM_DASH}
-        </Text>
-      )}
-      {/* L'espace entre le montant et les boutons est réservé quoi qu'il arrive : le
-          programme peut n'avoir rien à dire — hors week-end, ou planning injoignable —, et
-          les boutons ne doivent pas venir se coller au chiffre pour autant.
-
-          Déplié, il reste vide : le programme est alors juste au-dessus, en trois lignes
-          lisibles, et le redire ici en abrégé ne servirait personne. */}
-      <View className="flex-1 flex-row items-center">
-        {open ? null : <SocleNowLine onOpen={onOpenPlanning} />}
+    <Animated.View className="justify-end px-5" style={lineStyle}>
+      <View className="flex-row items-center gap-2" style={{ height: ROW_HEIGHT }}>
+        <FreshnessDot stale={stale} />
+        {state ? (
+          <AnimatedEuros value={state.donationAmount.number} style={amountStyle} />
+        ) : (
+          <Animated.Text style={amountStyle} className="font-extrabold text-white">
+            {EM_DASH}
+          </Animated.Text>
+        )}
+        {/* L'espace entre le montant et les boutons est réservé quoi qu'il arrive : le
+            programme peut n'avoir rien à dire — hors week-end, ou planning injoignable —,
+            et les boutons ne doivent pas venir se coller au chiffre pour autant. */}
+        {/* Effacé, il reste monté : sa zone ne doit donc plus ni répondre à l'appui ni
+            être annoncée, sans quoi on ouvrirait le planning en visant du vide. */}
+        <Animated.View
+          className="flex-1 flex-row items-center"
+          style={nowStyle}
+          pointerEvents={open ? 'none' : 'auto'}
+          accessibilityElementsHidden={open}
+          importantForAccessibility={open ? 'no-hide-descendants' : 'auto'}
+        >
+          <SocleNowLine onOpen={onOpenPlanning} />
+        </Animated.View>
+        {/* Le don garde sa teinte pleine : l'action que l'application existe pour rendre
+            possible ne peut pas se ranger au même gris que ses voisines. */}
+        <IconButton
+          size="sm"
+          variant="accent"
+          icon={icons.donate}
+          label="Faire un don"
+          disabled={!state}
+          onPress={() => {
+            if (state) void Linking.openURL(state.globalDonationUrl);
+          }}
+        />
+        <IconButton
+          size="sm"
+          icon={icons.share}
+          label="Partager la cagnotte"
+          onPress={() => router.push('/share-card')}
+        />
       </View>
-      {/* Le don garde sa teinte pleine : l'action que l'application existe pour rendre
-          possible ne peut pas se ranger au même gris que ses voisines. */}
-      <IconButton
-        size="sm"
-        variant="accent"
-        icon={icons.donate}
-        label="Faire un don"
-        disabled={!state}
-        onPress={() => {
-          if (state) void Linking.openURL(state.globalDonationUrl);
-        }}
-      />
-      <IconButton
-        size="sm"
-        icon={icons.share}
-        label="Partager la cagnotte"
-        onPress={() => router.push('/share-card')}
-      />
-    </View>
+    </Animated.View>
   );
 }
 
@@ -208,6 +275,46 @@ function useKeyboardShown(): boolean {
 }
 
 /**
+ * Tiroir du dépliage : une hauteur animée devant un contenu qui, lui, ne bouge pas.
+ *
+ * Le contenu reste monté et mesuré en permanence — c'est le cadre qui passe de zéro à sa
+ * hauteur et le recouvre. Rien n'y est donc monté ni démonté au dépliage, ce qui écarte
+ * d'un coup les animations d'entrée et de sortie et les demi-images qu'elles laissent.
+ *
+ * La hauteur est animée comme une vraie propriété de disposition, et c'est là toute la
+ * différence avec ce qui clignotait : la disposition est recalculée à chaque image, si
+ * bien que la surface du socle, son filet, ses boutons et la rangée d'onglets bougent
+ * ensemble. Une transition de disposition posée sur la racine, elle, déplaçait le cadre
+ * pendant que son contenu restait là où la disposition l'avait mis.
+ */
+function SocleSheet({ open, children }: { open: boolean; children: ReactNode }) {
+  const [height, setHeight] = useState(0);
+
+  const style = useAnimatedStyle(
+    () => ({ height: withTiming(open ? height : 0, { duration: OPEN_MS }) }),
+    [open, height],
+  );
+
+  return (
+    <Animated.View style={style} className="overflow-hidden">
+      <View
+        // `flexShrink: 0` : sans lui, le conteneur écrasé à zéro écraserait son contenu
+        // avec lui, et la mesure ne rendrait plus que des zéros.
+        style={{ flexShrink: 0 }}
+        onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
+        // Replié, le panneau n'est plus qu'un contenu masqué : il ne doit ni recevoir
+        // d'appui ni être annoncé par un lecteur d'écran.
+        pointerEvents={open ? 'auto' : 'none'}
+        accessibilityElementsHidden={!open}
+        importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
+      >
+        {children}
+      </View>
+    </Animated.View>
+  );
+}
+
+/**
  * Le socle : poignée, ligne globale et menu du bas sur une seule pièce de mobilier.
  *
  * Les informations globales vivaient jusqu'ici sous la barre du haut, ce qui faisait lire
@@ -229,28 +336,35 @@ export function AppSocle(props: BottomTabBarProps) {
   const [open, setOpen] = useState(false);
   const keyboardShown = useKeyboardShown();
 
+  // Une seule horloge pour tout ce qui s'anime dans la ligne : la hauteur, le corps du
+  // chiffre et l'effacement du programme partent et arrivent ensemble, ce qu'ils ne
+  // feraient pas s'ils comptaient chacun le leur.
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withTiming(open ? 1 : 0, { duration: OPEN_MS });
+  }, [open, progress]);
+
   // Le socle se retire avec le menu du bas : la recherche de l'onglet Streamers ouvre le
   // clavier, et un socle poussé par-dessus le contenu masquerait les résultats qu'on tape.
   if (keyboardShown) return null;
 
   return (
-    // Le dépliage ne s'anime pas, et c'est le seul montage qui ne clignote pas.
-    //
-    // Le socle portait une transition de disposition sur sa propre racine. Or il est posé
-    // par le navigateur, qui le mesure et lui réserve sa place : animer son cadre revenait
-    // à faire glisser la surface et le filet pendant que les enfants — la ligne de la
-    // cagnotte, ses deux boutons, la rangée d'onglets — étaient déjà rendus à leur
-    // position finale par la disposition, qui, elle, ne s'anime pas. Ils se retrouvaient
-    // donc, le temps de la transition, hors du fond qui les porte. C'est ce que l'usage a
-    // vu clignoter, et cela ne se règle pas en accélérant l'animation : le cadre et son
-    // contenu ne peuvent pas être d'accord tant que l'un des deux seulement s'anime.
+    // La racine, elle, ne s'anime pas. Elle portait une transition de disposition, et le
+    // socle est posé par le navigateur, qui le mesure et lui réserve sa place : animer son
+    // cadre faisait glisser la surface et le filet pendant que les enfants — la ligne de la
+    // cagnotte, ses deux boutons, la rangée d'onglets — restaient là où la disposition les
+    // avait mis, puisqu'elle ne s'anime pas. Le temps de la transition, ils se retrouvaient
+    // hors du fond qui les porte. Tout ce qui s'anime ici s'anime donc en dessous, sur des
+    // propriétés que la disposition recalcule.
     <View
       className="border-t border-white/5 bg-surface"
       style={{ paddingBottom: Math.max(props.insets.bottom, 10) }}
     >
       <Handle open={open} onPress={() => setOpen((value) => !value)} />
-      {open ? <SoclePanel onDismiss={() => setOpen(false)} /> : null}
-      <GlobalLine open={open} onOpenPlanning={() => setOpen(true)} />
+      <SocleSheet open={open}>
+        <SoclePanel onDismiss={() => setOpen(false)} />
+      </SocleSheet>
+      <GlobalLine open={open} progress={progress} onOpenPlanning={() => setOpen(true)} />
       <TabRow {...props} />
     </View>
   );

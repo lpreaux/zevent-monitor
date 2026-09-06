@@ -1,5 +1,6 @@
+import type React from 'react';
 import { useEffect } from 'react';
-import { StyleSheet, TextInput, type TextInputProps, type TextStyle } from 'react-native';
+import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -24,7 +25,12 @@ function formatWorklet(value: number): string {
 
 interface AnimatedEurosProps {
   value: number;
-  style?: TextStyle | TextStyle[];
+  /**
+   * Le style du composant animé rendu ici, et non un style de texte ordinaire : le socle
+   * y passe un style animé pour faire grandir le corps du chiffre au dépliage. Emprunter
+   * le type au composant plutôt que le réécrire évite d'avoir à le suivre.
+   */
+  style?: React.ComponentProps<typeof AnimatedTextInput>['style'];
   durationMs?: number;
 }
 
