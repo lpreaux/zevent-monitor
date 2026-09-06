@@ -232,7 +232,14 @@ export default function RecapDetailScreen() {
     : timeline.items;
   const notice = coverageNotice(recap);
   const bars = toRhythmBars(recap.content.series?.points ?? []);
-  const comparison = buildRecapComparison(recap, isDay ? editions.comparison : null);
+  // Seules les journées se comparent à 2025 : une plage manuelle de six heures n'a pas
+  // d'équivalent identifiable dans l'édition précédente.
+  const comparison = buildRecapComparison(
+    recap,
+    isDay
+      ? { points: editions.history.points, originAt2026: editions.comparison.originAt2026 }
+      : null,
+  );
   const observed = recap.content.observedDonations;
   const openStreamer = (twitch: string) => router.push(`/streamer/${twitch}` as never);
   const goTo = (target: Recap) => {
@@ -272,7 +279,10 @@ export default function RecapDetailScreen() {
           </View>
         ) : null}
 
-        <RecapComparisonPanel comparison={comparison} />
+        <RecapComparisonPanel
+          comparison={comparison}
+          {...(recap.title ? { label2025: `${recap.title} 2025` } : {})}
+        />
 
         {bars.length > 1 ? (
           <View className="gap-3">
