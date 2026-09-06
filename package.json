@@ -18,6 +18,7 @@
     "content:import-history-2025": "node scripts/import-history-2025.mjs",
     "content:export-goals-2026": "node scripts/export-goals-2026.mjs",
     "content:export-planning-2026": "node scripts/export-planning-2026.mjs",
+    "sources:spike-streamlabs": "node scripts/spike-streamlabs-history.mjs",
     "assets:icons": "node scripts/generate-icons.mjs",
     "test": "vitest run"
   },

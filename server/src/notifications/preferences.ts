@@ -4,7 +4,7 @@ const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Format attendu HH:MM
 
 /**
  * Préférences de notification d'un appareil. Chaque catégorie est indépendante :
- * la désactivation de l'une ne modifie jamais les réglages des autres (cf. PLAN.md §7).
+ * la désactivation de l'une ne modifie jamais les réglages des autres (cf. docs/plans/2026-mobile-app.md §7).
  */
 export const notificationPreferencesSchema = z.object({
   /** Interrupteur global « tout suspendre ». */

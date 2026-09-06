@@ -14,7 +14,7 @@ interface AlwaysOnMilestoneProps {
 
 /**
  * Progression vers le prochain palier rond, avec estimation d'arrivée au rythme de la
- * dernière heure. L'estimation est explicitement annoncée comme telle (PLAN.md §4 P1).
+ * dernière heure. L'estimation est explicitement annoncée comme telle (docs/plans/2026-mobile-app.md §4 P1).
  */
 export function AlwaysOnMilestone({
   amountEuros,

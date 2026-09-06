@@ -15,7 +15,7 @@ const configSchema = z.object({
   PLANNING_SYNC_INTERVAL_MS: z.coerce.number().int().min(60_000).default(600_000),
   // ZEvent 2026 sur EvenMoreStats, cf. GET https://api.ppr.evenmorestats.fr/events
   EVENMORESTATS_EVENT_ID: z.string().default('019f5bd1-fe07-7d78-a326-a02198a9d50f'),
-  // Feed des dons Streamlabs Charity (team ZEvent 2026, cf. PLAN.md §1.2)
+  // Feed des dons Streamlabs Charity (team ZEvent 2026, cf. docs/plans/2026-mobile-app.md §1.2)
   DONATIONS_ENABLED: z.stringbool().default(true),
   DONATIONS_INTERVAL_MS: z.coerce.number().int().min(10_000).default(20_000),
   /** Au-delà, un don du feed est archivé mais plus annoncé en direct. */

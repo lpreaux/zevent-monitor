@@ -3,7 +3,7 @@
 Application Android dédiée au suivi en temps réel du ZEvent 2026. Elle réunira la cagnotte globale, les streams favoris, les donation goals, le planning, les statistiques et des notifications configurables dans une interface pensée pour le mobile et l'affichage Always-On.
 
 > [!IMPORTANT]
-> Le socle Expo/Fastify, les adaptateurs et la collecte PostgreSQL 2026 sont opérationnels. La feuille de route détaillée est disponible dans [PLAN.md](PLAN.md).
+> Le socle Expo/Fastify, les adaptateurs et la collecte PostgreSQL 2026 sont opérationnels. Les feuilles de route sont regroupées dans [docs/plans/](docs/plans/README.md).
 
 ## Objectifs
 
@@ -32,7 +32,10 @@ src/content/              snapshots versionnés (goals 2026, planning 2026, cour
 server/                   backend Fastify, jobs et accès PostgreSQL
 docker-compose.yml        déploiement du backend et de PostgreSQL (Dockploy)
 docker-compose.override.yml  port 3000 publié en local uniquement
-scripts/                  imports ponctuels des snapshots src/content/
+scripts/                  imports ponctuels, spikes de source et exploitation PostgreSQL
+docs/plans/               plans de produit et d'architecture
+docs/sources/             capacités mesurées des sources externes et formats d'import
+docs/ops/                 procédures d'exploitation (sauvegarde, restauration)
 ```
 
 ## Sources de données envisagées
@@ -44,6 +47,10 @@ scripts/                  imports ponctuels des snapshots src/content/
 
 Les API tierces non documentées seront interrogées uniquement par le backend, avec validation, limitation de fréquence, cache persistant et dernier snapshot valide. Leur disponibilité et leurs conditions de réutilisation ne sont pas garanties.
 
+Ce que chaque source sait réellement faire — profondeur historique, pagination, ordre, reprise — est
+mesuré et consigné dans [docs/sources/](docs/sources/README.md). Une capacité qui n'y figure pas
+n'est pas supposée acquise.
+
 ## Feuille de route
 
 1. Initialiser l'application Expo et le backend Fastify.
@@ -54,7 +61,7 @@ Les API tierces non documentées seront interrogées uniquement par le backend, 
 6. Implémenter le mode Always-On, les notifications et les récapitulatifs.
 7. Produire et tester un APK avec EAS Build.
 
-Le détail des priorités, décisions techniques, risques et critères d'acceptation se trouve dans [PLAN.md](PLAN.md).
+Le détail des priorités, décisions techniques, risques et critères d'acceptation se trouve dans le [plan de l'application mobile 2026](docs/plans/2026-mobile-app.md). La restructuration pnpm et le back-office sont décrits dans le [plan web et monorepo](docs/plans/web-backoffice-monorepo.md).
 
 ## Développement local
 
@@ -104,7 +111,7 @@ utile qu'en local (voir section suivante pour Dockploy).
 Le backend expose `GET /healthz` pour la santé du processus et `GET /readyz` pour vérifier sa connexion PostgreSQL. La suite de vérification locale s'exécute avec `npm run check` (types, tests mobiles `npm test`, build et tests du serveur).
 
 Pour régénérer les snapshots versionnés dans `src/content/` (courbe 2025, donation goals et planning
-2026, cf. PLAN.md §1.3, §1.5 et §1.6) :
+2026, cf. `docs/plans/2026-mobile-app.md` §1.3, §1.5 et §1.6) :
 
 ```bash
 npm run content:import-history-2025
@@ -125,6 +132,11 @@ synchronisation de compte, `CLERK_SECRET_KEY` doit aussi être fournie au servic
 (`SERVER_PORT` n'a d'effet qu'en local). Le volume nommé `postgres-data` conserve les échantillons
 lors des redéploiements.
 
+Le volume ne remplace pas une sauvegarde : les tables `samples`, `goals_snapshots` et
+`planning_snapshots` n'ont aucune source de rattrapage, contrairement aux dons. La procédure et les
+scripts (`scripts/db-backup.sh`, `scripts/db-restore.sh`) sont décrits dans
+[docs/ops/postgres-backup-restore.md](docs/ops/postgres-backup-restore.md).
+
 Après le premier déploiement, vérifier la santé et l'accumulation pendant au moins une minute :
 
 ```bash
@@ -135,7 +147,7 @@ La commande échoue si `/healthz` ou `/readyz` ne répond pas correctement, ou s
 retourné par `/v1/collection-status` n'augmente pas. Les autres routes disponibles sont `/v1/state`,
 `/v1/timeseries?edition=2026&resolution=1m`, `/v1/goals` (synchronisée toutes les 5 min) et
 `/v1/planning` (toutes les 10 min), toutes deux alimentées par EvenMoreStats/InGDoc (source
-communautaire non officielle, cf. PLAN.md §1.3 et §1.6).
+communautaire non officielle, cf. `docs/plans/2026-mobile-app.md` §1.3 et §1.6).
 
 Les récapitulatifs sont disponibles via les routes authentifiées `GET /v1/recaps`,
 `GET /v1/recaps/:id`, `POST /v1/recaps/generate` et `GET`/`PUT /v1/recap-schedules`.
@@ -143,8 +155,10 @@ Les récapitulatifs sont disponibles via les routes authentifiées `GET /v1/reca
 Les dons archivés depuis le feed Streamlabs alimentent des routes publiques de lecture :
 `GET /v1/donations/recent`, `/v1/donations/top?window=1h|6h|24h|all`, `/v1/donations/largest`,
 `/v1/donations/stats`, `/v1/streamers/:twitch/donations`, `/v1/streamers/momentum?window=10`,
-`/v1/timeseries/rate?bucket=60` et `/v1/timeseries/streamers?twitch=a,b`. Le feed ne montrant
-qu'une centaine de dons par relevé, chaque réponse indique le nombre de dons observés (`observed`).
+`/v1/timeseries/rate?bucket=60` et `/v1/timeseries/streamers?twitch=a,b`. Le collecteur ne lisant
+que la première page du feed (3 000 dons les plus récents), chaque réponse indique le nombre de
+dons observés (`observed`) : le rattrapage d'une période complète relève du backfill décrit dans
+[docs/sources/streamlabs-donations.md](docs/sources/streamlabs-donations.md).
 `RECORD_DONATION_MIN_CENTS` (1 000 € par défaut) fixe le plancher de l'alerte « nouveau record ».
 Le worker `RECAPS_ENABLED` (intervalle `RECAPS_INTERVAL_MS`) produit les récaps programmés dans le
 fuseau de chaque appareil et envoie un push avec deep link vers leur détail.
@@ -185,18 +199,18 @@ Docker/Dockploy vérifiable, synchronisation des donation goals et snapshots ver
 secours goals 2026). Le déploiement sur le serveur dédié reste à déclencher avec les accès de
 l'instance Dockploy.
 
-✅ Étape 5 (PLAN.md §6) — application mobile : dashboard temps réel (cagnotte animée, viewers,
+✅ Étape 5 (`docs/plans/2026-mobile-app.md` §6) — application mobile : dashboard temps réel (cagnotte animée, viewers,
 websiteMode, bandeau `marquee`), favoris persistés, liste des streamers (recherche + tri) et fiche
 streamer (paliers InGDoc avec progression, deep link Twitch, lien de don). Données consommées via le
 backend (`EXPO_PUBLIC_API_BASE_URL`, défaut `https://zevent-api.lofgplv.fr`), TanStack Query en
 polling 15 s, Zustand + AsyncStorage pour les favoris. Aucune version mobile installable n'est encore
 publiée (EAS Build : étape 11).
 
-✅ Étape 6 (PLAN.md §6) — statistiques : superposition des courbes 2025/2026 alignées sur le temps
+✅ Étape 6 (`docs/plans/2026-mobile-app.md` §6) — statistiques : superposition des courbes 2025/2026 alignées sur le temps
 écoulé (euros ou % du total 2025), repères de paliers, projection désactivable, repères 2026 et
 tableau des éditions précédentes avec la provenance des totaux.
 
-✅ Étape 7 (PLAN.md §6) — mode AlwaysOn : écran secondaire `/always-on` (fond AMOLED noir, cagnotte
+✅ Étape 7 (`docs/plans/2026-mobile-app.md` §6) — mode AlwaysOn : écran secondaire `/always-on` (fond AMOLED noir, cagnotte
 géante, progression sur 1 h, viewers, streamers en live, heure et top 5 des favoris), écran maintenu
 allumé, verrouillage d'orientation paysage/portrait relâché en quittant l'écran, gradation en quatre
 paliers et déplacement lent anti burn-in. La mise en page s'adapte au ratio d'écran (une ou deux
@@ -226,12 +240,12 @@ La progression horaire du streamer en focus vient de `GET /v1/timeseries/streame
 `GET /v1/streamers/momentum` et le ticker de `GET /v1/donations/recent` : comme partout ailleurs dans
 l'app, le ticker rappelle que les chiffres sont établis « d'après les dons observés ».
 
-✅ Étape 8 (PLAN.md §6) — notifications : enregistrement du token Expo, préférences granulaires
+✅ Étape 8 (`docs/plans/2026-mobile-app.md` §6) — notifications : enregistrement du token Expo, préférences granulaires
 synchronisées avec le backend et moteur d'alertes dédupliqué (paliers globaux, lives des favoris,
 donation goals atteints ou proches, gros dons issus du feed Streamlabs). Voir la section
 « Notifications push » ci-dessus.
 
-✅ Étape 10 (PLAN.md §6) — planning réel : synchronisation des « shows » InGDoc/EvenMoreStats côté
+✅ Étape 10 (`docs/plans/2026-mobile-app.md` §6) — planning réel : synchronisation des « shows » InGDoc/EvenMoreStats côté
 backend (`GET /v1/planning`, table `planning_snapshots`), fusion avec le champ `calendar` officiel de
 `zevent.fr/api/` dès qu'il devient exploitable (il est resté vide au lancement de l'édition 2026), et
 écran mobile en heure de Paris : en tête, les émissions à l'antenne avec leur jauge de temps

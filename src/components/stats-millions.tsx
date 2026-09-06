@@ -76,7 +76,7 @@ function CrossingRow({ crossing, stepEur, reference }: CrossingRowProps) {
 
 /**
  * Le palier qui se joue. Tout y est gris et le mot « estimation » est écrit en toutes
- * lettres (PLAN.md §4 P1) : une heure d'arrivée projetée au rythme de la dernière heure
+ * lettres (docs/plans/2026-mobile-app.md §4 P1) : une heure d'arrivée projetée au rythme de la dernière heure
  * ne se lit pas comme les lignes du dessus, qui, elles, sont arrivées.
  */
 function PendingRow({ pending, stepEur }: { pending: PendingMilestone; stepEur: number }) {

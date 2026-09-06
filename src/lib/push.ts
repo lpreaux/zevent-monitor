@@ -61,7 +61,7 @@ function projectId(): string | undefined {
 /**
  * Demande l'autorisation puis récupère le token Expo Push de cet appareil.
  * Sans permission ni token, l'app reste pleinement utilisable : seules les alertes
- * en arrière-plan sont perdues (cf. PLAN.md §5).
+ * en arrière-plan sont perdues (cf. docs/plans/2026-mobile-app.md §5).
  */
 export async function registerForPushNotifications(): Promise<PushRegistration> {
   if (!PUSH_NOTIFICATIONS_ENABLED) {

@@ -82,7 +82,7 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 /**
  * Synchronise périodiquement les donation goals ZEvent 2026 depuis EvenMoreStats/InGDoc
  * (source communautaire non officielle) et conserve le dernier snapshot valide en base.
- * Cf. PLAN.md §1.3 et §3.1.
+ * Cf. docs/plans/2026-mobile-app.md §1.3 et §3.1.
  */
 export class GoalsSync {
   readonly #source: EvenMoreStatsSource;

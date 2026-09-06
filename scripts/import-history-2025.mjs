@@ -49,7 +49,7 @@ const snapshot = {
   timezone: 'Europe/Paris',
   raisingStartsAt: RAISING_STARTS_AT,
   amountRaisedCentsAtLastSample: Math.round(allSeries.valuesEur.at(-1) * 100),
-  // Séries en euros, alignement (T+0, %) laissé au code d'affichage — cf. PLAN.md §1.5.
+  // Séries en euros, alignement (T+0, %) laissé au code d'affichage — cf. docs/plans/2026-mobile-app.md §1.5.
   series: {
     lan: toSeries(donations.lan),
     remote: toSeries(donations.remote),

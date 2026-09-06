@@ -12,7 +12,7 @@ interface AlwaysOnFavoriteRowProps {
 
 /**
  * Ligne de favori pour l'écran secondaire : lisible à distance, sans interaction
- * ni bordure claire (fond AMOLED noir, cf. PLAN.md §4 P1).
+ * ni bordure claire (fond AMOLED noir, cf. docs/plans/2026-mobile-app.md §4 P1).
  */
 export function AlwaysOnFavoriteRow({
   streamer,

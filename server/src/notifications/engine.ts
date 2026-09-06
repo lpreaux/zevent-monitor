@@ -33,7 +33,7 @@ type StoredEvent = { id: number; event: DetectedEvent };
 /**
  * Moteur d'alertes : détecte les événements à partir des collectes, les déduplique
  * en base (`detected_events.dedupe_key`), puis diffuse une notification au plus par
- * appareil et par événement (`push_deliveries`). Cf. PLAN.md §3.1 et §7.
+ * appareil et par événement (`push_deliveries`). Cf. docs/plans/2026-mobile-app.md §3.1 et §7.
  */
 export class NotificationEngine {
   readonly #push: ExpoPushClient;

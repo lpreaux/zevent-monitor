@@ -1,6 +1,6 @@
 /**
  * Outils d'alignement des courbes de collecte pour comparer deux éditions sur le
- * même axe de « temps écoulé » (cf. PLAN.md §1.5). T+0 = premier point où la
+ * même axe de « temps écoulé » (cf. docs/plans/2026-mobile-app.md §1.5). T+0 = premier point où la
  * cagnotte dépasse un petit seuil, ce qui retire le préfixe à zéro d'avant collecte
  * sans dépendre d'un horaire d'ouverture officiel parfois approximatif.
  */
