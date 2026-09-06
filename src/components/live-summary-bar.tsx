@@ -7,9 +7,11 @@ import { useZeventState } from '@/api/queries';
 import { AnimatedEuros } from '@/components/animated-euros';
 import { PlanningHighlights, PlanningTicker } from '@/components/live-summary-planning';
 import { Metric, MetricDivider } from '@/components/metric';
+import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { formatCount, formatEuros, formatRelativeTime } from '@/lib/format';
+import { icons } from '@/lib/icons';
 import { useLiveBarStore, type LiveBarDensity } from '@/store/live-bar';
-import { colors } from '@/theme';
 
 const EM_DASH = '—';
 
@@ -21,31 +23,6 @@ const DENSITY_TOGGLE = {
 /** Pastille de fraîcheur : verte quand la source répond, ambre sur dernier état connu. */
 function FreshnessDot({ stale }: { stale: boolean }) {
   return <View className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-amber-400' : 'bg-emerald-400'}`} />;
-}
-
-function ActionIcon({
-  icon,
-  label,
-  onPress,
-  small = false,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  /** Variante du mode réduit : c'est la hauteur des boutons qui y fixe celle de la ligne. */
-  small?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={10}
-      className={`items-center justify-center rounded-full border border-white/10 bg-white/5 active:opacity-60 ${small ? 'h-8 w-8' : 'h-9 w-9'}`}
-    >
-      <Ionicons name={icon} size={small ? 15 : 17} color={colors.brandSoft} />
-    </Pressable>
-  );
 }
 
 /**
@@ -134,18 +111,21 @@ export function LiveSummaryBar() {
           <PlanningHighlights />
 
           <View className="mt-3.5 flex-row items-center gap-2">
-            <Pressable
-              onPress={onDonate}
-              accessibilityRole="button"
-              accessibilityLabel="Faire un don"
+            <Button
+              grow
+              size="lg"
+              icon={icons.donate}
+              label="Faire un don"
               disabled={!state}
-              className={`flex-1 flex-row items-center justify-center gap-2 rounded-full bg-zevent-500 py-3 active:opacity-80 ${state ? '' : 'opacity-40'}`}
-            >
-              <Ionicons name="heart" size={16} color="#ffffff" />
-              <Text className="text-sm font-bold text-white">Faire un don</Text>
-            </Pressable>
-            <ActionIcon icon="share-social-outline" label="Partager la cagnotte" onPress={onShare} />
-            <ActionIcon {...densityToggle} onPress={toggleDensity} />
+              onPress={onDonate}
+            />
+            <IconButton
+              variant="soft"
+              icon={icons.share}
+              label="Partager la cagnotte"
+              onPress={onShare}
+            />
+            <IconButton variant="soft" {...densityToggle} onPress={toggleDensity} />
           </View>
         </View>
       ) : null}
@@ -162,9 +142,24 @@ export function LiveSummaryBar() {
                 ? `${formatCount(state.viewersCount.number)} viewers · ${formatCount(liveCount)} en live`
                 : 'Chargement…'}
             </Text>
-            <ActionIcon small icon="heart" label="Faire un don" onPress={onDonate} />
-            <ActionIcon small icon="share-social-outline" label="Partager la cagnotte" onPress={onShare} />
-            <ActionIcon small {...densityToggle} onPress={toggleDensity} />
+            {/* Le don garde sa teinte pleine jusque dans la barre réduite : en rond gris,
+                l'action que l'application existe pour rendre possible devenait indistincte
+                du bouton de densité posé juste à côté. */}
+            <IconButton
+              size="sm"
+              variant="accent"
+              icon={icons.donate}
+              label="Faire un don"
+              onPress={onDonate}
+            />
+            <IconButton
+              size="sm"
+              variant="soft"
+              icon={icons.share}
+              label="Partager la cagnotte"
+              onPress={onShare}
+            />
+            <IconButton size="sm" variant="soft" {...densityToggle} onPress={toggleDensity} />
           </View>
           <PlanningTicker />
         </>

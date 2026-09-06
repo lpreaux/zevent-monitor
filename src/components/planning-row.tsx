@@ -13,6 +13,8 @@ import {
 } from '@/lib/planning';
 import { broadcastLogin, type PlanningEntryItem } from '@/lib/planning-view';
 import { ParticipantChip } from './participant-chips';
+import { Button } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 import { ReminderBell } from './reminder-bell';
 
 /** Largeur de la colonne d'horaires : `18h00` sans jamais renvoyer à la ligne. */
@@ -184,17 +186,16 @@ function PlanningRowComponent({ item, now, knownStreamers }: PlanningRowProps) {
           ) : null}
 
           {login && !past ? (
-            <Pressable
-              onPress={() => void openTwitchStream(login)}
-              accessibilityRole="button"
-              accessibilityLabel={`Regarder ${login} sur Twitch`}
-              className="flex-row items-center gap-1.5 self-start rounded-full border border-zevent-500/60 bg-zevent-500/15 px-3 py-1.5 active:opacity-70"
-            >
-              <Ionicons name="play" size={11} color="#c4b5fd" />
-              <Text className="text-[11px] font-bold text-zevent-200">
-                {live ? 'Regarder' : 'Ouvrir la chaîne'}
-              </Text>
-            </Pressable>
+            <View className="self-start">
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={live ? icons.watch : icons.channel}
+                label={live ? 'Regarder' : 'Ouvrir la chaîne'}
+                accessibilityLabel={`Regarder ${login} sur Twitch`}
+                onPress={() => void openTwitchStream(login)}
+              />
+            </View>
           ) : null}
         </Animated.View>
       ) : null}

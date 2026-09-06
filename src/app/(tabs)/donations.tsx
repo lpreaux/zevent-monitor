@@ -24,6 +24,7 @@ import {
   useTopDonors,
 } from '@/api/queries';
 import { AppHeader, type HeaderAction } from '@/components/app-header';
+import { icons } from '@/lib/icons';
 import { BarChart } from '@/components/bar-chart';
 import { DonationLine, DONATION_LINE_INSET } from '@/components/donation-line';
 import { DonorIdentity } from '@/components/donor-identity';
@@ -938,7 +939,7 @@ export default function DonationsScreen() {
   const headerActions = useMemo<HeaderAction[]>(
     () => [
       {
-        icon: 'notifications-outline',
+        icon: icons.settings,
         label: 'Réglages des alertes de dons',
         onPress: () => router.push('/settings/notifications'),
       },

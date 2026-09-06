@@ -1,4 +1,6 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+
+import { Button } from '@/components/ui/button';
 
 export function LoadingState({ label = 'Chargement…' }: { label?: string }) {
   return (
@@ -18,14 +20,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <View className="flex-1 items-center justify-center gap-4 bg-gray-950 px-6">
       <Text className="text-center text-base text-gray-300">{message}</Text>
-      {onRetry ? (
-        <Pressable
-          onPress={onRetry}
-          className="rounded-full bg-zevent-500 px-5 py-2.5 active:opacity-80"
-        >
-          <Text className="text-sm font-semibold text-white">Réessayer</Text>
-        </Pressable>
-      ) : null}
+      {onRetry ? <Button label="Réessayer" onPress={onRetry} /> : null}
     </View>
   );
 }

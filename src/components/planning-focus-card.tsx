@@ -1,6 +1,8 @@
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { Button } from '@/components/ui/button';
+import { iconSizes, icons } from '@/lib/icons';
 import { openTwitchStream } from '@/lib/links';
 import {
   entryProgress,
@@ -68,15 +70,13 @@ function Tags({ item }: { item: PlanningEntryItem }) {
 /** Bouton d'ouverture du direct, seulement quand le planning nomme une chaîne. */
 function WatchButton({ login }: { login: string }) {
   return (
-    <Pressable
-      onPress={() => void openTwitchStream(login)}
-      accessibilityRole="button"
+    <Button
+      size="sm"
+      icon={icons.watch}
+      label="Regarder"
       accessibilityLabel={`Regarder ${login} sur Twitch`}
-      className="flex-row items-center gap-1.5 rounded-full bg-zevent-500 px-3.5 py-2 active:opacity-80"
-    >
-      <Ionicons name="play" size={13} color="#ffffff" />
-      <Text className="text-xs font-bold text-white">Regarder</Text>
-    </Pressable>
+      onPress={() => void openTwitchStream(login)}
+    />
   );
 }
 
@@ -146,7 +146,7 @@ export function PlanningFocusCard({ item, now: coarse }: PlanningFocusCardProps)
         {live ? null : (
           <Text className="text-xs text-gray-600">{formatDuration(entryDurationMs(entry))}</Text>
         )}
-        <ReminderBell entry={entry} now={now} size={17} />
+        <ReminderBell entry={entry} now={now} size={iconSizes.button} />
       </View>
 
       <View className="gap-1.5">

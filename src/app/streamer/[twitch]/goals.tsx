@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text } from 'react-native';
+import { RefreshControl, ScrollView, Text } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useZeventState } from '@/api/queries';
 import { StreamerGoalsList } from '@/components/streamer-goals';
+import { Button } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 import { openDonationPage } from '@/lib/links';
 import { usePullToRefresh } from '@/lib/use-pull-to-refresh';
 
@@ -44,15 +45,14 @@ export default function StreamerGoalsScreen() {
         />
 
         {streamer ? (
-          <Pressable
-            onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
-            accessibilityRole="button"
+          <Button
+            block
+            size="lg"
+            icon={icons.donate}
+            label="Faire un don"
             accessibilityLabel={`Faire un don à ${streamer.display}`}
-            className="flex-row items-center justify-center gap-1.5 rounded-full bg-zevent-500 py-3 active:opacity-80"
-          >
-            <Ionicons name="heart" size={15} color="#ffffff" />
-            <Text className="text-sm font-bold text-white">Faire un don</Text>
-          </Pressable>
+            onPress={() => void openDonationPage(streamer.donationUrl, streamer.twitch)}
+          />
         ) : (
           <Text className="text-xs text-gray-600">
             Ce streamer ne figure pas dans la liste officielle : sa cagnotte est inconnue, les

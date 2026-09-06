@@ -1,8 +1,9 @@
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Metric, MetricDivider } from '@/components/metric';
+import { IconButton } from '@/components/ui/icon-button';
+import { icons } from '@/lib/icons';
 import { formatEuros, formatEurosCompact } from '@/lib/format';
 import { formatEta, milestoneEtaMinutes, nextMilestone } from '@/lib/milestones';
 import { formatElapsedLabel } from '@/lib/stats-edition';
@@ -85,15 +86,12 @@ export function StatsVerdict() {
           {/* L'écart à l'édition précédente est ce que l'on republie le plus volontiers
               pendant le week-end : le partage se prend ici, sur la carte qui l'énonce,
               plutôt qu'au bas d'une page qu'il faut d'abord dérouler. */}
-          <Pressable
+          <IconButton
+            size="sm"
+            icon={icons.share}
+            label="Partager la comparaison"
             onPress={() => router.push('/stats-share')}
-            accessibilityRole="button"
-            accessibilityLabel="Partager la comparaison"
-            hitSlop={8}
-            className="h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 active:opacity-60"
-          >
-            <Ionicons name="share-social-outline" size={15} color="#c4b5fd" />
-          </Pressable>
+          />
         </View>
       </View>
 

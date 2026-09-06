@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { unlinkAccount } from '@/api/device';
 import { LoadingState } from '@/components/screen-state';
+import { Button } from '@/components/ui/button';
 import { useAccountSync, type AccountSyncStatus } from '@/lib/use-account-sync';
 import { useFavoritesStore } from '@/store/favorites';
 import { useNotificationsStore } from '@/store/notifications';
@@ -181,18 +182,15 @@ function AccountContent() {
             <Text className={`flex-1 text-sm ${tone.text}`}>
               {statusLabel(sync.status, sync.lastSyncedAt)}
             </Text>
-            <Pressable
-              onPress={() => void sync.synchronize()}
-              disabled={sync.status === 'syncing'}
-              accessibilityRole="button"
+            <Button
+              size="sm"
+              variant="neutral"
+              icon="sync"
+              label="Actualiser"
               accessibilityLabel="Synchroniser maintenant"
-              className={`flex-row items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 active:opacity-60 ${
-                sync.status === 'syncing' ? 'opacity-50' : ''
-              }`}
-            >
-              <Ionicons name="sync" size={14} color={colors.brandSoft} />
-              <Text className="text-xs font-semibold text-zevent-200">Actualiser</Text>
-            </Pressable>
+              loading={sync.status === 'syncing'}
+              onPress={() => void sync.synchronize()}
+            />
           </View>
           {sync.error ? (
             <Text className="text-[13px] leading-5 text-red-300">{sync.error}</Text>

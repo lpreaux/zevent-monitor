@@ -12,6 +12,7 @@ import {
   type RecapDaySummary,
 } from '@/api/recaps';
 import { AppHeader } from '@/components/app-header';
+import { icons } from '@/lib/icons';
 import { BarChart } from '@/components/bar-chart';
 import { DisclosureButton } from '@/components/disclosure-button';
 import { ObservedChip } from '@/components/observed-chip';
@@ -258,7 +259,7 @@ export default function RecapDetailScreen() {
           alwaysOn={false}
           onBack={() => router.back()}
           actions={[
-            { icon: 'share-outline', label: 'Partager ce récap', onPress: () => setShareOpen(true) },
+            { icon: icons.share, label: 'Partager ce récap', onPress: () => setShareOpen(true) },
           ]}
         />
       }

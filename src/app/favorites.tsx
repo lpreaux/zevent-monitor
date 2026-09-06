@@ -1,10 +1,10 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useZeventState } from '@/api/queries';
+import { Button } from '@/components/ui/button';
 import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { LiveStreamerRow } from '@/components/live-streamer-row';
 import { OfflineStreamerRow } from '@/components/offline-streamer-row';
@@ -52,14 +52,16 @@ function sortLive(live: ScoredFavorite[], sort: FavoritesSort): ScoredFavorite[]
 function ManageButton() {
   const router = useRouter();
   return (
-    <Pressable
-      onPress={() => router.push('/streamers')}
-      accessibilityRole="button"
-      className="mt-2 flex-row items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-2.5 active:opacity-60"
-    >
-      <Ionicons name="people-outline" size={14} color="#9ca3af" />
-      <Text className="text-xs font-semibold text-gray-300">Gérer mes favoris</Text>
-    </Pressable>
+    <View className="mt-2">
+      <Button
+        block
+        size="sm"
+        variant="neutral"
+        icon="people-outline"
+        label="Gérer mes favoris"
+        onPress={() => router.push('/streamers')}
+      />
+    </View>
   );
 }
 

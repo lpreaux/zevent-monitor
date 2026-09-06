@@ -1,13 +1,11 @@
 import type { ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LiveSummaryBar } from '@/components/live-summary-bar';
-import { colors } from '@/theme';
-
-type IconName = keyof typeof Ionicons.glyphMap;
+import { IconButton } from '@/components/ui/icon-button';
+import { icons, type IconName } from '@/lib/icons';
 
 export interface HeaderAction {
   icon: IconName;
@@ -35,21 +33,6 @@ interface AppHeaderProps {
   liveSummary?: boolean;
   /** Raccourci AlwaysOn, à retirer sur les écrans d'où il n'a pas de sens. */
   alwaysOn?: boolean;
-}
-
-/** Bouton d'action circulaire, discret sur le fond sombre de la barre. */
-function IconButton({ icon, label, onPress }: HeaderAction) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={6}
-      className="h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 active:opacity-60"
-    >
-      <Ionicons name={icon} size={19} color={colors.brandSoft} />
-    </Pressable>
-  );
 }
 
 /**
@@ -108,7 +91,7 @@ export function AppHeader({
         <View className="flex-row items-center gap-2">
           {alwaysOn ? (
             <IconButton
-              icon="tv-outline"
+              icon={icons.alwaysOn}
               label="Activer le mode AlwaysOn"
               onPress={() => router.push('/always-on')}
             />

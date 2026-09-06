@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 
 import { useZeventState } from '@/api/queries';
 import { AppHeader, type HeaderAction } from '@/components/app-header';
+import { icons } from '@/lib/icons';
 import { ScreenShell } from '@/components/screen-shell';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { FavoritesSection } from '@/components/favorites-section';
@@ -28,12 +29,12 @@ export default function DashboardScreen() {
   const headerActions = useMemo<HeaderAction[]>(
     () => [
       ...(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ? [{
-        icon: 'person-circle-outline',
+        icon: icons.account,
         label: 'Compte et synchronisation',
         onPress: () => router.push('/account' as never),
       } satisfies HeaderAction] : []),
       {
-        icon: 'notifications-outline',
+        icon: icons.settings,
         label: 'Réglages des notifications',
         onPress: () => router.push('/settings/notifications'),
       },

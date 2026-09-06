@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Alert, RefreshControl, SectionList, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
@@ -16,6 +15,8 @@ import {
 import { AppHeader } from '@/components/app-header';
 import { ListControls, useFloatingControls } from '@/components/list-controls';
 import { RecapCard } from '@/components/recap-card';
+import { Button } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 import { RecapGeneratorSheet } from '@/components/recap-generator-sheet';
 import { ScreenShell } from '@/components/screen-shell';
 import { EmptyState } from '@/components/screen-state';
@@ -185,7 +186,7 @@ export default function RecapsScreen() {
           subtitle="Le week-end, période par période"
           actions={[
             {
-              icon: 'options-outline',
+              icon: icons.settings,
               label: 'Réglages des récaps',
               onPress: () => router.push('/settings/recaps' as never),
             },
@@ -277,18 +278,16 @@ export default function RecapsScreen() {
           />
         </View>
 
-        <Pressable
-          onPress={() => setSheetOpen(true)}
-          disabled={!identity}
-          accessibilityRole="button"
-          accessibilityLabel="Créer un récap"
-          className={`absolute bottom-6 right-5 flex-row items-center gap-2 rounded-full bg-zevent-500 py-3.5 pl-4 pr-5 active:opacity-80 ${
-            identity ? '' : 'opacity-50'
-          }`}
-        >
-          <Ionicons name="add" size={18} color="white" />
-          <Text className="text-sm font-bold text-white">Nouveau récap</Text>
-        </Pressable>
+        <View className="absolute bottom-6 right-5">
+          <Button
+            size="lg"
+            icon={icons.add}
+            label="Nouveau récap"
+            accessibilityLabel="Créer un récap"
+            disabled={!identity}
+            onPress={() => setSheetOpen(true)}
+          />
+        </View>
       </View>
 
       <RecapGeneratorSheet

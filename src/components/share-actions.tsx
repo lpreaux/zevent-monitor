@@ -1,6 +1,6 @@
-import { Pressable, Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Text, View } from 'react-native';
 
+import { Button, ButtonRow } from '@/components/ui/button';
 import type { ShareCapture } from '@/lib/use-share-capture';
 
 /**
@@ -11,28 +11,27 @@ import type { ShareCapture } from '@/lib/use-share-capture';
 export function ShareActions({ share }: { share: ShareCapture }) {
   return (
     <View className="gap-2">
-      <View className="flex-row gap-3">
-        <Pressable
-          onPress={() => void share.shareImage()}
-          disabled={share.busy}
-          accessibilityRole="button"
+      <ButtonRow>
+        <Button
+          grow
+          size="lg"
+          icon="image-outline"
+          label="Partager l’image"
           accessibilityLabel="Partager la carte en image"
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-zevent-500 py-3.5 active:opacity-80"
-        >
-          <Ionicons name="image-outline" size={18} color="#ffffff" />
-          <Text className="text-sm font-bold text-white">Partager l’image</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void share.shareText()}
           disabled={share.busy}
-          accessibilityRole="button"
+          onPress={() => void share.shareImage()}
+        />
+        <Button
+          grow
+          size="lg"
+          variant="secondary"
+          icon="text-outline"
+          label="Texte"
           accessibilityLabel="Partager en texte"
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-zevent-500 py-3.5 active:opacity-80"
-        >
-          <Ionicons name="text-outline" size={18} color="#ddd6fe" />
-          <Text className="text-sm font-bold text-zevent-200">Texte</Text>
-        </Pressable>
-      </View>
+          disabled={share.busy}
+          onPress={() => void share.shareText()}
+        />
+      </ButtonRow>
 
       {share.status.kind === 'error' ? (
         <Text className="text-xs text-red-300">Partage impossible : {share.status.message}</Text>

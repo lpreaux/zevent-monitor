@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { IconButton } from '@/components/ui/icon-button';
+import { icons } from '@/lib/icons';
 
 interface FullscreenModalProps {
   visible: boolean;
@@ -25,15 +27,7 @@ export function FullscreenModal({ visible, onClose, title, children }: Fullscree
           <Text className="flex-1 text-base font-bold text-white" numberOfLines={1}>
             {title ?? ''}
           </Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Fermer"
-            className="rounded-full bg-gray-800 p-2 active:opacity-70"
-          >
-            <Ionicons name="close" size={20} color="#f9fafb" />
-          </Pressable>
+          <IconButton variant="overlay" icon={icons.close} label="Fermer" onPress={onClose} />
         </View>
         <View className="flex-1 px-4 pb-4">{children}</View>
       </SafeAreaView>

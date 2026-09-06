@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import type { RecapRequest } from '@/api/recaps';
 import { Segmented } from '@/components/segmented';
 import { TimePicker } from '@/components/time-picker';
+import { Button, ButtonRow } from '@/components/ui/button';
+import { icons } from '@/lib/icons';
 import { formatDuration } from '@/lib/recap-view';
 
 /** Durées proposées d'un geste, du coup d'œil au bilan de la veille. */
@@ -86,15 +88,14 @@ function Bound({
             />
           ))}
         </ScrollView>
-        <Pressable
-          onPress={onPickTime}
-          accessibilityRole="button"
+        <Button
+          size="sm"
+          variant="neutral"
+          icon={icons.time}
+          label={clock.format(value)}
           accessibilityLabel={`Changer l’heure de ${label.toLowerCase()}`}
-          className="flex-row items-center gap-1.5 rounded-full border border-white/10 bg-surface-raised px-3.5 py-2 active:opacity-70"
-        >
-          <Ionicons name="time-outline" size={14} color="#c4b5fd" />
-          <Text className="text-xs font-bold text-white">{clock.format(value)}</Text>
-        </Pressable>
+          onPress={onPickTime}
+        />
       </View>
     </View>
   );
@@ -247,15 +248,14 @@ function Sheet({ window: collected, pending, error, onCancel, onSubmit }: RecapG
           ) : null}
           {error ? <Text className="text-sm text-red-400">{error}</Text> : null}
 
-          <View className="flex-row gap-3">
-            <Pressable
-              onPress={onCancel}
-              className="flex-1 items-center rounded-2xl border border-white/10 bg-white/5 py-3 active:opacity-70"
-            >
-              <Text className="text-sm font-semibold text-gray-300">Annuler</Text>
-            </Pressable>
-            <Pressable
-              disabled={!valid || pending}
+          <ButtonRow>
+            <Button grow size="lg" variant="neutral" label="Annuler" onPress={onCancel} />
+            <Button
+              grow
+              size="lg"
+              label="Créer"
+              disabled={!valid}
+              loading={pending}
               onPress={() =>
                 onSubmit(
                   mode === 'duration'
@@ -263,16 +263,8 @@ function Sheet({ window: collected, pending, error, onCancel, onSubmit }: RecapG
                     : { from: from.toISOString(), to: to.toISOString() },
                 )
               }
-              className={`flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-3 active:opacity-80 ${
-                !valid || pending ? 'bg-gray-800' : 'bg-zevent-500'
-              }`}
-            >
-              {pending ? <ActivityIndicator color="white" size="small" /> : null}
-              <Text className={`text-sm font-bold ${!valid || pending ? 'text-gray-500' : 'text-white'}`}>
-                Créer
-              </Text>
-            </Pressable>
-          </View>
+            />
+          </ButtonRow>
         </Pressable>
       </Pressable>
 

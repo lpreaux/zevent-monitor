@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { IconButton } from '@/components/ui/icon-button';
 import { useCompactOnScroll, type CompactOnScroll } from '@/lib/use-compact-on-scroll';
 import { colors } from '@/theme';
 import { Segmented } from './segmented';
@@ -285,24 +286,15 @@ export function ListControls<T extends string>({
 
         {toggle ? (
           <Animated.View layout={transition}>
-            <Pressable
+            <IconButton
+              size={collapsed ? 'sm' : 'md'}
+              variant="soft"
+              tone="muted"
+              selected={toggle.active}
+              icon={toggle.active ? toggle.activeIcon : toggle.icon}
+              label={toggle.label}
               onPress={toggle.onPress}
-              accessibilityRole="button"
-              accessibilityState={{ selected: toggle.active }}
-              accessibilityLabel={toggle.label}
-              hitSlop={6}
-              className={`items-center justify-center rounded-full border active:opacity-70 ${
-                collapsed ? 'h-7 w-7' : 'h-9 w-9'
-              } ${
-                toggle.active ? 'border-zevent-500 bg-zevent-500/20' : 'border-gray-800 bg-gray-900'
-              }`}
-            >
-              <Ionicons
-                name={toggle.active ? toggle.activeIcon : toggle.icon}
-                size={collapsed ? 13 : 16}
-                color={toggle.active ? '#c4b5fd' : '#9ca3af'}
-              />
-            </Pressable>
+            />
           </Animated.View>
         ) : null}
       </View>

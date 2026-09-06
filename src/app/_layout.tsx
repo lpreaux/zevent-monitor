@@ -10,6 +10,7 @@ import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 
 import { AppHeader } from '@/components/app-header';
+import { icons } from '@/lib/icons';
 import { createQueryClient, setupAppStateFocus } from '@/lib/query-client';
 import { colors } from '@/theme';
 import { useNotificationRouting, useNotificationsSync } from '@/lib/use-notifications-sync';
@@ -39,7 +40,7 @@ function stackHeader({ title, subtitle, modal = false }: StackHeaderConfig) {
         compact
         title={dynamicTitle || title}
         subtitle={subtitle}
-        backIcon={modal ? 'close' : 'chevron-back'}
+        backIcon={modal ? icons.close : icons.back}
         insetTop={insetTop}
         // Une feuille modale est une tâche ponctuelle : ni résumé du direct ni AlwaysOn.
         liveSummary={!modal}

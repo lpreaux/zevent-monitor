@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import type { TopDonor } from '@/api/donations';
+import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { formatCount, formatEuros } from '@/lib/format';
+import { icons } from '@/lib/icons';
 import { useDonationsPrefs } from '@/store/donations';
 
 interface DonorIdentityProps {
@@ -59,23 +62,19 @@ export function DonorIdentity({ standing, depth, windowLabel }: DonorIdentityPro
             maxLength={60}
             className="flex-1 rounded-xl border border-white/10 bg-gray-900 px-3 py-2 text-sm text-white"
           />
-          <Pressable
-            onPress={save}
-            accessibilityRole="button"
+          <Button
+            size="sm"
+            label="OK"
             accessibilityLabel="Enregistrer mon nom de donateur"
-            className="rounded-full bg-zevent-500 px-3.5 py-2 active:opacity-80"
-          >
-            <Text className="text-xs font-bold text-white">OK</Text>
-          </Pressable>
-          <Pressable
+            onPress={save}
+          />
+          <IconButton
+            size="sm"
+            tone="muted"
+            icon={icons.close}
+            label="Annuler"
             onPress={() => setEditing(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Annuler"
-            hitSlop={8}
-            className="px-1 active:opacity-60"
-          >
-            <Ionicons name="close" size={18} color="#9ca3af" />
-          </Pressable>
+          />
         </View>
       </View>
     );
@@ -83,14 +82,14 @@ export function DonorIdentity({ standing, depth, windowLabel }: DonorIdentityPro
 
   if (!donorName) {
     return (
-      <Pressable
+      <Button
+        block
+        size="sm"
+        variant="neutral"
+        icon="person-outline"
+        label="Me repérer dans le classement"
         onPress={startEditing}
-        accessibilityRole="button"
-        className="flex-row items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-2.5 active:opacity-60"
-      >
-        <Ionicons name="person-outline" size={13} color="#9ca3af" />
-        <Text className="text-xs font-semibold text-gray-300">Me repérer dans le classement</Text>
-      </Pressable>
+      />
     );
   }
 
@@ -102,24 +101,20 @@ export function DonorIdentity({ standing, depth, windowLabel }: DonorIdentityPro
           {donorName}
         </Text>
         <View className="flex-1" />
-        <Pressable
+        <IconButton
+          size="sm"
+          tone="muted"
+          icon="pencil"
+          label="Modifier mon nom de donateur"
           onPress={startEditing}
-          accessibilityRole="button"
-          accessibilityLabel="Modifier mon nom de donateur"
-          hitSlop={8}
-          className="active:opacity-60"
-        >
-          <Ionicons name="pencil" size={14} color="#9ca3af" />
-        </Pressable>
-        <Pressable
+        />
+        <IconButton
+          size="sm"
+          tone="muted"
+          icon="trash-outline"
+          label="Oublier mon nom de donateur"
           onPress={() => setDonorName(null)}
-          accessibilityRole="button"
-          accessibilityLabel="Oublier mon nom de donateur"
-          hitSlop={8}
-          className="ml-3 active:opacity-60"
-        >
-          <Ionicons name="trash-outline" size={14} color="#9ca3af" />
-        </Pressable>
+        />
       </View>
 
       {standing ? (

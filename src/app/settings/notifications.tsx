@@ -6,6 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { ChoiceChips } from '@/components/choice-chips';
 import { SettingsSection, SwitchRow } from '@/components/settings-row';
+import { Button } from '@/components/ui/button';
 import {
   BIG_DONATION_THRESHOLDS_CENTS,
   MILESTONE_STEPS_CENTS,
@@ -86,25 +87,22 @@ export default function NotificationSettingsScreen() {
               Réglages non synchronisés : {syncError}
             </Text>
           ) : null}
-          <Pressable
-            onPress={() => void (pushEnabled ? disablePush() : enablePush())}
-            accessibilityRole="button"
-            className={`items-center rounded-2xl py-3 active:opacity-80 ${
-              pushEnabled ? 'border border-gray-700 bg-gray-900' : 'bg-zevent-500'
-            }`}
-          >
-            <Text
-              className={`text-sm font-bold ${pushEnabled ? 'text-gray-200' : 'text-white'}`}
-            >
-              {sync === 'syncing'
+          <Button
+            block
+            size="lg"
+            variant={pushEnabled ? 'neutral' : 'primary'}
+            loading={sync === 'syncing'}
+            label={
+              sync === 'syncing'
                 ? 'Synchronisation…'
                 : pushEnabled
                   ? 'Désactiver sur cet appareil'
                   : permission === 'denied'
                     ? 'Redemander l’autorisation'
-                    : 'Activer les notifications'}
-            </Text>
-          </Pressable>
+                    : 'Activer les notifications'
+            }
+            onPress={() => void (pushEnabled ? disablePush() : enablePush())}
+          />
         </View>
 
         <SettingsSection
