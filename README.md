@@ -17,13 +17,13 @@ Le backend de production répond toujours et expose les données archivées, les
 
 ## Aperçu
 
-| Tableau de bord | Fiche streamer |
+| Accueil en direct | Planning |
 | --- | --- |
-| ![Tableau de bord de ZEvent Monitor](docs/images/dashboard.png) | ![Fiche d'un streamer](docs/images/streamer.png) |
+| ![Accueil de ZEvent Monitor pendant le direct](docs/images/dashboard.jpg) | ![Planning des émissions pendant le ZEvent](docs/images/planning.jpg) |
 
 | Statistiques | Mode Always-On |
 | --- | --- |
-| ![Comparaison statistique des éditions](docs/images/statistics.png) | ![Mode écran secondaire Always-On](docs/images/always-on.png) |
+| ![Comparaison statistique des éditions avec les données réelles](docs/images/statistics.jpg) | ![Mode écran secondaire Always-On pendant le direct](docs/images/always-on.jpg) |
 
 ## Tester l'application
 
