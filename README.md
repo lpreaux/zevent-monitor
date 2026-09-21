@@ -1,9 +1,38 @@
 # ZEvent Monitor
 
-Application Android dédiée au suivi en temps réel du ZEvent 2026. Elle réunira la cagnotte globale, les streams favoris, les donation goals, le planning, les statistiques et des notifications configurables dans une interface pensée pour le mobile et l'affichage Always-On.
+Application Android de suivi du ZEvent 2026. Elle réunit la cagnotte globale, les streams favoris, les donation goals, le planning, les statistiques, les récapitulatifs et des notifications configurables dans une interface pensée pour le mobile et l'affichage Always-On.
 
-> [!IMPORTANT]
-> Le socle Expo/Fastify, les adaptateurs et la collecte PostgreSQL 2026 sont opérationnels. Les feuilles de route sont regroupées dans [docs/plans/](docs/plans/README.md).
+## État du projet
+
+L'édition 2026 est terminée, mais l'application et son backend restent consultables comme archive interactive de l'événement.
+
+| Livré | À venir |
+| --- | --- |
+| Application Expo, dashboard, favoris et fiches streamer | APK public signé et Release GitHub `v0.1.0` |
+| Collecte Fastify/PostgreSQL et données archivées de 2026 | Back-office web d'exploitation |
+| Courbes 2025/2026, bilan, planning et donation goals | Automatisation supplémentaire des imports historiques |
+| Notifications, récapitulatifs et cinq vues Always-On | Maintenance selon l'évolution des sources tierces |
+
+Le backend de production répond toujours et expose les données archivées, les courbes et le bilan. Les feuilles de route techniques restent disponibles dans [docs/plans/](docs/plans/README.md).
+
+## Aperçu
+
+| Accueil en direct | Planning |
+| --- | --- |
+| ![Accueil de ZEvent Monitor pendant le direct](docs/images/dashboard.jpg) | ![Planning des émissions pendant le ZEvent](docs/images/planning.jpg) |
+
+| Statistiques | Mode Always-On |
+| --- | --- |
+| ![Comparaison statistique des éditions avec les données réelles](docs/images/statistics.jpg) | ![Mode écran secondaire Always-On pendant le direct](docs/images/always-on.jpg) |
+
+## Tester l'application
+
+L'APK de prévisualisation sera publié dans la Release GitHub `v0.1.0`. En attendant cette publication, la version web de développement permet de parcourir l'interface avec les mêmes données archivées :
+
+```bash
+pnpm install --frozen-lockfile
+pnpm mobile:web
+```
 
 ## Objectifs
 
@@ -23,7 +52,7 @@ Le projet est un monorepo pnpm orchestré par Turborepo, composé actuellement d
 - une application **React Native / Expo** en TypeScript, avec Expo Router, TanStack Query, Zustand et NativeWind ;
 - un backend **Node.js / Fastify** avec PostgreSQL, distribué par Docker et destiné à être déployé via Dockploy.
 
-Le backend centralisera la collecte des différentes sources, conservera les séries temporelles et pilotera les notifications Expo. L'application privilégiera ce backend et conservera localement le dernier état valide.
+Le backend centralise la collecte des différentes sources, conserve les séries temporelles et pilote les notifications Expo. L'application privilégie ce backend et conserve localement le dernier état valide.
 
 ```text
 apps/mobile/              application Expo, tests et configuration EAS
@@ -40,30 +69,18 @@ docs/sources/             capacités mesurées des sources externes et formats d
 docs/ops/                 procédures d'exploitation (sauvegarde, restauration)
 ```
 
-## Sources de données envisagées
+## Sources de données
 
 - API publique de `zevent.fr` pour l'état officiel de l'événement ;
 - API publique de Streamlabs Charity pour les informations complémentaires et les dons récents ;
 - données communautaires InGDoc / EvenMoreStats pour les donation goals et le planning ;
 - snapshots versionnés pour l'historique et le fonctionnement hors ligne.
 
-Les API tierces non documentées seront interrogées uniquement par le backend, avec validation, limitation de fréquence, cache persistant et dernier snapshot valide. Leur disponibilité et leurs conditions de réutilisation ne sont pas garanties.
+Les API tierces non documentées sont interrogées uniquement par le backend, avec validation, limitation de fréquence, cache persistant et dernier snapshot valide. Leur disponibilité et leurs conditions de réutilisation ne sont pas garanties.
 
 Ce que chaque source sait réellement faire — profondeur historique, pagination, ordre, reprise — est
 mesuré et consigné dans [docs/sources/](docs/sources/README.md). Une capacité qui n'y figure pas
 n'est pas supposée acquise.
-
-## Feuille de route
-
-1. Initialiser l'application Expo et le backend Fastify.
-2. Mettre en place les adaptateurs de données, leur validation et le cache.
-3. Déployer la collecte et le stockage PostgreSQL.
-4. Construire le dashboard, les favoris et les fiches streamer.
-5. Ajouter les statistiques et la comparaison 2025/2026.
-6. Implémenter le mode Always-On, les notifications et les récapitulatifs.
-7. Produire et tester un APK avec EAS Build.
-
-Le détail des priorités, décisions techniques, risques et critères d'acceptation se trouve dans le [plan de l'application mobile 2026](docs/plans/2026-mobile-app.md). La restructuration pnpm et le back-office sont décrits dans le [plan web et monorepo](docs/plans/web-backoffice-monorepo.md).
 
 ## Développement local
 
@@ -210,12 +227,11 @@ Côté Android, la réception exige une build EAS : `eas init` (pour `extra.eas.
 projet FCM associé au compte Expo. Sans cela, l'application reste utilisable et l'écran de réglages
 indique pourquoi l'enregistrement échoue.
 
-## Statut
+## Fonctionnalités livrées
 
 ✅ Étapes 1 à 4 terminées côté dépôt — collecte officielle 2026, stockage PostgreSQL, déploiement
 Docker/Dockploy vérifiable, synchronisation des donation goals et snapshots versionnés (courbe 2025,
-secours goals 2026). Le déploiement sur le serveur dédié reste à déclencher avec les accès de
-l'instance Dockploy.
+secours goals 2026). Le backend déployé conserve et sert les données archivées de l'édition.
 
 ✅ Étape 5 (`docs/plans/2026-mobile-app.md` §6) — application mobile : dashboard temps réel (cagnotte animée, viewers,
 websiteMode, bandeau `marquee`), favoris persistés, liste des streamers (recherche + tri) et fiche
@@ -273,6 +289,14 @@ présent d'un geste. Filtre par journée ou par streamers suivis, marquage des c
 rappel local 10 min avant le début d'une émission (aucun réglage backend), participants cliquables
 (fiche interne ou Twitch) et repli sur le snapshot embarqué `apps/mobile/src/content/planning-2026.json` quand le
 backend est injoignable.
+
+## Prochaines étapes
+
+1. Produire l'APK de prévisualisation avec EAS Build et publier la Release GitHub `v0.1.0`.
+2. Ajouter le back-office web décrit dans le plan du monorepo.
+3. Maintenir les adaptateurs si les sources tierces changent avant une prochaine édition.
+
+Le détail des décisions techniques, risques et critères d'acceptation se trouve dans le [plan de l'application mobile 2026](docs/plans/2026-mobile-app.md). La restructuration pnpm et le back-office sont décrits dans le [plan web et monorepo](docs/plans/web-backoffice-monorepo.md).
 
 ## Avertissement
 
